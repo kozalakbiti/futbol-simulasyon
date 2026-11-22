@@ -34,7 +34,7 @@
 //   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
 //   screenToPitch(cx,cy)    → ekran (clientX/Y) → zemin düzlemi → {x,y} 0–100 | null
 //   isDisposed()            → unmount olduysa true (eski api'yi kullanmayı bırak)
-// Prop'lar: paused (render döngüsünü durdurur), interactive (touch-action:none),
+// Prop'lar: paused (render döngüsünü durdurur), interactive (Adım 7'den beri tuval her zaman touch-action:none),
 //   controlsAt ("top" | "bottom": kamera düğmelerinin köşesi; HUD üstteyse "bottom")
 // Temizlik: unmount'ta scene içindeki HER ŞEY disposeObject3D ile serbest
 // bırakılır; gruplara eklenen mesh'ler için ayrıca dispose gerekmez.
@@ -218,9 +218,8 @@ function createPitch3DScene(THREE,container,opts){
   try{
     renderer.setPixelRatio(dpr);
     renderer.setClearColor(0x0b1220,1);
-    // Dokunma: etkileşim modu kapalıyken sayfa kaydırması serbest kalsın
-    canvas.style.cssText="display:block;width:100%;height:100%;";
-    canvas.style.touchAction=opts.interactive?"none":"auto";
+    // Dokunma: 3D tuval parmak hareketlerini her zaman yutar (mobilde sayfa kaymasın)
+    canvas.style.cssText="display:block;width:100%;height:100%;touch-action:none;";
     container.appendChild(canvas);
 
     scene=new THREE.Scene();
@@ -265,6 +264,10 @@ function createPitch3DScene(THREE,container,opts){
         const fit=camera.aspect<1.25?Math.min(2,1.25/Math.max(0.3,camera.aspect)):1;
         tLook.copy(customCam.look);
         tPos.copy(customCam.pos).sub(tLook).multiplyScalar(fit).add(tLook);
+        // Kamera saha kutusunda kalır: tribün/çatı görüşü kapatmaz (geri çekilme dahil)
+        pitch3dSafeCam(tPos.x,tPos.y,tPos.z,tPos,0.55);
+        if(tLook.y<0) tLook.y=0;
+        if(!Number.isFinite(tLook.x+tLook.y+tLook.z)) tLook.set(0,0,0);
       } else if(clock<closeUp.until&&(mode==="follow"||mode==="broadcast")){
         const sx=closeUp.x>=0?1:-1;
         tPos.set(closeUp.x-sx*13,5.5,closeUp.z+11); tLook.set(closeUp.x,1,closeUp.z);
@@ -423,7 +426,7 @@ function createPitch3DScene(THREE,container,opts){
         else stop();
       } else start();
     };
-    const setInteractive=(on)=>{canvas.style.touchAction=on?"none":"auto";};
+    const setInteractive=()=>{canvas.style.touchAction="none";}; // (Adım 7: her zaman none)
     return {api,destroy,setPaused,setInteractive,renderOnce};
   }catch(err){
     disposed=true;
@@ -433,7 +436,7 @@ function createPitch3DScene(THREE,container,opts){
 }
 
 // paused: true iken render döngüsü durur (son kare ekranda kalır)
-// interactive: true iken canvas dokunma hareketlerini yutar (touch-action:none) — Adım 3
+// interactive: (eski) — Adım 7'den beri tuval her zaman dokunma hareketlerini yutar (touch-action:none)
 function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top"}){
   const mountRef=useRef(null);
   const instRef=useRef(null);
@@ -499,7 +502,7 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
 
   return(
     <div style={{position:"relative",width:"100%",height,borderRadius:6,overflow:"hidden",
-      background:"#0b1220",border:"1px solid rgba(77,166,255,.25)",touchAction:interactive?"none":"auto"}}>
+      background:"#0b1220",border:"1px solid rgba(77,166,255,.25)",touchAction:"none"}}>
       <div ref={mountRef} style={{position:"absolute",inset:0}}/>
       {status==="loading"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
         justifyContent:"center",fontSize:".62rem",color:"#9fb3c8",letterSpacing:.5}}>

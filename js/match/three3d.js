@@ -24,6 +24,26 @@ const THREE3D_LOADER={promise:null,webgl:null};
 // Saha ölçüleri (metre, FIFA standardı)
 const PITCH3D_LEN=105;          // kale çizgisinden kale çizgisine (dünya X)
 const PITCH3D_WID=68;           // taç çizgisinden taç çizgisine (dünya Z)
+// ── Güvenli özel kamera (kilit an) ──
+// Kamera saha + kenar payı kutusuna kırpılır. Kutu dışbükey: kamera da hedef
+// (top/oyuncu) de içindeyse aradaki görüş çizgisi de içinde kalır; stadyum
+// yapıları (panolar 4.6 m, kulübeler 2.7 m+, tribünler 7.5 m+ dışarıda)
+// görüşü kapatamaz. Kırpılan yatay mesafenin bir kısmı yüksekliğe eklenir
+// (bakış dikleşir, sahne yine sığar). out: {x,y,z} ya da Vector3 — tahsis yok.
+const PITCH3D_CAM_PAD_X=1.0, PITCH3D_CAM_PAD_Z=1.5, PITCH3D_CAM_MIN_Y=4, PITCH3D_CAM_MAX_Y=46;
+function pitch3dSafeCam(px,py,pz,out,liftK){
+  const D=PITCH3D_DIM, mx=D.halfLen+PITCH3D_CAM_PAD_X, mz=D.halfWid+PITCH3D_CAM_PAD_Z;
+  const x=Number.isFinite(px)?px:0, z=Number.isFinite(pz)?pz:0;
+  const k=Number.isFinite(liftK)?liftK:0.35;
+  let y=Number.isFinite(py)?py:12;
+  const cx=Math.max(-mx,Math.min(mx,x)), cz=Math.max(-mz,Math.min(mz,z));
+  y=Math.min(PITCH3D_CAM_MAX_Y,Math.max(PITCH3D_CAM_MIN_Y,y+Math.hypot(x-cx,z-cz)*k));
+  // Kale ağının içine alçaktan girmesin
+  if(Math.abs(cx)>D.halfLen-1&&Math.abs(cz)<D.goalWidth/2+2.5) y=Math.max(y,D.goalHeight+3);
+  out.x=cx; out.y=y; out.z=cz;
+  return out;
+}
+
 const PITCH3D_DIM={
   halfLen:52.5, halfWid:34,
   penDepth:16.5, penWidth:40.32,   // ceza sahası

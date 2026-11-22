@@ -254,3 +254,23 @@ Bilinen sınırlamalar:
 - **Ölçümler (başsız, `flow.js`):** normal akışta top hızı ortalaması 16.4 → 8.1 m/sn, en yüksek oyuncu hızı 14 → 8.5 m/sn, NaN yok, kare başına kanca ~0.05 ms, dispose sonrası kanca 0.
 - **Denge (`bal5.js`, 200 an/hücre):** iyi oyun 2D'nin en iyisine göre −0.7…+5.4; acemi/rastgele/hareketsiz Adım 5 ile aynı aralıkta. Kontrada kaleye düz süren "makul" bot −3.7 → −14 (bilinçli: kale tarafındaki baskı düz sürmeyi cezalandırır). Tablo `moment3d.js` başında.
 - **Gerçek WebGL kontrolü (başsız Edge, SwiftShader):** shader derleme hatası yok. Yayın kamerası ~250 çizim çağrısı, ~190 bin üçgen (taraftarlar ~150 bin).
+
+### Adım 7 — Kilit an kamerası, mobil ve dokunmatik kontroller ✅
+- **Kamera (asıl sorun):** Dikey ekranda `pitch3d` özel kamerayı sahne sığsın diye 2 kata kadar geri çekiyordu. Kornerde (eski konum saha dışında, z −42) ve savunmada (x −63) kamera tribünün içine/arkasına düşüyor, tribün sahayı kapatıyordu.
+  - `three3d.js`: `pitch3dSafeCam`. Kamera saha + kenar payı kutusuna (|x| ≤ 53.5, |z| ≤ 35.5) kırpılır. Kırpılan yatay mesafenin bir kısmı yüksekliğe eklenir, kale ağına alçaktan girmez.
+  - `pitch3d.js`: kırpma, özel kamerada dikey geri çekilmeden **sonra** her karede uygulanır. Kutu dışbükey olduğu için kamera ile oyun arasına tribün, çatı, pano ya da kulübe giremez.
+  - `moment3d.js`: kamera açıları saha içinde ve yüksek. Korner: ceza sahası üstünden köşeye bakar, kale altta, top üstte. Diğerleri oyun arkasından. Takip odağı oyuncuya daha yakın.
+  - Ölçüm (`t7c.js`, 0.557 ve 1.6 en-boy oranı): oyuncu ve top bütün tiplerde kadrajda (|NDC| ≤ 0.67). 6 tipte 240 karede kutu dışına çıkan kamera yok.
+- **Mobil:**
+  - `sunucu.js --lan`: 0.0.0.0'a bağlanır ve yerel ağ adreslerini (Wi-Fi önce) yazar. `baslat.bat` bu modu kullanır. Gizli yollar her modda 403 döner: nokta ile başlayan parçalar (`.git`, `.claude`), Windows kısa adları (`GIT~1`), `::$DATA` akışları. Ayrıca `realpath` ile çözülen gerçek yol kökün içinde ve gizli olmamalı. Yalnızca localhost ya da IP adresiyle gelen istekler kabul edilir (DNS rebinding koruması).
+  - 3D tuval her zaman `touch-action:none`. Kilit an katmanı `touch-action:none` + `overscroll-behavior:contain`, ayrıca eski iOS için `touchmove` engellenir.
+- **Dokunmatik kontroller:**
+  - **Yüzen sanal çubuk:** Hücum ya da savunmada sahada basılı tutup sürükle. Basılan nokta merkez olur ve oyuncu sürükleme yönüne gerçek zamanlı sürer/koşar. Fare ile basılı sürükleme de aynı. Sol alt bölge hâlâ çubuğu anında başlatır.
+  - **Kısa dokunuş:** pas (boş koşu halkası / takım arkadaşı). Savunmada rakibe dokunmak kayarak müdahale yapar. Oyuncu/top üzerinden geri çekme: ağır çekim, yeşilden kırmızıya kavisli ok, yana bükme ile falso (Adım 5'ten).
+  - **Vuruş noktası (frikik/korner/penaltı):** Sağ altta top simgesi.
+    - Topun sağı sola falso verir (`SPIN_CURL` 0.3 rad, parmak bükmesiyle toplanır, ±0.6 sınırı). Solu sağa falso verir.
+    - Altı: yüksek yay; blok/baraj riski ×(1−0.45), isabet ×(1−0.2).
+    - Üstü: sert ve alçak; blok riski ×1.25, kaleci terimi +0.12.
+    - Yalnız duran topun ilk vuruşunda geçerli; ilk pas ya da oyun başlayınca sıfırlanır ve simge gizlenir. Falsonun blok indirimi yalnız parmak bükmesinden gelir; üst vuruşun isabet bedeli ×(1−0.12).
+    - Etki, konum kalitesi terimiyle sınırlı (+0.05/−0.12). Bot dengesi değişmedi (vuruş noktası 0).
+- **Denge (`bal5.js`, 150 an/hücre):** iyi oyun 2D'nin en iyisine göre −0.1 … +5.2. Adım 6 ile aynı aralıkta.
