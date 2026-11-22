@@ -17,7 +17,7 @@
 //   hareketten hesaplanır), setOwner(team,i) / setOwner(null), getOwner() → {team,i}|null,
 //   kickTo(wx,wz,lofted) → uçuş süresi (sn), kickBall(vx,vy,vz,curlX,curlZ),
 //   getBallVel(), isBallFree(), getPlayer(team,i), poseFx(team,i,"slide"|"fall",sec)
-//   ballR (top yarıçapı, m; kilit an fiziği aynı ölçeği kullanır)
+//   ballR (top yarıçapı, m; kilit an fiziği aynı ölçeği kullanır), setPlayerFade(team,i,alpha)
 //   + Adım 6: actionFx(team,i,"kick"|"poke"|"celebrate",{side,power}),
 //   diveFx(team,i,wx,wz,height) (kaleci o noktaya doğru yana uçar)
 //   (team: "home" | "away") · opts.manual: otomatik oyun kapalı (kilit an sahnesi)
@@ -49,25 +49,32 @@ const ACTORS3D_COLORS={
 };
 // Normal akış tempo sabitleri (m/sn, m/sn²). Önceki sürüm: koşu 14, sürme 8–9.5,
 // sürtünme 3.2, pas varış hızı 6 → hepsi ~%40 düşürüldü.
+// Normal akış (kuşbakışı canlı maç) %45 yavaş: koşu ve top hızları ×0.55, maç saati de
+//   aynı oranda yavaş (overlay.js MATCH3D_TEMPO) → top kaleler arasında pinpon gibi gitmez.
+//   Kilit an (manual) kendi sabitleriyle çalışır, etkilenmez.
+const ACTORS3D_SLOW=0.55;
 const ACTORS3D_PACE={
-  slow:0.6,            // senaryo/olay süreleri bu oranla uzar (1/0.6)
-  run:8.4,             // en yüksek koşu (santra dönüşü vb.)
-  dribble:4.7,         // top sürme
-  receive:5.8,         // pas alıcısı
-  chase:6.2,           // sahipsiz topa koşu
-  press:5.3,           // baskı (yaklaşırken), uzaktaysa chase
-  support:4.4,         // üçgen kuran destek oyuncuları
-  rollFric:2.6,        // yerden pasın yavaşlaması
-  passEnd:4.8,         // yerden pasın alıcıya varış hızı
+  slow:0.6*ACTORS3D_SLOW,     // senaryo/olay süreleri bu oranla uzar
+  run:8.4*ACTORS3D_SLOW,      // en yüksek koşu (santra dönüşü vb.)
+  dribble:4.7*ACTORS3D_SLOW,  // top sürme
+  receive:5.8*ACTORS3D_SLOW,  // pas alıcısı
+  chase:6.2*ACTORS3D_SLOW,    // sahipsiz topa koşu
+  press:5.3*ACTORS3D_SLOW,    // baskı (yaklaşırken), uzaktaysa chase
+  support:4.4*ACTORS3D_SLOW,  // üçgen kuran destek oyuncuları
+  rollFric:2.6*ACTORS3D_SLOW*ACTORS3D_SLOW, // yerden pasın yavaşlaması (hız ×0.55 → sürtünme ×0.55²)
+  passEnd:4.8*ACTORS3D_SLOW,  // yerden pasın alıcıya varış hızı
+  loftT:1/ACTORS3D_SLOW,      // havadan pas uçuş süresi çarpanı
+  tick:0.47/ACTORS3D_SLOW,    // normal hızda ballPos güncelleme aralığı (sn; tempo() referansı)
 };
 
+const ACTORS3D_BALL_CANVAS={cv:null};   // futbol topu dokusu tuvali (bir kez üretilir)
 function createMatchActors3D(api,opts={}){
   const noop={update(){},triggerEvent(){},resetKickoff(){},dispose(){},
     movePlayer(){},getPlayerPos(){return null;},setBall(){},playBallScript(){},
     goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;},
     drivePlayer(){},setOwner(){},getOwner(){return null;},kickTo(){return 0;},kickBall(){},
     getBallVel(){return null;},isBallFree(){return false;},getPlayer(){return null;},poseFx(){},
-    actionFx(){},diveFx(){},ballR:0.42};
+    actionFx(){},diveFx(){},setPlayerFade(){},ballR:0.42};
   if(!api||!api.THREE||api.isDisposed()) return noop;
   const THREE=api.THREE, D=PITCH3D_DIM, L=D.halfLen, H=D.halfWid, GW=D.goalWidth/2;
   const COL=ACTORS3D_COLORS, PACE=ACTORS3D_PACE, BR=0.42; // top yarıçapı (görünürlük için büyütülmüş)
@@ -85,7 +92,7 @@ function createMatchActors3D(api,opts={}){
   // ── Paylaşılan geometri ──
   const kit=createRigKit3D(THREE,COL);
   const shadowGeo=G(flat(new THREE.CircleGeometry(0.85,14)));
-  const ballGeo=G(new THREE.IcosahedronGeometry(BR,1));
+  const ballGeo=G(new THREE.SphereGeometry(BR,32,20));   // pürüzsüz top (desen dokuda)
   const ringGeo=G(flat(new THREE.RingGeometry(0.8,1.15,32)));
   const poleGeo=G(new THREE.CylinderGeometry(0.05,0.05,1.8,6)); poleGeo.translate(0,0.9,0);
   const flagGeo=G(new THREE.PlaneGeometry(0.7,0.45)); flagGeo.translate(0.35,1.55,0);
@@ -94,7 +101,7 @@ function createMatchActors3D(api,opts={}){
   const lam=(c)=>M(new THREE.MeshLambertMaterial({color:c}));
   const mats={
     pole:lam(0xeeeeee),
-    ball:M(new THREE.MeshPhongMaterial({color:COL.ball,flatShading:true,shininess:25})),
+    ball:M(new THREE.MeshPhongMaterial({color:COL.ball,shininess:45,specular:0x444444})),
     flag:M(new THREE.MeshBasicMaterial({color:0xffd23f,side:THREE.DoubleSide})),
     shadow:M(new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.32,depthWrite:false})),
     ballShadow:M(new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.4,depthWrite:false})),
@@ -123,6 +130,44 @@ function createMatchActors3D(api,opts={}){
   for(let i=0;i<SH_SLOTS*2;i++) shadows.setMatrixAt(i,shM);
 
   // ── Oyuncular ──
+  // Klasik futbol topu dokusu (CanvasTexture, eşdikdörtgen): kesik ikosahedron — 12 siyah beşgen
+  //   (ikosahedron köşeleri) + 20 beyaz altıgen (dodekahedron köşeleri), aralarında dikiş çizgisi.
+  //   Her piksel küre yönüne çevrilip en yakın yüz merkezine göre boyanır (Voronoi).
+  //   Tuval modül düzeyinde bir kez üretilir (her kilit anda ~13 ms takılma olmasın).
+  try{
+    let cv=ACTORS3D_BALL_CANVAS.cv;
+    if(!cv){
+    const TW=512, TH=256; cv=document.createElement("canvas"); cv.width=TW; cv.height=TH;
+    const g2=cv.getContext("2d"), img=g2&&g2.createImageData?g2.createImageData(TW,TH):null;
+    if(!img) cv=null;
+    if(img){
+      const PHI=(1+Math.sqrt(5))/2, IP=1/PHI, C=[];
+      const push=(x,y,z,pent)=>{ const l=Math.hypot(x,y,z); C.push([x/l,y/l,z/l,pent]); };
+      for(const a of [-1,1]) for(const b of [-1,1]){ push(0,a,b*PHI,1); push(a,b*PHI,0,1); push(a*PHI,0,b,1); }
+      for(const a of [-1,1]) for(const b of [-1,1]){ for(const c of [-1,1]) push(a,b,c,0); push(0,a*IP,b*PHI,0); push(a*IP,b*PHI,0,0); push(a*PHI,0,b*IP,0); }
+      const px=img.data;
+      for(let y=0;y<TH;y++){
+        const th=(y+0.5)/TH*Math.PI, st=Math.sin(th), ct=Math.cos(th);
+        for(let x=0;x<TW;x++){
+          const ph=(x+0.5)/TW*Math.PI*2, dx=-Math.cos(ph)*st, dy=ct, dz=Math.sin(ph)*st;
+          let b1=-2, b2=-2, k1=0;
+          for(let i=0;i<C.length;i++){ const c=C[i], d=c[0]*dx+c[1]*dy+c[2]*dz; if(d>b1){ b2=b1; b1=d; k1=i; } else if(d>b2) b2=d; }
+          const seam=Math.acos(Math.min(1,b2))-Math.acos(Math.min(1,b1))<0.035;
+          const v=seam?70:C[k1][3]?24:246, j=(y*TW+x)*4;
+          px[j]=v; px[j+1]=v; px[j+2]=v+(C[k1][3]||seam?0:4); px[j+3]=255;
+        }
+      }
+      g2.putImageData(img,0,0);
+      ACTORS3D_BALL_CANVAS.cv=cv;
+    }
+    }
+    if(cv){
+      // encoding ayarlanmaz: renderer doğrusal çıktı veriyor (diğer CanvasTexture'larla aynı)
+      const tex=new THREE.CanvasTexture(cv); owned.texs.push(tex);
+      mats.ball.map=tex; mats.ball.needsUpdate=true;
+    }
+  }catch(e){ /* doku üretilemedi: düz beyaz top */ }
+
   const teams={home:[],away:[]};
   const makePlayer=(team,idx)=>{
     const g=new THREE.Group();
@@ -230,7 +275,7 @@ function createMatchActors3D(api,opts={}){
   const scr={p:null,x:0,z:0,until:0};            // senaryo oyuncusu (olayda topa koşan)
   let chaser=null, chaseT=0, postScript=false, farT=0;
   // ballPos güncelleme aralığı (üstel ortalama, sn): hızlı modda bekleme süreleri kısalır
-  let btLast=-1, btEma=0.47, btSeq=0, flSeq=-1;
+  let btLast=-1, btEma=PACE.tick, btSeq=0, flSeq=-1;
   let landSoft=false, landStop=false; // havadan pas: inişte yumuşak (kısa yuvarlanma) / santra: inişte dur
 
   const startFlight=(ex,ez,ey,h,dur,fn,script)=>{
@@ -256,13 +301,13 @@ function createMatchActors3D(api,opts={}){
   };
   const ownerP=()=>own.team?(teams[own.team][own.i]||null):null;
   // Tempo çarpanı: hızlı modda (ballPos sık değişir) koşu ve pas hızları artar (normal: 1)
-  const tempo=()=>manual?1:clamp(0.47/btEma,1,2.4);
+  const tempo=()=>manual?1:clamp(PACE.tick/btEma,1,2.4);
   // Senaryo süresi: yavaş tempo (1/0.6), hızlı modda kısalır
   const sDur=(v)=>v*clamp(1/PACE.slow/tempo(),0.7,1/PACE.slow);
   const setOwnerInternal=(team,i)=>{
     const tp=tempo();
     own.team=team; own.i=i; own.since=clk;
-    own.dwell=(0.5+Math.random()*0.6)*clamp(btEma/0.47,0.3,1);
+    own.dwell=(0.5+Math.random()*0.6)*clamp(btEma/PACE.tick,0.3,1);
     // İlk dokunuştan sonra karar: kısa (verkaç) ile ~1.3 sn arası
     own.decide=clk+(0.35+Math.random()*0.95)/tp;
     own.dribble=false; own.touchT=0; own.drN=0;
@@ -298,7 +343,7 @@ function createMatchActors3D(api,opts={}){
   const passTime=(d,lofted)=>{
     if(lofted){
       if(manual) return Math.max(0.7,clamp(0.6+d*0.025,0.8,2.0)); // kilit an: eski süre (denge)
-      return clamp(1.05+d*0.034,1.25,2.9)/Math.min(1.5,tempo());  // ~35 m → 2.2 sn, tepe ~6 m
+      return clamp(1.05+d*0.034,1.25,2.9)*PACE.loftT/Math.min(1.5,tempo());  // ~35 m → 4 sn (yavaş tempo)
     }
     const vEnd=PASS_VEND*tempo(), v0=Math.min(30,Math.sqrt(vEnd*vEnd+2*ROLL_FRIC*d));
     const disc=v0*v0-2*ROLL_FRIC*d;
@@ -618,13 +663,14 @@ function createMatchActors3D(api,opts={}){
     return null;
   };
   // Kaleciyi (wx,wz) noktasına doğru uçur; h: hedef yüksekliği (m)
-  const diveTo=(p,wx,wz,h)=>{
+  const diveTo=(p,wx,wz,h,spd)=>{
     if(!p) return;
     const fx=bpos.x-p.pos.x, fz=bpos.z-p.pos.z;
     faceTo(p,fx,fz,1.6); p.yaw=Math.atan2(fx,fz);
     const lx=Math.cos(p.yaw), lz=-Math.sin(p.yaw);
     const side=((wx-p.pos.x)*lx+(wz-p.pos.z)*lz)>=0?1:-1;
-    rigAction3D(p.rig,"dive",{side,h:clamp((Number(h)||0.8)/2.4,0,1)});
+    const k=Number.isFinite(spd)&&spd>0?clamp(spd,0.5,3):1;   // hız çarpanı: animasyon k× kısa
+    rigAction3D(p.rig,"dive",{side,h:clamp((Number(h)||0.8)/2.4,0,1),dur:RIG3D_ACT_DUR.dive/k});
   };
 
   // ── Efektler ──
@@ -839,6 +885,24 @@ function createMatchActors3D(api,opts={}){
     setOwnerInternal(team==="away"?"away":"home",i);
   };
   const getOwner=()=>own.team?own:null;   // salt okunur {team,i}
+  // Oyuncuyu yarı saydam yap (alpha<1) ya da geri al (1): vuruş ekranında görüşü kapatmasın.
+  //   İlk kullanımda o oyuncunun malzemeleri klonlanır (paylaşılan kit malzemesi değişmez).
+  const fadeMats=[];
+  const setPlayerFade=(team,i,alpha)=>{
+    const p=teamList(team)[i]; if(!p||disposed) return;
+    const a=Number.isFinite(alpha)?clamp(alpha,0,1):1;
+    if(p.fadeA===a||(p.fadeA==null&&a>=0.999)) return;
+    p.fadeA=a;
+    if(!p.fadeMap) p.fadeMap=new Map();   // özgün malzeme → bu oyuncunun saydam klonu (tek klon)
+    p.g.traverse(o=>{
+      if(!o.isMesh||Array.isArray(o.material)) return;
+      if(a>=0.999){ if(o.userData.m0) o.material=o.userData.m0; return; }
+      if(!o.userData.m0) o.userData.m0=o.material;
+      let m=p.fadeMap.get(o.userData.m0);
+      if(!m){ m=o.userData.m0.clone(); m.transparent=true; m.depthWrite=false; fadeMats.push(m); p.fadeMap.set(o.userData.m0,m); }
+      m.opacity=a; o.material=m;
+    });
+  };
   // Kısa süreli duruş: "slide" (kayarak müdahale) | "fall" (yere düşme)
   const poseFx=(team,i,kind,sec)=>{
     const p=teamList(team)[i]; if(!p||disposed) return;
@@ -854,9 +918,9 @@ function createMatchActors3D(api,opts={}){
     }
     rigAction3D(p.rig,kind,op);
   };
-  const diveFx=(team,i,wx,wz,h)=>{
+  const diveFx=(team,i,wx,wz,h,spd)=>{
     const p=teamList(team)[i]; if(!p||disposed||!Number.isFinite(wx)||!Number.isFinite(wz)) return;
-    diveTo(p,wx,wz,h);
+    diveTo(p,wx,wz,h,spd);
   };
   // Senaryo bacakları: [{x,z,y,h,dur,fn}] — fn, bacak bitince çağrılır (zincirleme)
   // Topa ≤2.2 m oyuncu varsa vuruş animasyonu oynar (şut/orta/uzaklaştırma)
@@ -1103,6 +1167,7 @@ function createMatchActors3D(api,opts={}){
     owned.geos.forEach(g=>{try{g.dispose();}catch(e){}});
     owned.texs.forEach(t=>{try{t.dispose();}catch(e){}});
     owned.mats.forEach(m=>{try{m.dispose();}catch(e){}});
+    fadeMats.forEach(m=>{try{m.dispose();}catch(e){}}); fadeMats.length=0;
     owned.geos.length=0; owned.texs.length=0; owned.mats.length=0;
     teams.home.length=0; teams.away.length=0; legs.length=0; seen.clear();
     own.team=null; rcv.team=null; chaser=null; nearBest=null; freeBall=false; scr.p=null; pr1=null; pr2=null; sup[0]=null; sup[1]=null;
@@ -1112,5 +1177,5 @@ function createMatchActors3D(api,opts={}){
   return {update,triggerEvent,resetKickoff,dispose,
     movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall,
     drivePlayer,setOwner,getOwner,kickTo,kickBall,getBallVel:()=>bvel,isBallFree:()=>freeBall,
-    getPlayer,poseFx,actionFx,diveFx,ballR:BR};
+    getPlayer,poseFx,actionFx,diveFx,setPlayerFade,ballR:BR};
 }

@@ -7,9 +7,9 @@ const SPEED_CONFIGS={
   normal:{ms:280, dpt:1, flash:4500, label:"▶ Normal"},
   fast:  {ms:45,  dpt:3, flash:1800, label:"⚡ Hızlı"},
 };
-// 3D görünümde maç saati %40 yavaş akar (gerçekçi tempo; 2D akış aynı kalır).
+// 3D görünümde maç saati yavaş akar (×0.6 gerçekçi tempo × ACTORS3D_SLOW; 2D akış aynı kalır).
 // Tick aralığı = ms / MATCH3D_TEMPO. Görünüm maç sırasında değişirse interval yeniden kurulur.
-const MATCH3D_TEMPO=0.6;
+const MATCH3D_TEMPO=0.6*(typeof ACTORS3D_SLOW==="number"?ACTORS3D_SLOW:0.55);   // + %45 yavaş akış (players3d ACTORS3D_SLOW ile aynı oran)
 function matchTickMs(cfg,is3D){ return is3D?Math.round(cfg.ms/MATCH3D_TEMPO):cfg.ms; }
 
 function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup=[],onFinish,clubName="Club Manager: Glory Road",formation="4-4-2"}){
