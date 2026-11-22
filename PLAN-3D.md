@@ -26,15 +26,16 @@ Branch: `feature/3d-mac-motoru` · Kütüphane: Three.js r128 (cdnjs, UMD, ihtiy
 - [x] `ballEvents`/olay tipine göre 3D efektler: gol (file sallanır + kamera yakın plan), kurtarış, aut, korner, kart
 - [x] Gol sonrası santra dönüşü
 
-### 3. Kilit anlarda interaktif pas/şut çizimi ve müdahale — 🔨 devam ediyor
-- [ ] Adım 2 denetim bulgularının düzeltilmesi (aşağıdaki günlüğe bak)
-- [ ] `InteractiveMoment3D`: kilit an sahnesi (oyuncular olay tipine göre dizilir, kamera yaklaşır)
-- [ ] Parmakla/fareyle sahaya pas veya şut rotası çizme (raycast → zemin), rota önizlemesi, rakip araya girme riski göstergesi
-- [ ] Rota kalitesi + oyuncu istatistikleri + mevcut seçenek/güç mantığıyla başarı hesabı; savunma anında (tackle) müdahale noktası seçme
-- [ ] Sonucun 3D animasyonu, ardından **aynı `onResolve` sözleşmesi**
-- [ ] 3D yüklenemezse mevcut 2D `InteractiveMoment`'e düşme
+### 3. Kilit anlarda interaktif pas/şut çizimi ve müdahale — ✅ tamamlandı
+- [x] Adım 2 denetim bulgularının düzeltilmesi (aşağıdaki günlüğe bak)
+- [x] `InteractiveMoment3D`: kilit an sahnesi (oyuncular olay tipine göre dizilir, kamera yaklaşır)
+- [x] Parmakla/fareyle sahaya pas veya şut rotası çizme (raycast → zemin), rota önizlemesi, rakip araya girme riski göstergesi
+- [x] Rota kalitesi + oyuncu istatistikleri + mevcut seçenek/güç mantığıyla başarı hesabı; savunma anında (tackle) müdahale noktası seçme
+- [x] Sonucun 3D animasyonu, ardından **aynı `onResolve` sözleşmesi**
+- [x] 3D yüklenemezse mevcut 2D `InteractiveMoment`'e düşme
 
-### 4. Skor tabelası ve 2D/3D geçişi — ⏳ bekliyor
+### 4. Skor tabelası ve 2D/3D geçişi — 🔨 devam ediyor
+- [ ] Adım 3 denetim bulgularının düzeltilmesi (özellikle denge; aşağıdaki günlüğe bak)
 - [ ] 3D görünüm üzerinde skor tabelası (takımlar, skor, dakika, devre, gol atanlar), gol anında vurgu
 - [ ] `MatchOverlay`'e 2D/3D geçiş düğmesi; tercih `safeLsGet/safeLsSet` ile ayrı anahtarda saklanır
 - [ ] WebGL yoksa düğme devre dışı + Türkçe uyarı; 2D akışı (sekmeler, devre arası, sonuç paneli) bozulmaz
@@ -86,3 +87,30 @@ _(Her adım bittikçe buraya eklenir: ne yapıldı, kod-denetleyici bulguları, 
   - [küçük] `pitch3dCameraPose` ve `hooks.forEach` her karede yeni nesne ayırıyor.
   - [not] overlay'deki `setFocus` efekti artık yedek işlevi görüyor.
   - Hepsi Adım 3'ün başında düzeltilecek.
+- **Commit:** `7dcef88`
+
+### Adım 3 — Kilit anlarda rota çizerek müdahale ✅
+- **Adım 2 düzeltmeleri:**
+  - Bozuk Three.js etiketinden sonra yükleme yeniden deneniyor.
+  - `step`/`renderOnce`, `setPaused` anında dt=0 ile tek kare çiziliyor.
+  - Maç sonunda önizleme 4 sn daha oynuyor (`result3dFrozen`), böylece son dakika golü görünüyor.
+  - `events3dQueueRef` son 30 olayı tutuyor; devre arası olayları artık kaybolmuyor.
+  - "keeper" yönü düzeltildi, NaN koruması eklendi.
+  - Kamera pozu (`pitch3dSetPose`) kare başına yeni nesne ayırmıyor.
+- **Yeni dosya `js/match/moment3d.js`:** `InteractiveMoment3D`, `Moment3DStage`, `createMoment3DController`, `MOMENT3D_LAYOUTS`, `MOMENT3D_OPTION_KIND`.
+  - **Akış:** seçenek → sahaya rota çizme (8 sn, Temizle/Onayla) → güç barı → 3D animasyon → sonuç kartı → `onResolve` (2D ile aynı sözleşme, tek çağrı korumalı).
+  - **Yerleşim ve kamera:** Olay tipine göre oyuncular diziliyor (serbest vuruşta duvar var), kamera olay tipine göre yaklaşıyor.
+  - **Risk göstergesi:** Çizim sırasında kesilme riski gösteriliyor, en tehlikeli rakip vurgulanıyor. Şutta kale içi/dışı belirtiliyor, müdahalede rakibin koşu yolu çiziliyor.
+  - **2D'ye geri dönüş:** WebGL yoksa, yükleme hatası olursa, Pitch3D hata verirse veya "2D'ye geç" düğmesine basılırsa 2D `InteractiveMoment`'e dönülüyor.
+- **moments.js:** `getMomentMsg` ve `calcMomentChance(player,opt,power,extra)` ortak fonksiyon olarak dışarı taşındı. 2D davranışı ve `Math.random` sırası aynı.
+- **Diğer:** `players3d.js`'e kilit an API'si eklendi (`movePlayer`, `playBallScript`, `goalFx`…). `pitch3d.js`'e `custom` kamera modu eklendi. `overlay.js`'te `use3DMoment()` koşulu eklendi (şimdilik `show3D`'ye bağlı).
+- **Kod denetimi:** Kritik hata yok. Derleme, yükleme sırası, isim çakışması ve hook kuralları temiz. `onResolve` her yolda tam bir kez çağrılıyor, maç asılı kalmıyor. Bellek temizliği tam, 2D akış değişmedi. Bulgular:
+  - [önemli] **Denge:** En iyi rota kolay bulunuyor. 18 seçeneğin 14'ünde rota terimi +0.12'ye ulaşıyor, yani 3D kilit an 2D'den 12 puana kadar daha başarılı.
+    - Pas: en yakın takım arkadaşına kısa pas tam puan alıyor (ilerleme terimi yok).
+    - Şut: kaleci blok riskine dahil değil.
+  - [önemli] **Otomatik rota:** Süre dolunca seçilen otomatik rota (−0.04), zayıf bir el çiziminden (en kötü −0.12) daha iyi sonuç verebiliyor. Bu "hiç çizme" stratejisini ödüllendiriyor.
+  - [küçük] `moments.js`'te `MOMENT_TYPES` girintisi gereksiz yere değişmiş.
+  - [küçük] Başarılı stratejik faulde kart/düdük animasyonu yok.
+  - [küçük] NaN atlanan oyuncu slotu saha ortasında görünebilir.
+  - [küçük] `pitchToWorld3D` string sayıları saha ortasına düşürüyor.
+  - Hepsi Adım 4'ün başında düzeltilecek.

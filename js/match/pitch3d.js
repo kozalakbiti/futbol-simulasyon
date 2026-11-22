@@ -20,7 +20,10 @@
 //   getCameraMode()         → aktif kamera kimliği
 //   closeUp(wx,wz,sec)      → Yayın/Takip modunda kısa yakın plan (gol vb.)
 //   addFrameHook(fn)        → fn(dt,t) her karede çağrılır (t: duraklamada duran saat);
-//                             dönen fonksiyon kaldırır
+//                             dönen fonksiyon kaldırır. Duraklatma anında ve duraklıyken
+//                             yeniden boyutlanınca bir kez dt=0 ile de çağrılır.
+//   setCustomCamera(px,py,pz,lx,ly,lz,snap) → camera="custom" iken sabit poz (kilit an)
+//   renderOnce()            → döngü durmuşken tek kare çiz
 //   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
 //   screenToPitch(cx,cy)    → ekran (clientX/Y) → zemin düzlemi → {x,y} 0–100 | null
 //   isDisposed()            → unmount olduysa true (eski api'yi kullanmayı bırak)
@@ -37,30 +40,37 @@ const PITCH3D_CAMERAS=[
   {id:"follow",   icon:"🎯",label:"Takip"},
 ];
 
-// Kamera hedef pozu: {pos:[x,y,z], look:[x,y,z]} — f: yumuşatılmış odak (dünya x,z)
-function pitch3dCameraPose(mode,f,aspect,st){
+// Poz yazıcı: out ({pos:Vector3, look:Vector3}) verilirse ona yazar (kare başına
+// tahsis yok), verilmezse {pos:[x,y,z], look:[x,y,z]} döner (geriye uyumluluk).
+function pitch3dSetPose(out,px,py,pz,lx,ly,lz){
+  if(out&&out.pos&&out.look){ out.pos.set(px,py,pz); out.look.set(lx,ly,lz); return out; }
+  return {pos:[px,py,pz],look:[lx,ly,lz]};
+}
+
+// Kamera hedef pozu — f: yumuşatılmış odak (dünya x,z); out: bkz. pitch3dSetPose
+function pitch3dCameraPose(mode,f,aspect,st,out){
   const a=Math.max(0.4,aspect||1.6);
   const D=PITCH3D_DIM;
   if(mode==="tactical"){
     // Tüm sahayı (kenar payıyla) sığdıracak yükseklik
     const tanV=Math.tan((45*Math.PI/180)/2);
     const dist=Math.max((D.halfLen+6)/(tanV*a),(D.halfWid+5)/tanV)*1.04;
-    return {pos:[0,dist,dist*0.1],look:[0,0,0]};
+    return pitch3dSetPose(out,0,dist,dist*0.1,0,0,0);
   }
   if(mode==="goal"){
     // Topun bulunduğu yarı sahadaki kalenin arkası (gidip gelmesin diye histerezis)
     if(f.x>8) st.goalSide=1; else if(f.x<-8) st.goalSide=-1;
     const s=st.goalSide||1;
-    return {pos:[s*63,9,f.z*0.25],look:[s*18,0,f.z*0.4]};
+    return pitch3dSetPose(out,s*63,9,f.z*0.25,s*18,0,f.z*0.4);
   }
   if(mode==="follow"){
     const k=Math.min(1.6,Math.max(1,1.4/a));
     const cz=Math.min(D.halfWid+14,f.z+22*k);
-    return {pos:[f.x*0.92,14*k,cz],look:[f.x,0,f.z]};
+    return pitch3dSetPose(out,f.x*0.92,14*k,cz,f.x,0,f.z);
   }
   // broadcast — yan tribünden, topla birlikte hafif kaydırma
   const k=Math.min(1.8,Math.max(1,1.5/a));
-  return {pos:[f.x*0.55,34*k,62*k],look:[f.x*0.7,0,f.z*0.2]};
+  return pitch3dSetPose(out,f.x*0.55,34*k,62*k,f.x*0.7,0,f.z*0.2);
 }
 
 // Sahayı (çim, çizgiler, kaleler, stadyum kenarı) kurar → THREE.Group
@@ -241,40 +251,41 @@ function createPitch3DScene(THREE,container,opts){
     const tPos=new THREE.Vector3(), tLook=new THREE.Vector3();
     const camState={goalSide:1};
     const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
+    const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
+    const customCam={on:false,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
-    const hooks=new Set();
+    // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
+    // döngü sırasında kendini kaldıran kanca diziyi kaydırmaz.
+    let hooks=[];
     let size={w:1,h:1};
 
-    const resize=()=>{
-      const w=Math.max(1,container.clientWidth), h=Math.max(1,container.clientHeight);
-      if(w===size.w&&h===size.h) return;
-      size={w,h};
-      renderer.setSize(w,h,false);
-      camera.aspect=w/h; camera.updateProjectionMatrix();
-    };
-
-    const frame=(now)=>{
-      if(!running) return;
-      raf=requestAnimationFrame(frame);
-      const t=now/1000;
-      const dt=lastT?Math.min(0.1,t-lastT):0.016;
-      lastT=t; clock+=dt;
+    // Tek kare: odak + kamera + kancalar + çizim. dt=0 → hiçbir şey ilerlemez,
+    // yalnızca kancalar yeni veriyi okur (duraklatma/yeniden boyutlandırma anı).
+    const step=(dt)=>{
+      clock+=dt;
       // Odak yumuşatma
       const kf=1-Math.exp(-dt*4);
       focus.x+=(focusTarget.x-focus.x)*kf; focus.z+=(focusTarget.z-focus.z)*kf;
       // Kamera hedefi + yumuşak geçiş (yakın plan yalnızca Yayın/Takip modunda)
       const mode=opts.getCameraMode();
-      if(clock<closeUp.until&&(mode==="follow"||mode==="broadcast")){
+      if(mode==="custom"&&customCam.on){
+        // Dar (dikey) ekranda aynı bakış yönünde geri çekil ki sahne sığsın
+        const fit=camera.aspect<1.25?Math.min(2,1.25/Math.max(0.3,camera.aspect)):1;
+        tLook.copy(customCam.look);
+        tPos.copy(customCam.pos).sub(tLook).multiplyScalar(fit).add(tLook);
+      } else if(clock<closeUp.until&&(mode==="follow"||mode==="broadcast")){
         const sx=closeUp.x>=0?1:-1;
         tPos.set(closeUp.x-sx*13,5.5,closeUp.z+11); tLook.set(closeUp.x,1,closeUp.z);
       } else {
-        const pose=pitch3dCameraPose(mode,focus,camera.aspect,camState);
-        tPos.set(pose.pos[0],pose.pos[1],pose.pos[2]); tLook.set(pose.look[0],pose.look[1],pose.look[2]);
+        pitch3dCameraPose(mode,focus,camera.aspect,camState,poseOut);
       }
       if(first){camPos.copy(tPos);camLook.copy(tLook);first=false;}
       else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);}
       camera.position.copy(camPos); camera.lookAt(camLook);
-      hooks.forEach(fn=>{try{fn(dt,clock);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}});
+      const list=hooks;
+      for(let i=0;i<list.length;i++){
+        try{list[i](dt,clock);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}
+      }
       try{
         renderer.render(scene,camera);
       }catch(err){
@@ -283,9 +294,37 @@ function createPitch3DScene(THREE,container,opts){
         opts.onRenderError&&opts.onRenderError(err);
       }
     };
+    const frame=(now)=>{
+      if(!running) return;
+      raf=requestAnimationFrame(frame);
+      const t=now/1000;
+      const dt=lastT?Math.min(0.1,t-lastT):0.016;
+      lastT=t;
+      step(dt);
+    };
+    // Döngü çalışmıyorken tek kare çiz (duraklatılmış sahne boş kalmasın)
+    const renderOnce=()=>{
+      if(disposed||running||!scene) return;
+      step(0);
+    };
     const start=()=>{
-      if(running||disposed||paused||document.hidden||!visibleOnScreen) return;
+      if(running||disposed) return;
+      if(paused||document.hidden||!visibleOnScreen){
+        // Duraklatma yüzünden başlamadıysak en azından son durumu göster
+        if(paused&&!document.hidden) renderOnce();
+        return;
+      }
       running=true; lastT=0; raf=requestAnimationFrame(frame);
+    };
+
+    const resize=()=>{
+      const w=Math.max(1,container.clientWidth), h=Math.max(1,container.clientHeight);
+      if(w===size.w&&h===size.h) return;
+      size={w,h};
+      renderer.setSize(w,h,false);
+      camera.aspect=w/h; camera.updateProjectionMatrix();
+      // setSize tuvali temizler: döngü durmuşsa (paused) tek kare yeniden çiz
+      if(!running&&!document.hidden) renderOnce();
     };
 
     const onVis=()=>{document.hidden?stop():start();};
@@ -325,7 +364,17 @@ function createPitch3DScene(THREE,container,opts){
       getCameraMode:()=>opts.getCameraMode(),
       // Yayın/Takip modunda (wx,wz) dünya noktasına sec saniyelik yakın plan
       closeUp:(wx,wz,sec=1.6)=>{closeUp.x=wx;closeUp.z=wz;closeUp.until=clock+sec;},
-      addFrameHook:(fn)=>{hooks.add(fn);return()=>hooks.delete(fn);},
+      // camera="custom" modunda kullanılacak sabit poz (dünya). snap: geçişsiz atla
+      setCustomCamera:(px,py,pz,lx,ly,lz,snap)=>{
+        customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true;
+        if(snap) first=true;
+      },
+      addFrameHook:(fn)=>{
+        if(typeof fn!=="function") return ()=>{};
+        hooks=hooks.concat([fn]);
+        return ()=>{ hooks=hooks.filter(h=>h!==fn); };
+      },
+      renderOnce:()=>renderOnce(),
       addDisposeHook:(fn)=>{disposeHooks.add(fn);return()=>disposeHooks.delete(fn);},
       screenToPitch:(cx,cy)=>{
         const r=canvas.getBoundingClientRect();
@@ -337,7 +386,7 @@ function createPitch3DScene(THREE,container,opts){
       },
       isDisposed:()=>disposed,
     };
-    cleanups.push(()=>hooks.clear());
+    cleanups.push(()=>{hooks=[];});
 
     resize();
     start();
@@ -347,9 +396,18 @@ function createPitch3DScene(THREE,container,opts){
       disposed=true;
       teardown();
     };
-    const setPaused=(p)=>{paused=!!p; paused?stop():start();};
+    const setPaused=(p)=>{
+      const was=paused;
+      paused=!!p;
+      if(paused){
+        // Duraklamadan hemen önce: kancalar aynı tick'te gelen veriyi (ör. 90. dk
+        // golü, devre arası olayları) dt=0 ile okusun, son kare çizilsin.
+        if(!was&&running&&!disposed){ stop(); step(0); }
+        else stop();
+      } else start();
+    };
     const setInteractive=(on)=>{canvas.style.touchAction=on?"none":"auto";};
-    return {api,destroy,setPaused,setInteractive};
+    return {api,destroy,setPaused,setInteractive,renderOnce};
   }catch(err){
     disposed=true;
     teardown();
@@ -406,6 +464,8 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
       instRef.current=inst;
       setStatus("ready");
       try{cbRef.current.onReady&&cbRef.current.onReady(inst.api);}catch(e){console.error("[Pitch3D] onReady hatası",e);}
+      // Duraklatılmış kurulduysa onReady'de eklenen nesneler de görünsün
+      if(inst&&pausedRef.current) inst.renderOnce();
     }).catch(err=>{
       fail("3D kütüphanesi yüklenemedi (internet bağlantını kontrol et). 2D saha çalışmaya devam ediyor.",err);
     });

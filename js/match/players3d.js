@@ -10,6 +10,10 @@
 //   actors.update(snapshot) ile elle de beslenebilir. Diziler referans olarak
 //   karşılaştırılır (React state'i her değişimde yeni dizi üretir).
 // Dönen nesne: {update(snapshot), triggerEvent(ev), resetKickoff(), dispose()}
+//   + kilit an sahnesi için (dünya koordinatı): movePlayer(team,i,wx,wz,instant),
+//   getPlayerPos(team,i), setBall(wx,wz,y), playBallScript([{x,z,y,h,dur,fn}],lockSec),
+//   goalFx(side,gz,team), ringFx(x,z,color,dur,maxS), shakeGoal(side), getBall()
+//   (team: "home" | "away")
 // • Oyuncular hedefe lerp + hız sınırıyla yürür, hareket yönüne döner,
 //   koşarken hafifçe sallanır. Top, hedef değişince mesafeye göre yay çizer.
 // • Olaylar (gol/kaçan şut/kurtarış/direk/korner/kart) tek seferlik efekt
@@ -27,7 +31,9 @@ const ACTORS3D_COLORS={
 };
 
 function createMatchActors3D(api,opts={}){
-  const noop={update(){},triggerEvent(){},resetKickoff(){},dispose(){}};
+  const noop={update(){},triggerEvent(){},resetKickoff(){},dispose(){},
+    movePlayer(){},getPlayerPos(){return null;},setBall(){},playBallScript(){},
+    goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;}};
   if(!api||!api.THREE||api.isDisposed()) return noop;
   const THREE=api.THREE, D=PITCH3D_DIM, L=D.halfLen, H=D.halfWid, GW=D.goalWidth/2;
   const COL=ACTORS3D_COLORS, BR=0.42; // top yarıçapı (görünürlük için büyütülmüş)
@@ -137,7 +143,7 @@ function createMatchActors3D(api,opts={}){
     const list=teams[team];
     const n=dots?dots.length:0;
     for(let i=0;i<n;i++){
-      const d=dots[i]; if(!d) continue;
+      const d=dots[i]; if(!d||!Number.isFinite(d.x)||!Number.isFinite(d.y)) continue; // NaN koruması
       const p=ensurePlayer(team,i);
       pitchToWorld3D(d.x,d.y,0,p.tgt);
       const gk=d.role==="GK";
@@ -176,6 +182,7 @@ function createMatchActors3D(api,opts={}){
   };
   const busy=()=>clk<lockUntil||legs.length>0||(fl.on&&fl.script);
   const onBallTarget=(x,y)=>{
+    if(!Number.isFinite(x)||!Number.isFinite(y)) return; // NaN koruması
     pitchToWorld3D(x,y,0,tmpV);
     if(!ballInit){ ballInit=true; bpos.set(tmpV.x,0,tmpV.z); return; }
     if(busy()){ pend.on=true; pend.x=tmpV.x; pend.z=tmpV.z; return; }
@@ -272,7 +279,7 @@ function createMatchActors3D(api,opts={}){
 
   // ── Olay → efekt ──
   const triggerEvent=(ev)=>{
-    if(disposed||!ev||ev.x==null||ev.y==null) return;
+    if(disposed||!ev||!Number.isFinite(ev.x)||!Number.isFinite(ev.y)) return;
     const W=pitchToWorld3D(ev.x,ev.y);
     const opp=ev.team==="opp";
     const teamCol=opp?COL.away:COL.home;
@@ -305,7 +312,9 @@ function createMatchActors3D(api,opts={}){
         break;
       }
       case "save": case "keeper": case "chance":{
-        const s=ev.type==="save"?zoneSide:atkSide;
+        // keeper: olayın takımının KALECİSİ kurtarır → team "me" bizim kale (−1),
+        // team "opp" rakip kale (+1). chance: hücum edenin hedef kalesi.
+        const s=ev.type==="save"?zoneSide:ev.type==="keeper"?-atkSide:atkSide;
         if(Math.abs(W.x-s*L)>45) break;
         const gz=clamp(W.z*0.3,-3,3);
         beginScript(1.7);
@@ -339,6 +348,43 @@ function createMatchActors3D(api,opts={}){
       default: break; // bilinmeyen tip → sessizce geç
     }
   };
+
+  // ── Kilit an sahnesi (moment3d.js) için doğrudan denetim — DÜNYA koordinatı ──
+  // Not: snapshot dizileri değişmedikçe applyDots bu hedefleri ezmez.
+  const teamList=(team)=>teams[team==="away"?"away":"home"];
+  const movePlayer=(team,i,wx,wz,instant)=>{
+    const p=teamList(team)[i];
+    if(disposed||!p||!Number.isFinite(wx)||!Number.isFinite(wz)) return;
+    p.tgt.set(wx,0,wz);
+    if(instant){ p.pos.copy(p.tgt); p.g.position.set(p.pos.x,0,p.pos.z); }
+  };
+  const getPlayerPos=(team,i)=>{ const p=teamList(team)[i]; return p?p.pos:null; }; // salt okunur
+  // Topu doğrudan bir noktaya koy (sürme/dribling): uçuşu ve kilidi iptal eder
+  const setBall=(wx,wz,y)=>{
+    if(disposed||!Number.isFinite(wx)||!Number.isFinite(wz)) return;
+    legs.length=0; fl.on=false; fl.fn=null; fl.script=false; lockUntil=0; pend.on=false;
+    ballInit=true; bpos.set(wx,Number.isFinite(y)?Math.max(0,y):0,wz);
+  };
+  // Senaryo bacakları: [{x,z,y,h,dur,fn}] — fn, bacak bitince çağrılır (zincirleme)
+  const playBallScript=(list,lockSec)=>{
+    if(disposed||!list||!list.length) return;
+    beginScript(lockSec||0);
+    for(let i=0;i<list.length;i++){
+      const l=list[i];
+      if(!l||!Number.isFinite(l.x)||!Number.isFinite(l.z)) continue;
+      leg(l.x,l.z,Number.isFinite(l.y)?l.y:0,Number.isFinite(l.h)?l.h:0,Number.isFinite(l.dur)?l.dur:0.4,l.fn);
+    }
+  };
+  const goalFx=(s,gz,team)=>{
+    if(disposed) return;
+    const col=team==="away"?COL.away:COL.home;
+    shakeNet(s);
+    spawnRing(s*(L-1.5),0.06,gz,col,1.3,9);
+    spawnBurst(s*(L-0.5),1.6,gz,col,46);
+  };
+  const ringFx=(x,z,color,dur,maxS)=>{ if(!disposed) spawnRing(x,0.06,z,color,dur||0.8,maxS||4); };
+  const shakeGoal=(s)=>{ if(!disposed) shakeNet(s); };
+  const getBall=()=>bpos; // salt okunur
 
   const resetKickoff=()=>{
     if(disposed) return;
@@ -461,5 +507,6 @@ function createMatchActors3D(api,opts={}){
   };
   if(api.addDisposeHook) removeDisposeHook=api.addDisposeHook(dispose);
 
-  return {update,triggerEvent,resetKickoff,dispose};
+  return {update,triggerEvent,resetKickoff,dispose,
+    movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall};
 }

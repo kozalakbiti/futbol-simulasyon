@@ -39,11 +39,19 @@ function loadThreeJs(){
     return Promise.resolve(window.THREE);
   }
   if(THREE3D_LOADER.promise) return THREE3D_LOADER.promise;
+  // Aynı URL'li etiket DOM'da varsa (ör. zaman aşımından sonra hâlâ iniyorsa)
+  // yenisini ekleme, onun olaylarını bekle → çift yükleme olmaz.
+  const existing=document.querySelector('script[src="'+THREE_JS_URL+'"]');
+  if(existing&&existing.getAttribute("data-three3d-loaded")==="1"){
+    // Etiket yüklenmiş ama THREE yok → bozuk; kaldır. Reddedilen Promise
+    // önbelleğe ALINMAZ, böylece sonraki çağrı etiketi yeniden indirir.
+    if(existing.parentNode) existing.parentNode.removeChild(existing);
+    THREE3D_LOADER.promise=null;
+    return Promise.reject(new Error("Three.js yüklendi ama THREE bulunamadı"));
+  }
   THREE3D_LOADER.promise=new Promise((resolve,reject)=>{
     let done=false;
-    // Aynı URL'li etiket DOM'da varsa (ör. zaman aşımından sonra hâlâ iniyorsa)
-    // yenisini ekleme, onun olaylarını bekle → çift yükleme olmaz.
-    let script=document.querySelector('script[src="'+THREE_JS_URL+'"]');
+    let script=existing;
     const isNew=!script;
     if(isNew){
       script=document.createElement("script");
@@ -55,12 +63,6 @@ function loadThreeJs(){
       // sonraki deneme yeniden indirebilsin.
       script.addEventListener("load",()=>script.setAttribute("data-three3d-loaded","1"));
       script.addEventListener("error",()=>{ if(script.parentNode) script.parentNode.removeChild(script); });
-    } else if(script.getAttribute("data-three3d-loaded")==="1"){
-      // Etiket yüklenmiş ama THREE yok → bozuk; kaldır, sonraki çağrı yeniden indirsin
-      if(script.parentNode) script.parentNode.removeChild(script);
-      THREE3D_LOADER.promise=null;
-      reject(new Error("Three.js yüklendi ama THREE bulunamadı"));
-      return;
     }
     const onLoad=()=>finish(null);
     const onErr=()=>finish(new Error("Three.js indirilemedi"));
@@ -108,9 +110,11 @@ function hasWebGLSupport(){
 }
 
 // 0–100 saha yüzdesi → dünya koordinatı. out (THREE.Vector3) verilirse ona yazar.
+// Sayı olmayan / NaN / Infinity girdiler saha ortasına (50) düşer.
 function pitchToWorld3D(x,y,h=0,out){
-  const wx=((x??50)/100-0.5)*PITCH3D_LEN;
-  const wz=((y??50)/100-0.5)*PITCH3D_WID;
+  const wx=((Number.isFinite(x)?x:50)/100-0.5)*PITCH3D_LEN;
+  const wz=((Number.isFinite(y)?y:50)/100-0.5)*PITCH3D_WID;
+  if(!Number.isFinite(h)) h=0;
   if(out&&out.set){ out.set(wx,h,wz); return out; }
   return {x:wx,y:h,z:wz};
 }

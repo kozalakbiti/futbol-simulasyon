@@ -36,6 +36,21 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [show3D,setShow3D]=useState(false);
   const [cam3D,setCam3D]=useState("broadcast");
   const pitch3dApiRef=useRef(null);
+  const show3DRef=useRef(false);
+  show3DRef.current=show3D;
+  // Kilit an 3D mi oynansın? Tek koşul — Adım 4'te kalıcı 2D/3D tercihi buraya bağlanacak.
+  const use3DMoment=()=>show3DRef.current;
+  // 3D olay kuyruğu: ballEvents'e eklenen her olayın kopyası (son 30). 2D ballEvents
+  // olayları 1.1–2.2 sn sonra siler; 3D duraklatılmışken (devre arası, maç sonu)
+  // gelen olaylar böylece kaybolmaz. players3d görülen id'leri kendisi ayıklar.
+  const events3dQueueRef=useRef([]);
+  // Maç bitince 3D önizleme ~4 sn daha oynasın (88–90. dk golü görünsün), sonra dursun
+  const [result3dFrozen,setResult3dFrozen]=useState(false);
+  useEffect(()=>{
+    if(phase!=="result") return;
+    const t=setTimeout(()=>setResult3dFrozen(true),4000);
+    return()=>clearTimeout(t);
+  },[phase]);
   const [playerDots,setPlayerDots]=useState(()=>{
     // FDATA: x=kanat(sol-sağ), y=derinlik(0=rakip kale, 100=kendi kale)
     // Saha görünümü: yatay(sol=OPP kale, sağ=FCY kale), dikey=kanat
@@ -264,7 +279,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   }),[lineup,squad,playerDots.length]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
-  live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:ballEvents,labels:labels3d};
+  live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d};
 
   useEffect(()=>{
     // Sadece başlangıç 11'ini scorer/assister havuzuna al (lineupRef — Babel korumalı)
@@ -298,6 +313,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         const nextMoment=momentsRef.current.find(mo=>!mo.resolved&&mo.min<=m&&mo.min>(m-dpt));
         if(nextMoment&&speedRef.current==="slow"){
           nextMoment.resolved=true;
+          nextMoment.view3D=use3DMoment(); // görünüm kilit an başında sabitlenir
           pausedRef.current=true;
           clearInterval(ivRef.current);
           setActiveMoment(nextMoment);
@@ -471,6 +487,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             const evType=e.type; // goal,miss,save,yellow,red,sub,corner,foul,chance,counter...
             const evTeam=e.team||"me";
             setBallEvents(prev=>[...prev,{id:eid,x:e.zone[0],y:e.zone[1],type:evType,team:evTeam}]);
+            // 3D kuyruğu: yeni dizi (players3d referans karşılaştırır), en fazla 30 olay
+            events3dQueueRef.current=[...events3dQueueRef.current.slice(-29),{id:eid,x:e.zone[0],y:e.zone[1],type:evType,team:evTeam}];
             // Animasyon süresi: gol 2.2s, diğer 1.1s
             setTimeout(()=>setBallEvents(prev=>prev.filter(ev=>ev.id!==eid)),evType==="goal"?2200:1100);
             // Özellik 2: Event tipine göre oyuncu pozisyon değişimi
@@ -588,14 +606,21 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.93)",zIndex:200,
       display:"flex",alignItems:"center",justifyContent:"center",padding:6}}>
       {/* ── İNTERAKTİF AN OVERLAY ── */}
-      {activeMoment&&(
+      {activeMoment&&(activeMoment.view3D?(
+        <InteractiveMoment3D
+          moment={activeMoment}
+          myStr={myStr}
+          oppStr={fixture.str}
+          onResolve={handleMomentResolve}
+        />
+      ):(
         <InteractiveMoment
           moment={activeMoment}
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
         />
-      )}
+      ))}
       {/* ── DEVRE ARASI KONUŞMASI ── */}
       {showHalftime&&(
         <HalftimeSpeech
@@ -918,7 +943,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             </button>
             {show3D&&<div style={{padding:"0 5px 5px"}}>
               <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={210}
-                paused={!!activeMoment||showHalftime||phase!=="playing"}
+                paused={!!activeMoment||showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
                 onReady={api=>{
                   pitch3dApiRef.current=api;
                   api.setFocus(ballPos[0],ballPos[1]);

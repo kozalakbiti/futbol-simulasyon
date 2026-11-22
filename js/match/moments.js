@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const MOMENT_TYPES={
-  corner:{
+    corner:{
     id:"corner", icon:"🚩", label:"KORNER!", color:"#ffd060",
     desc:"Köşe vuruşu kazandık! Nasıl kullanacaksın?",
     options:[
@@ -12,7 +12,7 @@ const MOMENT_TYPES={
       {id:"far",   icon:"🎯", label:"Uzak Direk",    desc:"Süpriz açı girişimi",      stat:"sht", bonus:0.20},
     ]
   },
-  freekick:{
+    freekick:{
     id:"freekick", icon:"📐", label:"SERBEST VURUŞ!", color:"#3498db",
     desc:"Tehlikeli bölgede serbest vuruş! Tercihini yap.",
     options:[
@@ -21,7 +21,7 @@ const MOMENT_TYPES={
       {id:"pass",  icon:"↩️", label:"Kısa Kombinasyon",desc:"Pozisyon oluştur",      stat:"pas", bonus:0.22},
     ]
   },
-  counter:{
+    counter:{
     id:"counter", icon:"⚡", label:"KONTR ATAK!", color:"#30e070",
     desc:"Hızlı çıkış fırsatı! Rakip savunma açık!",
     options:[
@@ -30,7 +30,7 @@ const MOMENT_TYPES={
       {id:"wait",  icon:"⏸️", label:"Bekle & Gör",   desc:"Pozisyon kur, daha güvenli",stat:"pas",bonus:0.18},
     ]
   },
-  penalty:{
+    penalty:{
     id:"penalty", icon:"🔴", label:"PENALTI!", color:"#ff5050",
     desc:"Hakem gösterdi! Penaltı noktasına gidiyoruz.",
     options:[
@@ -39,7 +39,7 @@ const MOMENT_TYPES={
       {id:"chip",  icon:"🎩", label:"Çip Vuruş",     desc:"Ortaya yüksek, riskli",   stat:"sht", bonus:0.28},
     ]
   },
-  oneonone:{
+    oneonone:{
     id:"oneonone", icon:"🎯", label:"BİREBİR!", color:"#9b59b6",
     desc:"Forvet kaleci karşısında! Büyük gol fırsatı!",
     options:[
@@ -48,7 +48,7 @@ const MOMENT_TYPES={
       {id:"fake",  icon:"💃", label:"Yanıltma + Şut",desc:"Kaleciye hamle, sonra şut",stat:"spd",bonus:0.38},
     ]
   },
-  tackle:{
+    tackle:{
     id:"tackle", icon:"🛡️", label:"KRİTİK MÜDAHALE!", color:"#1abc9c",
     desc:"Rakip hücuma geçti! Savunma kararı ver.",
     options:[
@@ -106,6 +106,29 @@ function planMoments(myStr, oppStr, squad){
   return moments.sort((a,b)=>a.min-b.min);
 }
 
+// Kilit an sonuç metinleri (2D InteractiveMoment ve 3D InteractiveMoment3D ortak)
+function getMomentMsg(type,optId,success,name){
+  const msgs={
+    corner:{high:{ok:`${name} kafa vuruşuyla GOL!`,fail:`Kafa yanlış noktaya, rakip uzaklaştırdı.`},short:{ok:`Kısa kombinasyon! ${name} GOL attı!`,fail:`Kombinasyon bozuldu, top kaybı.`},far:{ok:`Uzak direğe sürpriz! GOL!`,fail:`Uzak direk denemesi dışarı.`}},
+    freekick:{direct:{ok:`${name} muhteşem vuruş! GOL!`,fail:`Harika vuruş ama direkten döndü!`},wall:{ok:`${name} duvarın üstünden GOL!`,fail:`Duvarın üstünden ama kaleci tuttu.`},pass:{ok:`Kombinasyon, ${name} son vuruşu GOL!`,fail:`Kombinasyon iyi başladı ama son pas kaçtı.`}},
+    counter:{sprint:{ok:`${name} savunmayı geçti, GOL!`,fail:`${name} süratle gitti ama kaleci kurtardı!`},dribble:{ok:`Muhteşem dribling! ${name} GOL!`,fail:`Dribling güzeldi ama direkten döndü.`},wait:{ok:`Sabırla oynandı, ${name} GOL!`,fail:`Beklemek işe yaramadı, top kaybı.`}},
+    penalty:{power:{ok:`${name} güçlü vuruş, köşeye! GOL!`,fail:`Çok sert, direkten döndü!`},place:{ok:`${name} kalecinin tersine! GOL!`,fail:`Kaleci tarafı seçti ve kurtardı!`},chip:{ok:`Cesur çip! GOL!`,fail:`Çip ortaya düştü, kaleci yakaladı!`}},
+    oneonone:{shoot:{ok:`${name} ilk dokunuşta GOL!`,fail:`${name} vurdu ama kaleci kurtardı!`},lob:{ok:`${name} enfes çip! GOL!`,fail:`Çip yüksek kaldı, dışarı.`},fake:{ok:`${name} kaleciye yıldırdı! GOL!`,fail:`Yanıltma bitmeden kaleci atıldı!`}},
+    tackle:{slide:{ok:`Mükemmel kayarak müdahale! Tehlike atlatıldı!`,fail:`Müdahale geç kaldı, rakip geçti!`},block:{ok:`Şut bloke edildi! Harika savunma!`,fail:`Blok tutmadı, şut devam etti!`},foul:{ok:`Stratejik faul, hücum durduruldu.`,fail:`Faul, sarı kart ve serbest vuruş!`}},
+  };
+  const msgSet=msgs[type]?.[optId];
+  return msgSet?(success?msgSet.ok:msgSet.fail):(success?"Başarılı!":"Başarısız!");
+}
+
+// Kilit an başarı şansı (2D ve 3D ortak). extra: 3D rota kalitesi terimi (2D'de 0).
+// Math.random çağrı sırası eski satırla aynı (önce şans gürültüsü, sonra başarı zarı).
+function calcMomentChance(player,opt,power,extra=0){
+  const baseOvr=(player.ovr||65)/100;
+  const statVal=(player[opt.stat]||60)/100;
+  const powerBonus=power>=40&&power<=80?0.12:power>=25&&power<=90?0.04:-0.08;
+  return Math.min(0.92,Math.max(0.08,baseOvr*0.35+statVal*0.35+opt.bonus*0.25+powerBonus+(Math.random()*0.10-0.05)+(Number.isFinite(extra)?extra:0)));
+}
+
 // İnteraktif An Overlay bileşeni
 function InteractiveMoment({moment, myStr, oppStr, onResolve}){
   const [chosen,setChosen]=useState(null);
@@ -136,21 +159,9 @@ function InteractiveMoment({moment, myStr, oppStr, onResolve}){
     cancelAnimationFrame(powerRafRef.current);
     const frozenPower=powerRef.current;
     setChosen(opt.id);
-    const baseOvr=(player.ovr||65)/100;
-    const statVal=(player[opt.stat]||60)/100;
-    const powerBonus=frozenPower>=40&&frozenPower<=80?0.12:frozenPower>=25&&frozenPower<=90?0.04:-0.08;
-    const chance=Math.min(0.92,Math.max(0.08,baseOvr*0.35+statVal*0.35+opt.bonus*0.25+powerBonus+(Math.random()*0.10-0.05)));
+    const chance=calcMomentChance(player,opt,frozenPower);
     const success=Math.random()<chance;
-    const msgs={
-      corner:{high:{ok:`${player.n} kafa vuruşuyla GOL!`,fail:`Kafa yanlış noktaya, rakip uzaklaştırdı.`},short:{ok:`Kısa kombinasyon! ${player.n} GOL attı!`,fail:`Kombinasyon bozuldu, top kaybı.`},far:{ok:`Uzak direğe sürpriz! GOL!`,fail:`Uzak direk denemesi dışarı.`}},
-      freekick:{direct:{ok:`${player.n} muhteşem vuruş! GOL!`,fail:`Harika vuruş ama direkten döndü!`},wall:{ok:`${player.n} duvarın üstünden GOL!`,fail:`Duvarın üstünden ama kaleci tuttu.`},pass:{ok:`Kombinasyon, ${player.n} son vuruşu GOL!`,fail:`Kombinasyon iyi başladı ama son pas kaçtı.`}},
-      counter:{sprint:{ok:`${player.n} savunmayı geçti, GOL!`,fail:`${player.n} süratle gitti ama kaleci kurtardı!`},dribble:{ok:`Muhteşem dribling! ${player.n} GOL!`,fail:`Dribling güzeldi ama direkten döndü.`},wait:{ok:`Sabırla oynandı, ${player.n} GOL!`,fail:`Beklemek işe yaramadı, top kaybı.`}},
-      penalty:{power:{ok:`${player.n} güçlü vuruş, köşeye! GOL!`,fail:`Çok sert, direkten döndü!`},place:{ok:`${player.n} kalecinin tersine! GOL!`,fail:`Kaleci tarafı seçti ve kurtardı!`},chip:{ok:`Cesur çip! GOL!`,fail:`Çip ortaya düştü, kaleci yakaladı!`}},
-      oneonone:{shoot:{ok:`${player.n} ilk dokunuşta GOL!`,fail:`${player.n} vurdu ama kaleci kurtardı!`},lob:{ok:`${player.n} enfes çip! GOL!`,fail:`Çip yüksek kaldı, dışarı.`},fake:{ok:`${player.n} kaleciye yıldırdı! GOL!`,fail:`Yanıltma bitmeden kaleci atıldı!`}},
-      tackle:{slide:{ok:`Mükemmel kayarak müdahale! Tehlike atlatıldı!`,fail:`Müdahale geç kaldı, rakip geçti!`},block:{ok:`Şut bloke edildi! Harika savunma!`,fail:`Blok tutmadı, şut devam etti!`},foul:{ok:`Stratejik faul, hücum durduruldu.`,fail:`Faul, sarı kart ve serbest vuruş!`}},
-    };
-    const msgSet=msgs[moment.type]?.[opt.id];
-    const msg=msgSet?(success?msgSet.ok:msgSet.fail):(success?"Başarılı!":"Başarısız!");
+    const msg=getMomentMsg(moment.type,opt.id,success,player.n);
     const isTackle=moment.type==="tackle";
     const goalScored=!isTackle&&success;
     const goalConceded=isTackle&&!success&&Math.random()>0.4;
