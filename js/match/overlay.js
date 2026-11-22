@@ -32,6 +32,10 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [oppFormChangedAt,setOppFormChangedAt]=useState(null); // taktik değişim dakikası
   // ── CANLI SAHA ANİMASYONU ──
   const [ballEvents,setBallEvents]=useState([]); // aktif saha efektleri [{id,x,y,type,team}]
+  // ── 3D ÖNİZLEME (beta) ── varsayılan kapalı; açılınca Three.js yüklenir
+  const [show3D,setShow3D]=useState(false);
+  const [cam3D,setCam3D]=useState("broadcast");
+  const pitch3dApiRef=useRef(null);
   const [playerDots,setPlayerDots]=useState(()=>{
     // FDATA: x=kanat(sol-sağ), y=derinlik(0=rakip kale, 100=kendi kale)
     // Saha görünümü: yatay(sol=OPP kale, sağ=FCY kale), dikey=kanat
@@ -245,6 +249,12 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
   // Hız değişince speedRef'i güncelle (interval'i yeniden başlatmak için)
   useEffect(()=>{speedRef.current=speed;},[speed]);
+
+  // 3D önizleme: "Takip" kamerası için topun konumunu 3D sahneye ilet
+  useEffect(()=>{
+    const api=pitch3dApiRef.current;
+    if(api&&!api.isDisposed()) api.setFocus(ballPos[0],ballPos[1]);
+  },[ballPos]);
 
   useEffect(()=>{
     // Sadece başlangıç 11'ini scorer/assister havuzuna al (lineupRef — Babel korumalı)
@@ -886,6 +896,22 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
         {/* ── SAHA SEKMESİ — Canlı Animasyonlu ── */}
         {tab==="pitch"&&<div style={{flex:1,padding:"6px 8px",display:"flex",flexDirection:"column",gap:5,overflowY:"auto"}}>
+
+          {/* ═══ 3D ÖNİZLEME (beta) — katlanabilir, varsayılan kapalı ═══ */}
+          <div style={{borderRadius:6,border:"1px solid rgba(77,166,255,.25)",background:"rgba(0,0,0,.25)",overflow:"hidden"}}>
+            <button onClick={()=>setShow3D(v=>!v)}
+              style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+                padding:"5px 8px",background:"transparent",border:"none",cursor:"pointer",
+                color:C.ac2,fontSize:".58rem",fontWeight:700,letterSpacing:.4}}>
+              <span>🧊 3D Önizleme (beta)</span>
+              <span style={{color:C.dmr}}>{show3D?"▲ Kapat":"▼ Aç"}</span>
+            </button>
+            {show3D&&<div style={{padding:"0 5px 5px"}}>
+              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={210}
+                onReady={api=>{pitch3dApiRef.current=api;api.setFocus(ballPos[0],ballPos[1]);}}
+                onError={()=>{pitch3dApiRef.current=null;}}/>
+            </div>}
+          </div>
 
           {/* ═══ CANLI SAHA ═══ */}
           <div style={{position:"relative",borderRadius:6,overflow:"hidden",
