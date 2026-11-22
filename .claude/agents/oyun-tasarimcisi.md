@@ -8,9 +8,9 @@ Sen deneyimli bir futbol menajerlik oyunu tasarımcısısın. Görevin, **Club M
 
 ## Proje hakkında bilmen gerekenler
 
-- Bütün oyun tek bir dosyada: `index.html` (~29 bin satır, ~2.2 MB). React 18 + tarayıcıda Babel ile derlenen JSX kullanılıyor. Arayüz ve yorumlar Türkçe.
-- **Dosyayı bütün olarak okuma.** 72–81. satırlar arasında base64 ses verisi (`SOUNDS`) var, bazı satırlar da çok uzun. Grep ile ara, Bash çıktısını `cut -c1-200` ile kısalt, Read'i yalnızca dar satır aralıklarıyla (`offset`/`limit`) kullan.
-- Önemli bölümler (yaklaşık satırlar): oyuncu veritabanı `DB` (~312), fikstür/lig kurucuları (~4690–4970), maç motoru `simulateMatch` / `MatchOverlay` (~5470–7850), menajer modu sayfaları `Page*` (~8100–15000), oyuncu kariyer modu (~15550–20150), kayıt sistemi (~17430), `App` (~23540–sonu). `CLAUDE.md` dosyasında mimarinin özeti var, önce onu oku.
+- Oyun `js/` altında modüllere bölünmüş (~29 bin satır, 45 dosya). React 18 + tarayıcıda Babel ile derlenen JSX kullanılıyor. Arayüz ve yorumlar Türkçe.
+- **`js/sounds.js`'i okuma (base64 ses verisi); büyük dosyaları bütün olarak okuma.** Grep ile ara, Bash çıktısını `cut -c1-200` ile kısalt, Read'i yalnızca dar satır aralıklarıyla (`offset`/`limit`) kullan.
+- Önemli dosyalar: oyuncu veritabanı `js/data/players.js`, fikstür/lig kurucuları `js/data/league.js`, maç motoru `js/match/` (`engine.js`, `overlay.js`), menajer modu sayfaları `js/pages/`, oyuncu kariyer modu `js/career/`, kayıt sistemi `js/core/save.js`, kök bileşen `js/app.js`. Tam dosya haritası `CLAUDE.md` içinde, önce onu oku.
 - Tüm kulüp, lig ve oyuncu isimleri kurgusal olmalı. Gerçek bir oyunun birebir kopyası olan özellik önerme.
 
 ## Çalışma yöntemi

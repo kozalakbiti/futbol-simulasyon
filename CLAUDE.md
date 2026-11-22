@@ -4,32 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-**Club Manager: Glory Road** is a fictional football (soccer) management game. Its UI text and code comments are in Turkish. The entire game lives in a single file, `index.html` (~29k lines, ~2.2 MB). There is no build system, no package.json, no tests and no git repo. All club, league and player names are meant to be fictional, so keep new content fictional too.
+**Club Manager: Glory Road** is a fictional football (soccer) management game. Its UI text and code comments are in Turkish. The game is a static web page: `index.html` is a thin shell, `css/style.css` holds the global styles, and the code (~29k lines) is split into plain files under `js/`. There is no build system, no package.json and no tests. All club, league and player names are meant to be fictional, so keep new content fictional too.
 
 ## Running
 
-Open `index.html` in a browser, or serve the folder statically (e.g. `python -m http.server`) and open it. The page loads React 18.2 and ReactDOM from cdnjs, and `@babel/standalone`, which transpiles the JSX **in the browser at load time**. So there is no compile step, and syntax errors only show up in the browser console when the page runs. The game also targets an Android Capacitor WebView: portrait lock, StatusBar hide and safe-area insets. Those hooks all check `window.Capacitor` first, so they do nothing in a normal browser.
+The page **must be served over HTTP**. Run `python -m http.server 8000` in the repo folder and open http://localhost:8000, or on Windows double-click `baslat.bat`, which does the same. Opening `index.html` by double-click (`file://`) does **not** work, because Babel loads the `js/` files with XHR, which browsers block on `file://`. In that case the page shows a Turkish notice instead of the game. Capacitor serves from `http(s)://localhost` (Android) or `capacitor://localhost` (iOS), so the app is not affected, but its `webDir` must include `css/` and `js/`. `baslat.bat` binds the server to `127.0.0.1` only.
 
-## Working with the file
+The page loads React 18.2, ReactDOM and `@babel/standalone` 7.23.5 from cdnjs. Babel transpiles the JSX **in the browser at load time**. So there is no compile step, and syntax errors only show up in the browser console when the page runs. Babel names the failing file in the error. The game also targets an Android Capacitor WebView: portrait lock, StatusBar hide and safe-area insets. Those hooks all check `window.Capacitor` first, so they do nothing in a normal browser.
 
-- **Don't read the file whole, and don't print raw line ranges near the top.** Lines ~72–81 hold a `SOUNDS` object of base64 MP3 data URIs. Some other lines are also extremely long. Find code with Grep, and pipe shell output through `cut -c1-200`.
-- Layout: `<style>` (top) → plain `<script>` with `SOUNDS` → one big `<script type="text/babel">` with all the game code → `ReactDOM.createRoot(...).render(App)` at the very end.
-- Everything is global, top-level `const`/`function` declarations in that one Babel script. There are no modules or imports, and React hooks come from `const { useState, useEffect, useRef } = React;`.
-- To find a definition, grep for `^(const|function) Name`. Major sections are marked by `// ═══` banner comments.
+## How the code is loaded (read before adding or moving code)
 
-## Architecture (in file order)
+- `index.html` loads `js/sounds.js` as a plain script. It holds the `SOUNDS` object of base64 MP3 data URIs, so its lines are huge: **never print or read it raw**. Then `index.html` loads every other file as `<script type="text/babel" data-presets="react" src="…">`. They are listed in a fixed order, and **the order matters**: Babel fetches them in parallel but runs them strictly in that order, each one only after it and all earlier files have arrived.
+- These are **not ES modules**. There are no `import`/`export`s. Every top-level `const`/`function` is a global shared by all files, as when everything lived in one script. React hooks come from `const { useState, useEffect, useRef } = React;` in `js/core/theme.js`.
+- **Load-order rule:** a function declaration is hoisted only within its own file. Code that runs at load time (a top-level `const X = f()`, an IIFE, a top-level object built by calling something) may only use names from the **same or an earlier** file. Code inside components and functions runs later, so it can use anything.
+- **New file:** add a `<script type="text/babel" data-presets="react" src="…">` tag to `index.html` in the right position, and keep the top-level names unique across all files.
+- **Finding code:** grep `js/` for `^(const|function) Name`. Major sections are marked by `// ═══` banner comments. `js/data/players.js` and a few other files have very long lines, so pipe shell output through `cut -c1-200`.
 
-1. **Theme & helpers**: `C` (colour palette), `fmtSal`, `posC`, `ovrToGrade`, `TEAM_BADGE`/`TeamBadge`.
-2. **Static data**: `DB` is the big player database (`{id,n,pos,ovr,pot,age,val,sal,club,lg,nat,ct,st,ch}`; `val` is in M€, `sal` in K€/week). Also `INIT_SQUAD`, `INIT_TEAMS`, rival lists, and per-league month tables.
-3. **Fixture/league builders**: `buildDoubleRoundRobin`, `build*Fixture` for each league (TFF1 = "1. Lig", SL = "Elit Lig", Primeira, Eredivisie, Big5), cup brackets (`buildKupa*`), and `sortFixture`. The league is picked by the `league` string, e.g. `"1. Lig"` vs `"Elit Lig"`.
-4. **Match engine**: `simulateMatch` (Poisson-based), `planMoments`/`InteractiveMoment`, `HalftimeSpeech`, and `MatchOverlay` (live match UI, with speed settings in `SPEED_CONFIGS`).
-5. **Manager-mode pages** (`Page*` components): Home, Kadro (squad), Fikstur (fixtures), FormasyonTaktik, Transfer (+ `OfferPage`, `calcAcceptProb`), Yetenek (youth), Antrenman (training), Istatistik, Haberler (news), Finans, Basin (press), Iliskiler, Itibar (reputation), Takimlar, Kaydet (save/load), and Ayarlar (settings). Navigation comes from `NAV`, `DIGER_PAGES` and `LABELS` (just above `App`).
-6. **Player Career mode** (~line 15550+), a separate game mode with its own constants (`CP` palette, `CAREER_*`, `SKILL_TREES`, …) and its own components: `CareerOnboardingScreen`, `CareerScreen`, `LiveMatchScreen`, and canvas minigames (`ShotMinigame`, `PenaltyMinigame`, `FreekickMinigame` via `MiniGameOrchestrator`).
-7. **Save system** (~line 17430): `GAME_VERSION`, `SAVE_SCHEMA_VERSION`, `LIMITS` (clamps against exploits), `calcSaveChecksum`, `sanitizePlayer`, `validateAndMigrateSave`, and the `safeLsGet`/`safeLsSet` localStorage wrappers.
-8. **`App`** (~line 23540 to end): a giant root component that holds nearly all manager-mode state in `useState` hooks. It routes between top-level screens through `gameScreen` (`"mainmenu"` → `"scenario"` → `"onboarding"` → main game; or `"career_onboarding"` → `"career"`). Then it renders the active `page` from the bottom/side nav.
+## File map
+
+Grouped by folder. This is **not** the exact load order: `index.html` is the source of truth for that. For example, `js/core/save.js` loads after the career minigames, and `js/pages/takim-adi.js` … `diger.js` load after `js/screens/menus.js`.
+
+| File | Contents |
+|---|---|
+| `css/style.css` | Global CSS: Google Fonts import, reset, safe-area insets, scrollbars, `glowPulse`/`fadeInUp` animations |
+| `js/sounds.js` | `SOUNDS` (base64 audio, plain JS, **do not read raw**) |
+| `js/core/theme.js` | React hooks, `C` (colour palette), `rnd`, `fmtSal`, `posC`, `ovrToGrade`, `TEAM_BADGE`/`TeamBadge` |
+| `js/data/players.js` | `DB` player database (`{id,n,pos,ovr,pot,age,val,sal,club,lg,nat,ct,st,ch}`; `val` in M€, `sal` in K€/week) |
+| `js/data/league.js` | `INIT_SQUAD`, `INIT_TEAMS`, rival/month tables, `buildDoubleRoundRobin`, `build*Fixture` (TFF1 = "1. Lig", SL = "Elit Lig", Primeira, Eredivisie, Big5), `buildKupa*`, `sortFixture`, `FDATA`, team strength and formation helpers |
+| `js/data/youth-staff.js` | `INIT_YOUTH`, `genYouthPlayer`, `genFreeAgent`, `COACHES` |
+| `js/match/scouting.js` | Opponent analysis: `TEAM_STYLES`, `getScoutReport`, `ScoutReportCard`, `PreMatchModal` |
+| `js/match/engine.js` | `simulateMatch` (Poisson-based) and the goal/event/commentary tables |
+| `js/match/moments.js` | `planMoments`, `InteractiveMoment` |
+| `js/ui/primitives.js` | Shared UI bits: `PosTag`, `STitle`, `Chip`, `Btn`, `Modal`, `StatBar` |
+| `js/match/halftime.js` | `HalftimeSpeech` |
+| `js/match/overlay.js` | `SPEED_CONFIGS`, `MatchOverlay` (live match UI) |
+| `js/ui/player-modal.js` | `PlayerModal`, `calcTeamGrades`, `NEAREST_POS` |
+| `js/data/traits.js` | `PLAYER_TRAITS`, `assignTraits`, `calcTraitBonus` |
+| `js/pages/*.js` | Manager-mode pages, one per file: `home` (PageHome), `kadro`, `fikstur` (+ `MatchDetailModal`), `formasyon` (PageFormasyonTaktik), `transfer` (+ `OfferPage`, `calcAcceptProb`, value calcs), `yetenek` (youth), `antrenman`, `istatistik` (+ `EuroSimWidget`), `haberler`, `finans`, `takim-adi`, `basin` (+ `PostMatchBasinModal`), `iliskiler`, `itibar`, `takimlar`, `kaydet`, `diger` |
+| `js/ui/incoming-offer.js` | `IncomingOfferModal` |
+| `js/ui/avatars.js` | `AVATAR_DEFS` (manager avatar SVGs) |
+| `js/screens/tutorial.js` | `TUTORIAL_STEPS`, `TutorialOverlay` |
+| `js/career/*.js` | Player Career mode, a separate game mode: `data` (`CP` palette, `CAREER_*`, `SKILL_TREES`, calc helpers), `onboarding` (`CareerOnboardingScreen`), `minigames` (canvas `Shot/Penalty/FreekickMinigame`, `MiniGameOrchestrator`), `saves` (career save slots, `migrateOldSave`, Capacitor orientation lock IIFE), `events` (family/story events), `live-match` (`LiveMatchScreen`), `career-screen` (`CareerScreen`) |
+| `js/core/save.js` | `GAME_VERSION`, `SAVE_SCHEMA_VERSION`, `LIMITS` (anti-exploit clamps), `calcSaveChecksum`, `sanitizePlayer`, `validateAndMigrateSave`, `safeLsGet`/`safeLsSet` |
+| `js/screens/menus.js` | `CoachSaveModal`, `MainMenuScreen`, `OnboardingScreen`, `ManagerAvatar`, `SCENARIOS`, `ScenarioScreen` |
+| `js/core/audio.js` | `AudioPlayer` (Web Audio music and atmosphere) |
+| `js/ui/nav.js` | `NAV`, `PageAyarlar` (settings), `DIGER_PAGES`, `LABELS` |
+| `js/app.js` | `App`: the giant root component holding nearly all manager-mode state in `useState` hooks. It routes top-level screens through `gameScreen` (`"mainmenu"` → `"scenario"` → `"onboarding"` → main game; or `"career_onboarding"` → `"career"`), then renders the active `page` |
+| `js/main.js` | `ReactDOM.createRoot(...).render(App)`. **Must stay last.** |
 
 ## Persistence (localStorage keys)
 
-- Manager mode: `fcym_coach_saves` (slots) and `fcym_save_index` (+ `fcym_save_slot_*`).
-- Player career mode: `fcyildiz_player_saves`, up to 5 slots. These are kept separate from manager saves. `fcyildiz_career_v6` is a legacy key that `migrateOldSave` migrates.
-- If you change the shape of saved data, bump `SAVE_SCHEMA_VERSION` and handle the old shape in `validateAndMigrateSave`. Bump `GAME_VERSION` for releases.
+- Manager mode: `fcym_coach_saves` (slots) and `fcym_save_index` (+ `fcym_save_slot_*`). The save object is built in `buildCoachSaveData` and restored in `loadGameData`, both in `js/app.js`.
+- Player career mode: `fcyildiz_player_saves`, up to 5 slots, kept separate from manager saves. `fcyildiz_career_v6` is a legacy key that `migrateOldSave` (`js/career/saves.js`) migrates.
+- If you change the shape of saved data, bump `SAVE_SCHEMA_VERSION` and handle the old shape in `validateAndMigrateSave` (`js/core/save.js`). Bump `GAME_VERSION` for releases.
