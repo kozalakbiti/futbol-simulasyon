@@ -41,6 +41,13 @@ Branch: `feature/3d-mac-motoru` · Kütüphane: Three.js r128 (cdnjs, UMD, ihtiy
 - [x] WebGL yoksa düğme devre dışı + Türkçe uyarı; 2D akışı (sekmeler, devre arası, sonuç paneli) bozulmaz
 - [x] Performans: 3D kapalıyken render döngüsü durur, maç kapanınca her şey temizlenir
 
+### 5. Topa bağlı oyun ve serbest kontrollü kilit anlar — ✅ tamamlandı (tarayıcı testi bekliyor)
+- [x] Normal akışta top, topa sahip oyuncunun ayağının önünde sürülür ve onunla döner; yalnız pas/şutta fiziksel yörüngeyle hedef oyuncuya gider
+- [x] Kilit anlarda seçenek kartları kalkar; topa sahip oyuncu hemen top sürmeye başlar, etrafında yarı saydam kontrol halkası, fare/ok tuşları (dokunmatikte sanal joystick) ile serbest hareket ve rakip geçme
+- [x] Boş alana/takım arkadaşına tıklama → noktalı çizgiyle yerden/havadan pas
+- [x] Topa basılı tutup geri çekme → ağır çekim, güce göre yeşilden kırmızıya dönen kavisli şut/orta oku, bırakınca vuruş
+- [x] Aynı `onResolve` sözleşmesi, denge 2D ile uyumlu, 2D geri dönüş korunur
+
 ## İlerleme günlüğü
 
 _(Her adım bittikçe buraya eklenir: ne yapıldı, kod-denetleyici bulguları, düzeltmeler.)_
@@ -155,3 +162,58 @@ Bilinen sınırlamalar:
 - 3D modda Saha sekmesindeki formasyon özeti gizli.
 - Kalecide dalış animasyonu yok.
 - Şut yüksekliği çizilemiyor.
+
+### Adım 5 — Topa bağlı oyun ve serbest kontrollü kilit anlar ✅
+- **Normal akış (`players3d.js`):**
+  - Her an bir top sahibi var (`ballPos` hedefine en yakın oyuncu).
+  - Top, koşuyla senkron dokunuşlarla ayağın 0.8–1.25 m önünde sürülüyor ve oyuncuyla dönüyor.
+  - Sahiplik değişince top fiziksel bir yörüngeyle gidiyor:
+    - kısa ve açık yolda yerden pas (sürtünmeli),
+    - uzun ya da önü kapalı pasta havadan parabol (g=9.8, inişte kısa yuvarlanma),
+    - alıcı öngörülü hedeflemeyle topu alıyor; rakip araya girerse kesme ya da top kapma oluyor.
+  - Santrada top orta noktaya inip forvette duruyor.
+  - Hızlı modda tempo çarpanı var; top 10 m'den fazla koparsa erken pas atılıyor.
+- **Kilit an (`moment3d.js`, baştan yazıldı):**
+  - Seçenek kartları, rota çizimi ve güç barı kaldırıldı. Kilit an ~0.6 sn kamera girişinden sonra doğrudan kontrolle başlıyor.
+  - Kontrol edilen oyuncunun çevresinde yarı saydam halka var. İlk 2.2 sn (`MOMENT3D_GUARD_SEC`) top kapılamıyor; bu sürede halka yanıp sönüyor.
+  - **Klavye:** ok tuşları veya WASD.
+  - **Fare:** oyuncu imlece doğru sürüyor.
+  - **Dokunmatik:** sol altta sanal joystick.
+  - **Rakip AI:** sınırlı dönüş hızıyla takip, markaj ve açı kapatan kaleci. Ani yön değişimiyle rakip geçilebiliyor.
+  - **Tıklama:** noktalı çizgiyle yerden ya da havadan pas, en fazla 3 pas. Kontrol pası alan oyuncuya geçiyor.
+  - **Basılı tutup geri çekme:** ağır çekim (0.2) ve kavisli ok. Ok güce göre renk değiştiriyor: yeşil 40–80, sonra sarı, turuncu, kırmızı (>90 isabetsiz). Yanal sürükleme falso veriyor, halkaya geri getirmek iptal ediyor.
+  - **Duran toplar:** Penaltıda yalnız şut var. Korner ve serbest vuruşta tıklamak kısa pas, geri çekmek orta veya şut; serbest vuruşta duvar var.
+  - **Savunma (tackle):** rakibe dokunmak kayarak müdahale, uzun basmak taktik faul, geri çekmek şut bloğu.
+  - **Top kaptırma:** %65 ihtimalle son an vuruşu oluyor (`MOMENT3D_LAST_SHOT`), değer olarak tatlı bölgenin dışında.
+  - **Süre dolunca:** otomatik zayıf eylem yapılıyor (terim −0.24).
+  - **Sonuç:** `calcMomentChance` + konum kalitesi terimi (+0.05/−0.12) ile hesaplanıyor; görsel yörünge sonuca uyuyor.
+  - `onResolve` sözleşmesi aynı; `optionId` artık yapılan eylemden geliyor.
+- **pitch3d.js:** `setTimeScale`/`getTimeScale` eklendi; frame hook'larına ölçekli dt gidiyor. `screenToWorld` eklendi; `worldToScreen` kamera arkasındaki noktada null dönüyor.
+- **Kod denetimi (kod-denetleyici, testleri kendisi koşturdu):**
+  - Kritik hata yok.
+  - Doğrulananlar: derleme, yükleme sırası, isim çakışması, hook kuralları, `onResolve` yolları (forceTimeout matrisi), pencere dinleyicilerinin temizlenmesi, ağır çekimin 1'e dönmesi, tek WebGL bağlamı, kayıt şeklinin değişmemesi.
+  - Bulgular:
+    - [önemli] pointercancel nişanı iptal etmek yerine şut atıyordu.
+    - [önemli] Kontra ve birebirde hareketsiz ya da acemi oyuncu topu neredeyse her seferinde kaptırıyordu (%1).
+    - [küçük] Ok rengi eşiği, korner süre dolması mesajı, fareyle nişanda oyuncunun kayması, `worldToScreen` kamera arkası, top–ballPos sapması (hızlı modda en çok 41 m), boş kadro, `mates` memo.
+  - Hepsi düzeltildi.
+- **Düzeltme sonrası testler (ana oturumda yeniden çalıştırıldı):**
+  - Babel 7.23.5 ve `node --check` ile 8 dosya OK.
+  - smoke5, kick, ssr5, audit5 ve audit5b geçti.
+  - pointercancel artık vuruş yapmıyor.
+  - Normal akışta top–ballPos sapması: normal hızda ortalama 2.4 m (en çok 8.3), hızlı modda ortalama 4.2 m (en çok 17.2).
+- **Denge (`bal5.js`, 300 an/hücre, beklenen başarı %):**
+
+| tip | 2D iyi | 2D rast | 3D iyi | makul | acemi | rastgele | hareketsiz |
+|---|---|---|---|---|---|---|---|
+| corner | 65.4 | 55.2 | 70.2 | 70.4 | 59.8 | 31.3 | 21.4 |
+| freekick | 67.8 | 55.9 | 72.2 | 65.1 | 54.9 | 27.8 | 23.2 |
+| counter | 67.7 | 56.2 | 63.9 | 64.1 | 50.6 | 26.1 | 19.1 |
+| penalty | 69.5 | 58.6 | 73.1 | 72.9 | 59.3 | 43.8 | 20.5 |
+| oneonone | 68.4 | 58.3 | 73.6 | 73.2 | 47.9 | 30.2 | 26.6 |
+| tackle | 71.9 | 58.4 | 72.4 | 66.1 | 54.8 | 31.1 | 23.3 |
+
+  - İyi oyun 2D'nin en iyisinden en çok +5.2 puan önde.
+  - Hareketsiz oyun her tipte rastgele oyunun altında.
+  - Birebirde acemi oyuncu 2D rastgelenin 10.4 puan gerisinde (hedef ≤10, sınırda).
+- **Açık kalanlar:** Gerçek tarayıcıda ve Android'de elle test yapılmadı. Bakılacaklar: koruma halkasının görünürlüğü, joystick ile pası iki parmakla birlikte kullanmak, ağır çekim ve okun görünümü, hızlı modda koşu hızları, FPS.

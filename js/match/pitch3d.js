@@ -19,9 +19,15 @@
 //   setFocusWorld(wx,wz)    → aynısı, dünya koordinatıyla (kare başına tahsis yok)
 //   getCameraMode()         → aktif kamera kimliği
 //   closeUp(wx,wz,sec)      → Yayın/Takip modunda kısa yakın plan (gol vb.)
-//   addFrameHook(fn)        → fn(dt,t) her karede çağrılır (t: duraklamada duran saat);
+//   addFrameHook(fn)        → fn(dt,t,realDt) her karede çağrılır (t: duraklamada duran saat);
 //                             dönen fonksiyon kaldırır. Duraklatma anında ve duraklıyken
 //                             yeniden boyutlanınca bir kez dt=0 ile de çağrılır.
+//                             dt ve t zaman ölçeğiyle (setTimeScale) çarpılır; realDt
+//                             gerçek süredir (kamera geçişleri her zaman gerçek zamanda).
+//   setTimeScale(s)         → kancalara giden zaman ölçeği (0.05–1; ağır çekim ≈ 0.2)
+//   getTimeScale()          → aktif zaman ölçeği
+//   screenToWorld(cx,cy,out)→ ekran → zemin düzlemi, DÜNYA {x,z} (out'a yazar) | null
+//   worldToScreen(wx,wy,wz,out) → dünya → ekran (client) {x,y} (out'a yazar) | null (kamera arkası)
 //   setCustomCamera(px,py,pz,lx,ly,lz,snap) → camera="custom" iken sabit poz (kilit an)
 //   renderOnce()            → döngü durmuşken tek kare çiz
 //   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
@@ -255,6 +261,7 @@ function createPitch3DScene(THREE,container,opts){
     const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
     const customCam={on:false,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
+    let timeScale=1, hookClock=0; // ağır çekim: kancalar ölçekli dt/saat alır
     // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
     // döngü sırasında kendini kaldıran kanca diziyi kaydırmaz.
     let hooks=[];
@@ -283,9 +290,10 @@ function createPitch3DScene(THREE,container,opts){
       if(first){camPos.copy(tPos);camLook.copy(tLook);first=false;}
       else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);}
       camera.position.copy(camPos); camera.lookAt(camLook);
-      const list=hooks;
+      const list=hooks, sdt=dt*timeScale;
+      hookClock+=sdt;
       for(let i=0;i<list.length;i++){
-        try{list[i](dt,clock);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}
+        try{list[i](sdt,hookClock,dt);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}
       }
       try{
         renderer.render(scene,camera);
@@ -354,6 +362,7 @@ function createPitch3DScene(THREE,container,opts){
 
     const raycaster=new THREE.Raycaster(), ndc=new THREE.Vector2();
     const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3();
+    const projV=new THREE.Vector3();
 
     const api={
       THREE,scene,camera,renderer,container,groups,
@@ -385,6 +394,27 @@ function createPitch3DScene(THREE,container,opts){
         if(!raycaster.ray.intersectPlane(groundPlane,hit)) return null;
         return worldToPitch3D(hit.x,hit.z);
       },
+      // Aynı ışın, dünya koordinatıyla (kilit an girdisi; out verilirse tahsis yok)
+      screenToWorld:(cx,cy,out)=>{
+        const r=canvas.getBoundingClientRect();
+        if(!r.width||!r.height) return null;
+        ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);
+        raycaster.setFromCamera(ndc,camera);
+        if(!raycaster.ray.intersectPlane(groundPlane,hit)) return null;
+        if(!Number.isFinite(hit.x)||!Number.isFinite(hit.z)) return null;
+        const o=out||{x:0,z:0}; o.x=hit.x; o.z=hit.z; return o;
+      },
+      worldToScreen:(wx,wy,wz,out)=>{
+        const r=canvas.getBoundingClientRect();
+        if(!r.width||!r.height) return null;
+        projV.set(wx,wy,wz).project(camera);
+        // Kamera arkası (z>1) ya da geçersiz: ekranda değil → null
+        if(!Number.isFinite(projV.x)||!Number.isFinite(projV.y)||projV.z>1) return null;
+        const o=out||{x:0,y:0};
+        o.x=r.left+(projV.x+1)/2*r.width; o.y=r.top+(1-projV.y)/2*r.height; return o;
+      },
+      setTimeScale:(v)=>{ timeScale=Number.isFinite(v)?Math.max(0.05,Math.min(1,v)):1; },
+      getTimeScale:()=>timeScale,
       isDisposed:()=>disposed,
     };
     cleanups.push(()=>{hooks=[];});

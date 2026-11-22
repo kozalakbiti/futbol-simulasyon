@@ -297,6 +297,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     if(!pl||!pl.n) return "";
     return pl.n.split(".")[1]||pl.n.split(" ")[0]||pl.n;
   }),[is3D,lineup,squad,playerDots.length]);
+  // 3D kilit an: sahadaki kadro (takım arkadaşı adları). Koşulsuz hook; yalnız kadro değişince yeniden hesaplanır
+  const moment3dMates=React.useMemo(()=>(lineup.length>0?lineup.map(i=>squad[i]):squad.slice(0,11)).filter(Boolean),[lineup,squad]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
   if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d};
@@ -665,6 +667,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
       {activeMoment&&(activeMoment.view3D?(
         <InteractiveMoment3D
           moment={activeMoment}
+          mates={moment3dMates}
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
