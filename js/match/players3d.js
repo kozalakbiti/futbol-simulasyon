@@ -17,6 +17,7 @@
 //   hareketten hesaplanır), setOwner(team,i) / setOwner(null), getOwner() → {team,i}|null,
 //   kickTo(wx,wz,lofted) → uçuş süresi (sn), kickBall(vx,vy,vz,curlX,curlZ),
 //   getBallVel(), isBallFree(), getPlayer(team,i), poseFx(team,i,"slide"|"fall",sec)
+//   ballR (top yarıçapı, m; kilit an fiziği aynı ölçeği kullanır)
 //   + Adım 6: actionFx(team,i,"kick"|"poke"|"celebrate",{side,power}),
 //   diveFx(team,i,wx,wz,height) (kaleci o noktaya doğru yana uçar)
 //   (team: "home" | "away") · opts.manual: otomatik oyun kapalı (kilit an sahnesi)
@@ -66,7 +67,7 @@ function createMatchActors3D(api,opts={}){
     goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;},
     drivePlayer(){},setOwner(){},getOwner(){return null;},kickTo(){return 0;},kickBall(){},
     getBallVel(){return null;},isBallFree(){return false;},getPlayer(){return null;},poseFx(){},
-    actionFx(){},diveFx(){}};
+    actionFx(){},diveFx(){},ballR:0.42};
   if(!api||!api.THREE||api.isDisposed()) return noop;
   const THREE=api.THREE, D=PITCH3D_DIM, L=D.halfLen, H=D.halfWid, GW=D.goalWidth/2;
   const COL=ACTORS3D_COLORS, PACE=ACTORS3D_PACE, BR=0.42; // top yarıçapı (görünürlük için büyütülmüş)
@@ -496,16 +497,14 @@ function createMatchActors3D(api,opts={}){
     }
     if(clk>=own.decide&&!pk.on){ own.dribble=false; decide(o); if(pk.on){ o.ox=o.pos.x; o.oz=o.pos.z; o.cap=1.2; return; } }
     if(own.dribble){
-      const ux0=own.px-bpos.x, uz0=own.pz-bpos.z, ul=Math.hypot(ux0,uz0)||1, ux=ux0/ul, uz=uz0/ul;
-      const db=Math.hypot(bpos.x-o.pos.x,bpos.z-o.pos.z);
-      // Dokunuş: top ayağa ≤1.1 m iken hıza göre öne itilir (yavaşken kısa, koşarken uzun)
-      if(db<1.1&&clk>=own.touchT&&bpos.y<0.3){
-        const v=clamp(o.speed,1.2,PACE.dribble*tp)+1.5+Math.random()*0.5;
-        bvel.set(ux*v,0,uz*v); own.touchT=clk+0.28;
+      // Top ayağa kilitli (updateBall): oyuncu hedefe koşar, top her karede ayağının önünde
+      const ux0=own.px-o.pos.x, uz0=own.pz-o.pos.z, ul=Math.hypot(ux0,uz0)||1, ux=ux0/ul, uz=uz0/ul;
+      o.ox=o.pos.x+ux*3; o.oz=o.pos.z+uz*3; o.cap=PACE.dribble*tp;
+      // Görsel dokunuş animasyonu (top konumu değişmez; kilit updateBall'da)
+      if(clk>=own.touchT&&o.speed>1){
+        own.touchT=clk+0.32;
         if(Math.random()<0.55) rigAction3D(o.rig,"kick",{power:0.3,t0:0.38,dur:0.32,side:(o.idx%2)?1:-1});
       }
-      o.ox=bpos.x+ux*0.45; o.oz=bpos.z+uz*0.45; o.cap=PACE.dribble*tp;
-      if(db>5){ own.team=null; freeBall=true; return; } // kontrol kaybı: sahipsiz top
       if(ul<2) own.decide=Math.min(own.decide,clk);
     } else {
       // Topu ayakta tut, hafif koruma hareketi
@@ -1031,19 +1030,17 @@ function createMatchActors3D(api,opts={}){
         if(!fl.on) nextLeg();
       }
     } else if(legs.length) nextLeg();
-    else if(o&&o.g.visible&&!manual&&own.dribble&&!pk.on){
-      // Normal akışta top sürme: top dokunuşlar arasında serbest yuvarlanır (ownerLogic iter)
-      integrateBall(dt);
-    } else if(o&&o.g.visible){
-      // Ayakta tutma (kilit an + pas öncesi): top ayağın önünde; adım fazıyla küçük dokunuşlar.
-      // Hedef nokta yön (yaw) ile döner; top ona yumuşakça uyar → sert dönüşte bir an geride kalır.
+    else if(o&&o.g.visible){
+      // TOP AYAĞA KİLİTLİ (normal akış, top sürme, kilit an, pas öncesi): pas/şut dışında top
+      // serbest kaymaz; konum her karede doğrudan hesaplanır:
+      //   top = oyuncu + ileri(yaw)·(ayak önü + sürme dokunuşu) , y = küçük sekme
+      // Dokunuş fazı koşu adımından (rig.phase): itişte top biraz öne açılır ve hafif seker.
       const run=Math.min(1,o.speed/3);
       const k=(((o.rig.phase%TAU)+TAU)%TAU)/TAU;
       const touch=k<0.15?k/0.15:1-(k-0.15)/0.85;
       const off=0.8+0.45*run*touch;
-      const fx=o.pos.x+Math.sin(o.yaw)*off, fz=o.pos.z+Math.cos(o.yaw)*off;
-      const kb=1-Math.exp(-dt*12);
-      bpos.x+=(fx-bpos.x)*kb; bpos.z+=(fz-bpos.z)*kb; bpos.y+=(0-bpos.y)*Math.min(1,kb*2);
+      bpos.x=o.pos.x+Math.sin(o.yaw)*off; bpos.z=o.pos.z+Math.cos(o.yaw)*off;
+      bpos.y=0.1*run*4*touch*(1-touch);
       if(dt>0){ bvel.x=(bpos.x-px)/dt; bvel.z=(bpos.z-pz)/dt; bvel.y=0; }
     } else if(freeBall) integrateBall(dt);
     ball.position.set(bpos.x,BR+bpos.y,bpos.z);
@@ -1115,5 +1112,5 @@ function createMatchActors3D(api,opts={}){
   return {update,triggerEvent,resetKickoff,dispose,
     movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall,
     drivePlayer,setOwner,getOwner,kickTo,kickBall,getBallVel:()=>bvel,isBallFree:()=>freeBall,
-    getPlayer,poseFx,actionFx,diveFx};
+    getPlayer,poseFx,actionFx,diveFx,ballR:BR};
 }
