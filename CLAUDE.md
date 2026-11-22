@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running
 
-The page **must be served over HTTP**. Run `python -m http.server 8000` in the repo folder and open http://localhost:8000, or on Windows double-click `baslat.bat`, which does the same. Opening `index.html` by double-click (`file://`) does **not** work, because Babel loads the `js/` files with XHR, which browsers block on `file://`. In that case the page shows a Turkish notice instead of the game. Capacitor serves from `http(s)://localhost` (Android) or `capacitor://localhost` (iOS), so the app is not affected, but its `webDir` must include `css/` and `js/`. `baslat.bat` binds the server to `127.0.0.1` only.
+The page **must be served over HTTP**. Run `node sunucu.js` in the repo folder (a tiny dependency-free static server on Node's built-in `http` module; optional port argument, default 8000) and open http://127.0.0.1:8000, or on Windows double-click `baslat.bat`, which does the same and opens the browser. `python -m http.server 8000` also works where Python is installed. Opening `index.html` by double-click (`file://`) does **not** work, because Babel loads the `js/` files with XHR, which browsers block on `file://`. In that case the page shows a Turkish notice instead of the game. Capacitor serves from `http(s)://localhost` (Android) or `capacitor://localhost` (iOS), so the app is not affected, but its `webDir` must include `css/` and `js/`. `sunucu.js` (and so `baslat.bat`) binds the server to `127.0.0.1` only.
 
 The page loads React 18.2, ReactDOM and `@babel/standalone` 7.23.5 from cdnjs. Babel transpiles the JSX **in the browser at load time**. So there is no compile step, and syntax errors only show up in the browser console when the page runs. Babel names the failing file in the error. The game also targets an Android Capacitor WebView: portrait lock, StatusBar hide and safe-area insets. Those hooks all check `window.Capacitor` first, so they do nothing in a normal browser.
 
@@ -37,7 +37,8 @@ Grouped by folder. This is **not** the exact load order: `index.html` is the sou
 | `js/match/moments.js` | `planMoments`, `InteractiveMoment` |
 | `js/ui/primitives.js` | Shared UI bits: `PosTag`, `STitle`, `Chip`, `Btn`, `Modal`, `StatBar` |
 | `js/match/halftime.js` | `HalftimeSpeech` |
-| `js/match/overlay.js` | `SPEED_CONFIGS`, `MatchOverlay` (live match UI) |
+| `js/match/three3d.js` … `hud3d.js` | 3D match view (Three.js r128, lazy-loaded from cdnjs; see `PLAN-3D.md`): `three3d` (`loadThreeJs`, coordinates, `mergeGeos3D`, `disposeObject3D`), `rig3d` (articulated low-poly player + animations), `stadium3d` (stands, instanced crowd, floodlights, ad boards, benches), `pitch3d` (`Pitch3D`, cameras), `players3d` (`createMatchActors3D`: players, ball physics, play director, event FX), `moment3d` (`InteractiveMoment3D`), `hud3d` (`Scoreboard3D`) |
+| `js/match/overlay.js` | `SPEED_CONFIGS`, `MATCH3D_TEMPO`, `MatchOverlay` (live match UI) |
 | `js/ui/player-modal.js` | `PlayerModal`, `calcTeamGrades`, `NEAREST_POS` |
 | `js/data/traits.js` | `PLAYER_TRAITS`, `assignTraits`, `calcTraitBonus` |
 | `js/pages/*.js` | Manager-mode pages, one per file: `home` (PageHome), `kadro`, `fikstur` (+ `MatchDetailModal`), `formasyon` (PageFormasyonTaktik), `transfer` (+ `OfferPage`, `calcAcceptProb`, value calcs), `yetenek` (youth), `antrenman`, `istatistik` (+ `EuroSimWidget`), `haberler`, `finans`, `takim-adi`, `basin` (+ `PostMatchBasinModal`), `iliskiler`, `itibar`, `takimlar`, `kaydet`, `diger` |

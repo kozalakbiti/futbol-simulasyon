@@ -217,3 +217,40 @@ Bilinen sınırlamalar:
   - Hareketsiz oyun her tipte rastgele oyunun altında.
   - Birebirde acemi oyuncu 2D rastgelenin 10.4 puan gerisinde (hedef ≤10, sınırda).
 - **Açık kalanlar:** Gerçek tarayıcıda ve Android'de elle test yapılmadı. Bakılacaklar: koruma halkasının görünürlüğü, joystick ile pası iki parmakla birlikte kullanmak, ağır çekim ve okun görünümü, hızlı modda koşu hızları, FPS.
+
+### 6. Görsel ve oynanış güncellemesi — ✅ tamamlandı (gerçek cihaz testi bekliyor)
+- [x] Eklemli low-poly oyuncu modeli (baş + saç, boyun, forma, şort, iki kol, dizli iki bacak, krampon) ve dinamik yer gölgesi
+- [x] Animasyonlar: hıza orantılı koşu, duruşta nefes/bekleme salınımı, pas/şutta vuruş, müdahalede ayak uzatma, kalecide yana uçma, kayma, düşme, gol sevinci
+- [x] Dolu tribünler (InstancedMesh taraftarlar, ev sahibi ağırlıklı formalar), gol ve kritik pozisyonlarda ayağa kalkma/zıplama, projektörler, LED reklam panoları, yedek kulübeleri
+- [x] Tempo %40 yavaş; kısa üçgen paslar, kanatlara açılma, dokunuşlu top sürme, parabolik uzun toplar, normal akışta baskı
+- [x] Kilit anlarda kademeli savunma baskısı (sprint → jokey → hamle), açı kapatan ikinci savunmacı, ayak uzatma; ani yön değiştirme ve boş koşuya ara pası baskıyı kırar
+
+### Adım 6 — Görsel ve oynanış güncellemesi ✅
+- **Yeni `js/match/rig3d.js`:** `createRigKit3D` (`build`/`setKit`/`dispose`), `animateRig3D`, `rigAction3D`, `rigBusy3D`, `RIG3D_HIP`, `RIG3D_ACT_DUR`.
+  - Oyuncu başına 8 mesh, hepsi tek paylaşılan Lambert malzeme (renkler vertex renginde). Forma, ten, saç ve krampon çeşitleri geometri önbelleğinden gelir.
+  - Eylemler: `kick` (gerilme → vuruş → takip), `poke`, `dive` (çömelme → uçuş → yerde → kalkış), `slide`, `fall`, `celebrate`.
+- **Yeni `js/match/stadium3d.js`:** `buildStadium3D` → `{group, update, crowd:{setSupport, excite}}`.
+  - Uzak uzun tribün + iki kale arkası (basamaklar, arka duvar, çatı tek birleşik mesh). Yakın taraf yayın kamerası için açık.
+  - ~4.000 taraftar 3 InstancedMesh ile (gövde, baş, kol). Oturma/kalkma/zıplama vertex shader'da (`onBeforeCompile`); kare başına yalnızca 4 uniform yazılır.
+  - 4 projektör kulesi (lamba yüzü + toplamsal parıltı), kayan LED panolar (uydurma markalar), iki yedek kulübesi (oturanlar da golde kalkar).
+  - `setSupport(pay)`: overlay ev maçında 0.74, deplasmanda 0.3 verir. Taraftarlar 7×3 koltuk bloklarında kümelenir.
+- **`three3d.js`:** `mergeGeos3D` (renkli geometri birleştirme), `disposeObject3D` InstancedMesh tamponlarını da bırakır.
+- **`pitch3d.js`:** eski düz tribün/panolar kaldırıldı; stadyum sahneye eklenir, `api.crowd` açılır, kare döngüsünde `stadium.update`.
+- **`players3d.js` (yeniden yazıldı, API aynı + `actionFx`, `diveFx`):**
+  - Gölgeler tek InstancedMesh (güneş yönünde uzar, dalışta gövdeyi izler).
+  - **Oyun yönetmeni (normal akış):** 2D ballPos doğrudan izlenmez, yumuşatılmış "çapa" olur. Topa sahip oyuncu puanlamayla karar verir: kısa (8–20 m) pas tercih, ileri pas, boştaki arkadaş, kanat değiştirme, çapaya yakınlık; ya da boş alana dokunuşlu top sürme. >27 m ya da önü kapalı pas parabolik uçar.
+  - Pas önce vuruş animasyonuyla gerilir, top ~0.2 sn sonra çıkar. En yakın 2 arkadaş üçgen kurar, kanatlar topa sahipken açılır, forvetler ileri koşar.
+  - Rakipte en yakın oyuncu kale tarafından baskı yapar (≤1.5 m'de ayak uzatır, %50 kapar), ikincisi açıyı kapatır. Pas yoluna giren rakip %45 keser.
+  - Top çapadan ≥26 m kopup 1.5 sn kalırsa o bölgeye uzun top atılır.
+  - Olaylar: şut anında vuran oyuncu vuruş animasyonu, kaleci dalışı, golde sevinç; tribün coşkusu (gol 1.0, şut/kurtarış 0.5–0.7, korner 0.4, ceza sahası baskısı 0.32).
+  - **Tempo:** koşu 14→8.4, sürme 8–9.5→4.7, pas varış hızı 6→4.8, sürtünme 3.2→2.6 m/sn², senaryo süreleri ×1/0.6. Kilit an (manual) top fiziği eski değerlerde kaldı (denge ölçümü buna göre).
+- **`overlay.js`:** `MATCH3D_TEMPO=0.6`, 3D görünümde maç saati %40 yavaş (tick 280 → 467 ms). Görünüm maç sırasında değişirse interval yeniden kurulur. 2D akış aynı.
+- **`moment3d.js`:**
+  - Baskı yapan savunmacı (topa en yakın kale tarafındaki): >6 m sprint (ivme 6.5) → ≤6 m jokey (kale tarafında ~2 m, geri/yan adım, yanal hız ×0.6) → `MOMENT3D_JOCKEY_SEC` (0.9 sn) jokeyden sonra ya da top süren yavaşlayınca 0.8 sn hamle → boşa giderse 0.6 sn toparlanma. ≤1.7 m'de ayak uzatma animasyonu.
+  - Kapma oranı çarpanları: jokey 0.1, hamle 0.7, açı kapatan 0.4 (`MOMENT3D_*_TACKLE`).
+  - İkinci savunmacı top–kale çizgisinde ~6.5 m önde, sürüş yönüne kayar.
+  - Boş koşu: ~2.8 sn'de bir takım arkadaşı savunma hattının arkasına çapraz koşar, hedefi soluk beyaz halkayla gösterilir (ara pas). İpucu metni güncellendi.
+  - Kaleci dalışları `diveFx` ile (gol: geç kalır, kurtarış: uzak köşeye uçar; gövde kayması hesaba katılır).
+- **Ölçümler (başsız, `flow.js`):** normal akışta top hızı ortalaması 16.4 → 8.1 m/sn, en yüksek oyuncu hızı 14 → 8.5 m/sn, NaN yok, kare başına kanca ~0.05 ms, dispose sonrası kanca 0.
+- **Denge (`bal5.js`, 200 an/hücre):** iyi oyun 2D'nin en iyisine göre −0.7…+5.4; acemi/rastgele/hareketsiz Adım 5 ile aynı aralıkta. Kontrada kaleye düz süren "makul" bot −3.7 → −14 (bilinçli: kale tarafındaki baskı düz sürmeyi cezalandırır). Tablo `moment3d.js` başında.
+- **Gerçek WebGL kontrolü (başsız Edge, SwiftShader):** shader derleme hatası yok. Yayın kamerası ~250 çizim çağrısı, ~190 bin üçgen (taraftarlar ~150 bin).

@@ -7,6 +7,10 @@ const SPEED_CONFIGS={
   normal:{ms:280, dpt:1, flash:4500, label:"▶ Normal"},
   fast:  {ms:45,  dpt:3, flash:1800, label:"⚡ Hızlı"},
 };
+// 3D görünümde maç saati %40 yavaş akar (gerçekçi tempo; 2D akış aynı kalır).
+// Tick aralığı = ms / MATCH3D_TEMPO. Görünüm maç sırasında değişirse interval yeniden kurulur.
+const MATCH3D_TEMPO=0.6;
+function matchTickMs(cfg,is3D){ return is3D?Math.round(cfg.ms/MATCH3D_TEMPO):cfg.ms; }
 
 function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup=[],onFinish,clubName="Club Manager: Glory Road",formation="4-4-2"}){
   const [minute,setMinute]=useState(0);
@@ -317,9 +321,10 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
     const runInterval=()=>{
       const cfg=SPEED_CONFIGS[speedRef.current]||SPEED_CONFIGS.normal;
-      ivRef.current=setInterval(()=>{        // Hız değiştiyse interval'i yeniden başlat
+      const tickMs=matchTickMs(cfg,viewModeRef.current==="3d");
+      ivRef.current=setInterval(()=>{        // Hız ya da 2D/3D görünüm değiştiyse interval'i yeniden başlat
         const curCfg=SPEED_CONFIGS[speedRef.current]||SPEED_CONFIGS.normal;
-        if(curCfg.ms!==cfg.ms){
+        if(matchTickMs(curCfg,viewModeRef.current==="3d")!==tickMs){
           clearInterval(ivRef.current);
           runInterval();
           return;
@@ -604,7 +609,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           setTimeout(()=>playFinalWhistle(),120);
         }
         else setMinute(m);
-      },cfg.ms);
+      },tickMs);
     };
 
     runIntervalRef.current=runInterval;
@@ -668,6 +673,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         <InteractiveMoment3D
           moment={activeMoment}
           mates={moment3dMates}
+          homeShare={fixture.home?0.74:0.3}
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
@@ -879,6 +885,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                 onReady={api=>{
                   pitch3dApiRef.current=api;
                   api.setFocus(ballPos[0],ballPos[1]);
+                  // Tribün: ev sahibinin taraftarı çoğunlukta (bizim payımız)
+                  if(api.crowd) api.crowd.setSupport(fixture.home?0.74:0.3);
                   // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
                   try{ createMatchActors3D(api,{getSnapshot:()=>live3dRef.current}); }
                   catch(e){ console.error("[3D] oyuncular kurulamadı",e); }

@@ -12,6 +12,7 @@
 //   THREE, scene, camera, renderer, container
 //   groups:{pitch, players, ball, fx}  → Adım 2+ nesnelerini buraya ekle
 //                                         (players/ball/fx boş gelir)
+//   crowd:{setSupport(pay), excite(team,level,sec)} → tribün (stadium3d.js)
 //   toWorld(x,y,h=0,out?)   → 0–100 saha yüzdesi → dünya {x,y,z} / Vector3
 //   toPitch(wx,wz)          → dünya → 0–100 saha yüzdesi
 //   setFocus(x,y)           → 0–100; "Takip" kamerası bu noktayı yumuşakça izler
@@ -187,27 +188,7 @@ function buildPitch3DMeshes(THREE){
     g.add(goal);
   });
 
-  // Reklam panoları + basit tribün basamakları
-  const boardMat=new THREE.MeshLambertMaterial({color:0x1d3557});
-  const boardMat2=new THREE.MeshLambertMaterial({color:0x14243b});
-  const standMats=[0x26323f,0x1f2a35,0x2b3846,0x222d39].map(c=>new THREE.MeshLambertMaterial({color:c}));
-  const box=(w,h,d,x,y,z,mat)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);g.add(m);};
-  const bOff=4.5, bh2=0.9;
-  box(PITCH3D_LEN+2*bOff,bh2,0.2,0,bh2/2,-(H+bOff),boardMat);   // uzak taç tarafı pano
-  box(PITCH3D_LEN+2*bOff,bh2,0.2,0,bh2/2,H+bOff,boardMat2);     // yakın taç tarafı pano (alçak)
-  [-1,1].forEach(s=>box(0.2,bh2,PITCH3D_WID+2*bOff,s*(L+bOff+1.5),bh2/2,0,boardMat));
-  // Uzak uzun tribün (yakın taraf kamera görüşünü kapatmasın diye yok)
-  for(let i=0;i<5;i++){
-    const d=3, h=1.4*(i+1);
-    box(PITCH3D_LEN+24,h,d,0,h/2,-(H+8+i*d+d/2),standMats[i%4]);
-  }
-  // Kale arkası tribünleri (alçak, kale kamerasının arkasında başlar)
-  [-1,1].forEach(s=>{
-    for(let i=0;i<4;i++){
-      const d=3, h=1.2*(i+1);
-      box(d,h,PITCH3D_WID+16,s*(66+i*d+d/2),h/2,0,standMats[(i+1)%4]);
-    }
-  });
+  // Tribünler, taraftarlar, panolar, projektörler, kulübeler: stadium3d.js (createPitch3DScene ekler)
   return g;
 }
 
@@ -251,6 +232,9 @@ function createPitch3DScene(THREE,container,opts){
 
     const groups={pitch:buildPitch3DMeshes(THREE),players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
+    // Stadyum (tribün + taraftar + projektör + pano + kulübe); sahne ile birlikte temizlenir
+    const stadium=buildStadium3D(THREE);
+    groups.pitch.add(stadium.group);
 
     // Odak + kamera durumu
     const focusTarget={x:0,z:0}, focus={x:0,z:0};
@@ -292,6 +276,7 @@ function createPitch3DScene(THREE,container,opts){
       camera.position.copy(camPos); camera.lookAt(camLook);
       const list=hooks, sdt=dt*timeScale;
       hookClock+=sdt;
+      stadium.update(sdt); // taraftar animasyonu (yalnızca uniform; ağır çekimde yavaşlar)
       for(let i=0;i<list.length;i++){
         try{list[i](sdt,hookClock,dt);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}
       }
@@ -366,6 +351,7 @@ function createPitch3DScene(THREE,container,opts){
 
     const api={
       THREE,scene,camera,renderer,container,groups,
+      crowd:stadium.crowd, // setSupport(pay), excite(team,level,sec) — bkz. stadium3d.js
       toWorld:(x,y,h=0,out)=>pitchToWorld3D(x,y,h,out),
       toPitch:(wx,wz)=>worldToPitch3D(wx,wz),
       setFocus:(x,y)=>{const w=pitchToWorld3D(x,y);focusTarget.x=w.x;focusTarget.z=w.z;},

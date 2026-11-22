@@ -42,6 +42,14 @@ const MOMENT3D_SLOWMO=0.2;         // geri çekerken zaman ölçeği
 const MOMENT3D_TACKLE_RATE=0.5;
 // Topu yeni alan oyuncunun (kilit an başı / pas sonrası) korunma süresi (sn, kontrol halkası parlar)
 const MOMENT3D_GUARD_SEC=2.2;
+// Baskı yapan savunmacının hamle etmeden önce jokey yaptığı süre (sn, ≤4 m'de)
+const MOMENT3D_JOCKEY_SEC=0.9;
+// Jokey duruşundaki savunmacının kapma oranı çarpanı (hamle edince 1)
+const MOMENT3D_JOCKEY_TACKLE=0.1;
+// Hamle eden (kale tarafından gelen, önden) savunmacının kapma oranı çarpanı
+const MOMENT3D_COMMIT_TACKLE=0.7;
+// Açı kapatan ikinci savunmacının kapma oranı çarpanı (pozisyon tutar, hamle etmez)
+const MOMENT3D_COVER_TACKLE=0.4;
 // Kapma anında oyuncunun yine de aceleci "son an vuruşu" yapabilme olasılığı
 // (hareketsiz/acemi oyuncu sıfıra düşmesin; terim en çok 0, güç 20 = tatlı bölge dışı)
 const MOMENT3D_LAST_SHOT=0.65;
@@ -57,15 +65,18 @@ const MOMENT3D_PASS_CUT=0.45;
 //   sürer, açık arkadaşa pas, en iyi açı/köşe + yeşil güç), makul (kaleye düz sürer,
 //   basit yana kaçış, 20 m'de uzak köşe + yeşil güç), acemi (gürültülü yön, rastgele
 //   an/güç/nişan), rastgele (rastgele hareket ve eylem), hareketsiz (hiçbir şey yapmaz).
+//   Adım 6 ölçümü (200 an/hücre; akıllı baskı: jokey → hamle, açı kapatan ikinci savunmacı):
 //   tip       2D iyi 2D rast. | 3D iyi  makul  acemi  rastgele hareketsiz | iyi−2D iyi
-//   corner     65.4   55.2    |  70.2   70.4   59.8   31.3     21.4      |  +4.8
-//   freekick   67.8   55.9    |  72.2   65.1   54.9   27.8     23.2      |  +4.4
-//   counter    67.7   56.2    |  63.9   64.1   50.6   26.1     19.1      |  −3.8
-//   penalty    69.5   58.6    |  73.1   72.9   59.3   43.8     20.5      |  +3.6
-//   oneonone   68.4   58.3    |  73.6   73.2   47.9   30.2     26.6      |  +5.2
-//   tackle     71.9   58.4    |  72.4   66.1   54.8   31.1     23.3      |  +0.5
-//   → iyi oyun 2D'nin en iyisinden en fazla ~+5 puan önde; makul oyun ≈ 2D (−5.8…+5.0);
-//     acemi 2D rastgeleden en fazla ~10 puan geride; hareketsiz kalmak (süre dolması)
+//   corner     65.8   55.5    |  70.6   70.2   60.8   31.7     21.4      |  +4.8
+//   freekick   66.6   56.3    |  72.0   65.5   54.4   25.3     22.8      |  +5.3
+//   counter    67.6   56.2    |  66.9   53.8   49.3   24.8     19.6      |  −0.7
+//   penalty    70.0   58.9    |  72.9   73.0   59.8   42.2     20.2      |  +2.8
+//   oneonone   68.1   58.7    |  73.6   73.0   46.6   31.5     22.6      |  +5.4
+//   tackle     71.6   59.2    |  72.3   65.4   55.4   31.3     23.3      |  +0.8
+//   → iyi oyun 2D'nin en iyisinden en fazla ~+5 puan önde; makul oyun ≈ 2D (−6…+5),
+//     YALNIZ kontrada kaleye düz süren makul bot −14 (Adım 5: −3.7): kale tarafındaki
+//     baskı düz sürmeyi bilerek cezalandırır; yön değiştiren/pas veren iyi bot −0.7.
+//     Acemi 2D rastgeleden en fazla ~12 puan geride; hareketsiz kalmak (süre dolması)
 //     her tipte rastgele oynamanın altında kalır (ödüllenmez, ama sıfır da değildir).
 const MOMENT3D_TERM_MAX=0.05, MOMENT3D_TERM_MIN=-0.12;
 // Süre doldu: en kötü geçerli eylemden de kötü (rastgele oynamanın ortalamasının altında kalır)
@@ -331,6 +342,9 @@ function createMoment3DController(api,cfg){
   const landRing=new THREE.Mesh(markRingGeo,landMat); landRing.position.y=0.08; landRing.visible=false; landRing.renderOrder=4; group.add(landRing);
   const markGeo=G(new THREE.SphereGeometry(0.32,10,8));
   const goalMark=new THREE.Mesh(markGeo,landMat); goalMark.visible=false; goalMark.renderOrder=4; group.add(goalMark);
+  // Boş koşu hedefi (ara pas): soluk beyaz halka
+  const runMat=basic(0xffffff,0.35);
+  const runMark=new THREE.Mesh(markRingGeo,runMat); runMark.position.y=0.08; runMark.visible=false; runMark.renderOrder=3; group.add(runMark);
   // Ok: sabit segment sayılı şerit (vertex güncellenir) + uç üçgeni
   const AR_N=24;
   const arPos=new Float32Array(AR_N*2*3);
@@ -401,8 +415,8 @@ function createMoment3DController(api,cfg){
       :"Ok tuşları/fare ile koş · Rakibe tıkla: kayarak müdahale · Yakında uzun bas: faul · Savunmacından geri çek: blok";
     if(isPen) return "Topa basılı tut, geri çek ve bırak: şut (ok yönü = vuruş yönü)";
     if(phase==="set") return "Dokun: kısa pas · Topa basılı tut + geri çek: orta / şut";
-    return touchUi?"Sol alttaki çubukla top sür · Dokun: pas · Topa basılı tut + geri çek: şut/orta"
-      :"Ok tuşları/WASD ya da fare ile top sür · Tıkla: pas · Topa basılı tut + geri çek: şut/orta";
+    return touchUi?"Çubukla top sür, ani yön değiştir · Beyaz halkaya dokun: ara pas · Topa basılı tut + geri çek: şut/orta"
+      :"Ok tuşları/WASD ya da fare ile top sür, ani yön değiştir · Beyaz halkaya tıkla: ara pas · Topa basılı tut + geri çek: şut/orta";
   };
   const hud=()=>{
     const h={phase,hint:flashT>0?flashMsg:hintFor(),passes,maxPasses:MOMENT3D_MAX_PASSES,
@@ -460,6 +474,18 @@ function createMoment3DController(api,cfg){
         const na=cur+da; a.vx=Math.cos(na)*ns; a.vz=Math.sin(na)*ns;
       }
     }
+    a.x=clamp(a.x+a.vx*dt,-L-3,L+3); a.z=clamp(a.z+a.vz*dt,-H-2,H+2);
+  };
+  // Jokey adımı (yön sınırı yok: geri/yan adım). (gx,gz): kale yönü. Kaleye doğru geri
+  // çekilme tam hızda, yanal adım VMAX·0.6 ile sınırlı, ivme 6 m/sn² → ani kesiş geçer.
+  const shuffle=(a,tx,tz,vmax,gx,gz,dt)=>{
+    let ex=tx-a.x, ez=tz-a.z; const el=Math.hypot(ex,ez);
+    const want=Math.min(vmax,el*3.2);
+    let wx=el>1e-4?ex/el*want:0, wz=el>1e-4?ez/el*want:0;
+    const along=wx*gx+wz*gz, lx=wx-along*gx, lz=wz-along*gz, ll=Math.hypot(lx,lz), lmax=vmax*0.6;
+    if(ll>lmax){ const k=lmax/ll; wx=along*gx+lx*k; wz=along*gz+lz*k; }
+    const dvx=wx-a.vx, dvz=wz-a.vz, dl=Math.hypot(dvx,dvz), mx=6*dt;
+    if(dl>mx){ a.vx+=dvx/dl*mx; a.vz+=dvz/dl*mx; } else { a.vx=wx; a.vz=wz; }
     a.x=clamp(a.x+a.vx*dt,-L-3,L+3); a.z=clamp(a.z+a.vz*dt,-H-2,H+2);
   };
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -591,7 +617,8 @@ function createMoment3DController(api,cfg){
     const run=(ex,ez,ey,arc,fn)=>actors.playBallScript(bezLegs(fromX,fromZ,ax,az,ex,ez,high?1.2:0.25,ey,arc,speed,8,fn),0);
     if(kind==="goal"){
       const ez=clamp(zHit,-(GW-0.45),GW-0.45), ey=high?clamp(1.4+power*0.006,1.4,2.1):clamp(0.35+power*0.014,0.3,2.0);
-      if(gk){ override(gk,L-0.8,clamp(ez*0.25-sgn(ez)*0.9,-GW,GW),7); actors.poseFx("away",gk.idx,"fall",1.6); }
+      // Kaleci geç kalır: topun tarafına uçar ama yetişemez
+      if(gk){ override(gk,L-0.8,clamp(ez*0.25-sgn(ez)*0.9,-GW,GW),7); actors.diveFx("away",gk.idx,L,ez,ey); }
       run(L+0.3,ez,ey,high?0.4:0.15,()=>{
         actors.playBallScript([
           {x:L+1.4,z:ez,y:ey*0.7,h:0,dur:0.12,fn:()=>actors.goalFx(1,ez,"home")},
@@ -600,7 +627,12 @@ function createMoment3DController(api,cfg){
       });
     } else if(kind==="save"){
       const ez=clamp(zHit,-(GW-0.4),GW-0.4);
-      if(gk){ override(gk,Math.min(gx,L-0.9),ez,9); if(Math.abs(ez-gk.z)>1.2) actors.poseFx("away",gk.idx,"fall",1.4); }
+      // Uzak köşe: kaleci yana uçar (gövde ~2 m yana kayar → hedef o kadar beride)
+      if(gk){
+        const far=Math.abs(ez-gk.z)>1.2;
+        override(gk,Math.min(gx,L-0.9),far?ez-sgn(ez-gk.z)*Math.min(1.9,Math.abs(ez-gk.z)*0.8):ez,9);
+        if(far) actors.diveFx("away",gk.idx,L,ez,high?2.0:1.1);
+      }
       run(L-0.9,ez,high?2.0:1.1,0.3,()=>{
         actors.ringFx(L-0.9,ez,0xffffff,0.6,3);
         actors.playBallScript([{x:L+1.5,z:sgn(ez)*(GW+3),y:0.3,h:1.6,dur:0.5,fn:()=>finishSoon(0.9)}],0);
@@ -818,13 +850,17 @@ function createMoment3DController(api,cfg){
     const gz=sgn(Math.random()-0.5)*GW*(0.3+Math.random()*0.4);
     const d=Math.hypot(-L-fromX,gz-fromZ), dur=clamp(d/26,0.3,0.8);
     if(conceded){
-      if(myGk){ override(myGk,-(L-0.9),-gz*0.5,6); actors.poseFx("home",myGk.idx,"fall",1.4); }
+      if(myGk){ override(myGk,-(L-0.9),-gz*0.5,6); actors.diveFx("home",myGk.idx,-L,gz,1.0); }
       actors.playBallScript([
         {x:-(L+1.0),z:gz,y:1.0,h:0.4,dur,fn:()=>actors.goalFx(-1,gz,"away")},
         {x:-(L+1.6),z:gz,y:0,h:0.1,dur:0.25,fn:()=>finishSoon(1.3)},
       ],0);
     } else {
-      if(myGk) override(myGk,-(L-0.9),gz,9);
+      if(myGk){
+        const far=Math.abs(gz-myGk.z)>1.2;
+        override(myGk,-(L-0.9),far?gz-sgn(gz-myGk.z)*Math.min(1.9,Math.abs(gz-myGk.z)*0.8):gz,9);
+        if(far) actors.diveFx("home",myGk.idx,-L,gz,1.0);
+      }
       actors.playBallScript([
         {x:-(L-0.9),z:gz,y:1.0,h:0.4,dur:dur+0.05,fn:()=>actors.ringFx(-(L-0.9),gz,0xffffff,0.6,3)},
         {x:-(L+1.5),z:sgn(gz)*(GW+3),y:0.3,h:1.6,dur:0.5,fn:()=>finishSoon(0.9)},
@@ -948,7 +984,14 @@ function createMoment3DController(api,cfg){
   const forceTimeout=()=>{ if(!outcome){ if(phase==="intro"||phase==="pass"){ phase=setPiece&&!passes?"set":"play"; } autoAction(); } };
 
   // ── AI ──
-  let markT=0, attSide=0, attSwitchT=0;
+  // Baskı (Adım 6): topa en yakın KALE TARAFINDAKİ savunmacı (p1) kademeli yaklaşır:
+  //   >6 m sprint (sınırlı ivme, ışınlanma yok) → ≤6 m jokey (kale tarafında ~2 m; topu sürenin hızına
+  //   +1.6 m/sn ile kapanır, kale tarafında kalır) → ≤2.2 m müdahale (topa gider,
+  //   ≤1.7 m'de ayak uzatır; kapma olasılığı tackleCheck'te, eskisiyle aynı).
+  //   İkinci savunmacı (p2) top–kale çizgisinde ~6.5 m önde, sürüş yönüne kayarak
+  //   şut/pas açısını kapatır. Sınırlı dönüş hızı (omega) yüzünden ani yön
+  //   değiştirme ve takım arkadaşının boş koşu yoluna atılan ara pası baskıyı kırar.
+  let markT=0, attSide=0, attSwitchT=0, runIdx=-1, runT=0, runX=0, runZ=0;
   const assignMarks=()=>{
     for(let i=0;i<home.length;i++) home[i].marked=false;
     for(let i=0;i<away.length;i++){
@@ -964,30 +1007,55 @@ function createMoment3DController(api,cfg){
   const stepAttackAI=(dt)=>{
     const c=ctlA();
     markT-=dt; if(markT<=0){ assignMarks(); markT=0.6; }
-    // Baskı: topa en yakın savunmacı (kontra/birebir'de ikinci de yakınsa)
+    // Baskı: topa en yakın kale tarafındaki savunmacı (yoksa en yakın) + açı kapatan ikinci
     let p1=null, p2=null, d1=1e9, d2=1e9;
+    const gdx=L-B.x, gdz=-B.z, gdl=Math.hypot(gdx,gdz)||1, gux=gdx/gdl, guz=gdz/gdl;
     if(phase==="play"){
       for(let i=0;i<away.length;i++){
         const a=away[i]; if(a.kind!=="def") continue;
-        const d=Math.hypot(a.x-B.x,a.z-B.z);
+        // Topun gerisinde kalmış (geçilmiş) savunmacı baskı sırasında geride sayılır
+        const behind=((a.x-B.x)*gux+(a.z-B.z)*guz)<-1.2;
+        const d=Math.hypot(a.x-B.x,a.z-B.z)+(behind?6:0);
         if(d<d1){ d2=d1; p2=p1; d1=d; p1=a; } else if(d<d2){ d2=d; p2=a; }
       }
-      if(!(type==="counter"||type==="oneonone")||d2>14) p2=null;
+      if(d2>((type==="counter"||type==="oneonone")?14:10)) p2=null;
+      if(p1) d1=Math.hypot(p1.x-B.x,p1.z-B.z);
     }
+    for(let i=0;i<away.length;i++) if(away[i].pokeCd>0) away[i].pokeCd-=dt; // ayak uzatma bekleme süresi
     for(let i=0;i<away.length;i++){
       const a=away[i];
       if(a.kind==="gk"||a.kind==="att") continue;
       if(phase==="pass"&&passInfo.cut&&away[passInfo.cutter]===a) continue; // kesici stepPass'te
+      a.stance=""; // (geçersiz kılınan savunmacıda eski duruş çarpanı kalmasın)
       if(a.ovr){ steer(a,a.ox,a.oz,a.osp||VMAX_DEF,8,12,dt,0.1); continue; }
       if(a.kind==="wall"){ a.vx=0; a.vz=0; continue; }
       if(a.cool>0) a.cool-=dt;
-      let tx, tz, stop=0.3, om=3.0;
+      if(a!==p1){ a.jockT=0; a.commitT=0; }
+      let tx, tz, stop=0.3, om=3.0, vmax=VMAX_DEF, acc=9, jockey=false;
       if(phase==="set"||phase==="intro"){ tx=a.ax+Math.sin(playT*1.3+i)*0.6; tz=a.az+Math.cos(playT*1.1+i)*0.6; }
       else if(a===p1){
-        const lead=Math.min(0.6,d1/10);
-        tx=c.x+c.vx*lead; tz=c.z+c.vz*lead; stop=0.7; om=3.2;
-      } else if(a===p2){ // ikinci baskı: kale tarafında, şut/pas açısını kapatır
-        tx=c.x+(L-c.x)*0.3; tz=c.z*0.7; om=3.0;
+        const cs=Math.hypot(c.vx,c.vz);
+        if(d1>6){        // sprint: kale tarafından, öngörülü
+          const lead=Math.min(0.6,d1/10);
+          tx=c.x+c.vx*lead+gux*1.2; tz=c.z+c.vz*lead+guz*1.2; stop=0.7; om=3.2; acc=6.5;
+        } else if(!(a.commitT>0)&&!(d1<2.4&&((a.jockT||0)>MOMENT3D_JOCKEY_SEC||cs<1.6))){
+          // jokey: kale tarafında ~2 m'de kal; geri/yan adımla alan ver (yanal hız sınırlı)
+          tx=B.x+gux*2.0+c.vx*0.2; tz=B.z+guz*2.0+c.vz*0.2;
+          vmax=Math.min(VMAX_DEF,cs+1.4); jockey=true; a.stance="jockey";
+          if(d1<4.5) a.jockT=(a.jockT||0)+dt;
+        } else {           // hamle (müdahale): topa; boşa giderse kısa toparlanma
+          if(!(a.commitT>0)) a.commitT=0.8;
+          a.commitT-=dt; a.stance="commit";
+          if(a.commitT<=0){ a.commitT=0; a.jockT=-0.4; a.cool=Math.max(a.cool,0.6); }
+          tx=B.x+c.vx*0.15; tz=B.z+c.vz*0.15; stop=0.5; om=3.2;
+        }
+        // Ayak uzatma (görsel; kapma olasılığı tackleCheck'te)
+        if(d1<1.7&&!(a.pokeCd>0)&&!outcome){
+          a.pokeCd=1.1;
+          actors.actionFx("away",a.idx,"poke",{tx:B.x,tz:B.z});
+        }
+      } else if(a===p2){ // ikinci baskı: top–kale çizgisinde ~6.5 m önde, sürüş yönüne kayarak açıyı kapatır
+        tx=B.x+gux*6.5+c.vx*0.3; tz=B.z+guz*6.5+c.vz*0.55; om=3.0; vmax=VMAX_DEF*0.92; a.stance="cover";
       } else if(a.mark>=0&&home[a.mark]){
         const m=home[a.mark];
         tx=m.x+(L-m.x)*0.12+(B.x-m.x)*0.15; tz=m.z*0.88+(B.z-m.z)*0.15;
@@ -998,7 +1066,8 @@ function createMoment3DController(api,cfg){
         const dx=a.x-b.x, dz=a.z-b.z, d=Math.hypot(dx,dz);
         if(d<3&&d>1e-3){ tx+=dx/d*(3-d); tz+=dz/d*(3-d); }
       }
-      steer(a,tx,tz,VMAX_DEF*(a.cool>0?0.6:1),om,9,dt,stop);
+      if(jockey) shuffle(a,tx,tz,vmax*(a.cool>0?0.6:1),gux,guz,dt);
+      else steer(a,tx,tz,vmax*(a.cool>0?0.6:1),om,acc,dt,stop);
     }
     // Kaleci: top–kale merkezi çizgisinde, uzaklığa göre öne çıkar (açıyı kapatır)
     if(gk&&!(phase==="pass"&&passInfo.cut&&away[passInfo.cutter]===gk)){
@@ -1014,6 +1083,29 @@ function createMoment3DController(api,cfg){
         steer(gk,tx,tz,5,8,12,dt,0.1);
       }
     }
+    // Boş koşu: bir takım arkadaşı ~2.8 sn'de bir savunma hattının arkasına çapraz koşar
+    // (ara pas hedefi; halka ile gösterilir). Markajı yapan savunmacı onu izler.
+    runT-=dt;
+    if(phase==="play"&&!isPen&&runT<=0){
+      runT=2.8; runIdx=-1;
+      let line=-1e9; for(let j=0;j<away.length;j++){ const o=away[j]; if(o.kind==="def") line=Math.max(line,o.x); }
+      let bs=-1e9;
+      for(let j=0;j<home.length;j++){
+        const m=home[j]; if(j===ctl||m.kind==="gk"||m.x<c.x-8) continue;
+        let nd=1e9; for(let k=0;k<away.length;k++){ const o=away[k]; if(o.kind==="gk") continue; nd=Math.min(nd,dist(m,o)); }
+        const sc=Math.min(nd,8)+Math.random()*3-Math.abs(m.z-c.z)*0.05;
+        if(sc>bs){ bs=sc; runIdx=j; }
+      }
+      if(runIdx>=0){
+        const m=home[runIdx];
+        runX=clamp(Math.max(line+3,m.x+6),-L+5,L-6.5);
+        runZ=clamp(m.z*0.6+c.z*0.15,-H+3,H-3);
+      }
+    }
+    if(runIdx>=0&&phase==="play"&&runT>0.3){
+      runMark.visible=true; runMark.position.set(runX,0.08,runZ);
+      const k=1+0.12*Math.sin(playT*6); runMark.scale.set(k,1,k);
+    } else runMark.visible=false;
     // Takım arkadaşları: ileri koşu + boşa kaçma
     for(let i=0;i<home.length;i++){
       const a=home[i]; if(i===ctl||a.kind==="gk") continue;
@@ -1021,6 +1113,7 @@ function createMoment3DController(api,cfg){
       if(phase==="pass"&&i===passInfo.r) continue; // alıcı stepPass'te
       let tx, tz;
       if(phase==="set"||phase==="intro"){ tx=a.ax+Math.sin(playT*1.2+i*2)*0.8; tz=a.az+Math.cos(playT+i)*0.8; }
+      else if(i===runIdx&&runT>0.3){ steer(a,runX,runZ,VMAX_RUN,5,9,dt,0.6); continue; }
       else {
         const prog=clamp(B.x-ball0x,-5,40);
         tx=clamp(a.ax+prog*0.6+playT*0.45,-L+5,L-5.5); tz=a.az;
@@ -1084,7 +1177,9 @@ function createMoment3DController(api,cfg){
       let front=1;
       if(cs>1){ const dd=((a.x-c.x)*c.vx+(a.z-c.z)*c.vz)/(cs*Math.max(0.3,dist(a,c))); front=dd>-0.2?1:0.55; }
       // Kaleci ayağa yatarken daha temkinli (çıkıp topu kapması yarı oranda)
-      const lam=MOMENT3D_TACKLE_RATE*(oppStr/Math.max(30,drb))*(0.35+0.65*facing)*front*(a.kind==="gk"?0.5:1);
+      // Jokey yapan (henüz hamle etmemiş) savunmacı topa nadiren uzanır
+      const stance=a.stance==="jockey"?MOMENT3D_JOCKEY_TACKLE:a.stance==="commit"?MOMENT3D_COMMIT_TACKLE:a.stance==="cover"?MOMENT3D_COVER_TACKLE:1;
+      const lam=MOMENT3D_TACKLE_RATE*(oppStr/Math.max(30,drb))*(0.35+0.65*facing)*front*(a.kind==="gk"?0.5:1)*stance;
       if(Math.random()<1-Math.exp(-lam*dt)){ lost(a); return; }
     }
   };
@@ -1094,6 +1189,7 @@ function createMoment3DController(api,cfg){
     // aceleyle vurur (süre dolması ile aynı, en düşük kalite); yoksa top kaybı.
     if(Math.random()<MOMENT3D_LAST_SHOT){ hurriedShot("last_shot"); return; }
     emit(mk(false,"dribble_lost","lost",c.name||pname,0,0,0,false,false));
+    actors.actionFx("away",a.idx,"poke",{tx:B.x,tz:B.z});
     actors.setOwner("away",a.idx);
     override(a,a.x-14,clamp(a.z+sgn(a.z||1)*6,-H+2,H-2),6);
     override(c,c.x,c.z,0);
@@ -1109,6 +1205,7 @@ function createMoment3DController(api,cfg){
       if(r) steer(r,pi.px,pi.pz,VMAX_RUN,8,14,dt,0);
       const db=Math.hypot(cu.x-B.x,cu.z-B.z);
       if((db<1.5&&B.y<2)||pi.t>pi.tc+0.35){
+        actors.actionFx("away",cu.idx,"poke",{tx:B.x,tz:B.z});
         actors.setOwner("away",cu.idx);
         emit(mk(false,"intercepted","cut",ctlA().name||pname,0,0,0,false,false));
         override(cu,cu.x-12,clamp(cu.z+sgn(cu.z||1)*5,-H+2,H-2),6);
@@ -1450,7 +1547,7 @@ function createMoment3DController(api,cfg){
 }
 
 // 3D kilit an sahnesi + arayüz. onFallback(msg): 2D'ye geç (sonuç hesaplanmadan önce).
-function Moment3DStage({moment,mates,myStr,oppStr,onResolve,onFallback}){
+function Moment3DStage({moment,mates,myStr,oppStr,homeShare,onResolve,onFallback}){
   const {config,player,min}=moment;
   const coarse=(()=>{ try{ return !!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches); }catch(e){ return false; } })();
   const [ready,setReady]=useState(false);
@@ -1496,6 +1593,8 @@ function Moment3DStage({moment,mates,myStr,oppStr,onResolve,onFallback}){
   };
 
   const onReady=(api)=>{
+    // Tribün: ana 3D sahne ile aynı taraftar dağılımı (ev 0.74 / deplasman 0.3)
+    if(api.crowd&&Number.isFinite(homeShare)) api.crowd.setSupport(homeShare);
     try{
       ctrlRef.current=createMoment3DController(api,{
         type:moment.type, player, oppStr, myStr, mates, touch:coarse,
@@ -1677,7 +1776,7 @@ function InteractiveMoment3D(props){
     );
   }
   return(
-    <Moment3DStage moment={props.moment} mates={props.mates} myStr={props.myStr} oppStr={props.oppStr}
+    <Moment3DStage moment={props.moment} mates={props.mates} myStr={props.myStr} oppStr={props.oppStr} homeShare={props.homeShare}
       onResolve={props.onResolve}
       onFallback={(msg)=>{
         setNotice(msg||""); setMode("2d");

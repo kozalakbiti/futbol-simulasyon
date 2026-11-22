@@ -127,11 +127,43 @@ function worldToPitch3D(wx,wz){
   return {x:(wx/PITCH3D_LEN+0.5)*100, y:(wz/PITCH3D_WID+0.5)*100};
 }
 
+// Parçaları tek indekssiz geometride birleştirir; her parçanın rengi vertex
+// rengine yazılır (tek malzeme + vertexColors → tek çizim çağrısı).
+// parts: [{g: BufferGeometry (yerinde dönüştürülmüş), c: 0xRRGGBB}] — girdi geometrileri dispose edilir.
+// uv: true → uv'ler de korunur (yoksa 0). Çıktı: position, normal, color (+uv).
+function mergeGeos3D(THREE,parts,uv){
+  const col=new THREE.Color();
+  let n=0;
+  const list=parts.map(p=>{ const g=p.g.index?p.g.toNonIndexed():p.g; n+=g.attributes.position.count; return {g,src:p.g,c:p.c}; });
+  const pos=new Float32Array(n*3), nor=new Float32Array(n*3), clr=new Float32Array(n*3), uvs=uv?new Float32Array(n*2):null;
+  let o=0;
+  list.forEach(({g,src,c})=>{
+    const cnt=g.attributes.position.count;
+    pos.set(g.attributes.position.array,o*3);
+    if(g.attributes.normal) nor.set(g.attributes.normal.array,o*3);
+    if(uvs&&g.attributes.uv) uvs.set(g.attributes.uv.array,o*2);
+    col.setHex(Number.isFinite(c)?c:0xffffff);
+    for(let i=0;i<cnt;i++){ const j=(o+i)*3; clr[j]=col.r; clr[j+1]=col.g; clr[j+2]=col.b; }
+    o+=cnt;
+    if(g!==src) g.dispose();
+    src.dispose();
+  });
+  const out=new THREE.BufferGeometry();
+  out.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  out.setAttribute("normal",new THREE.BufferAttribute(nor,3));
+  out.setAttribute("color",new THREE.BufferAttribute(clr,3));
+  if(uvs) out.setAttribute("uv",new THREE.BufferAttribute(uvs,2));
+  out.computeBoundingSphere();
+  return out;
+}
+
 // Bir Object3D ağacındaki tüm geometry/material/texture'ları serbest bırakır
+// (InstancedMesh örnek tamponları için mesh.dispose() da çağrılır)
 function disposeObject3D(root){
   if(!root||!root.traverse) return;
-  const geos=new Set(), mats=new Set(), texs=new Set();
+  const geos=new Set(), mats=new Set(), texs=new Set(), inst=[];
   root.traverse(o=>{
+    if(o.isInstancedMesh) inst.push(o);
     if(o.geometry) geos.add(o.geometry);
     if(o.material){
       (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
@@ -141,6 +173,7 @@ function disposeObject3D(root){
       });
     }
   });
+  inst.forEach(m=>{ try{m.dispose();}catch(e){} });
   geos.forEach(g=>{ try{g.dispose();}catch(e){} });
   texs.forEach(t=>{ try{t.dispose();}catch(e){} });
   mats.forEach(m=>{ try{m.dispose();}catch(e){} });
