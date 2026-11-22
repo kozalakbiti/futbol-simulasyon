@@ -5363,9 +5363,201 @@ const COACHES=[
    desc:"21 yaş altı oyunculara özel gelişim programı. Potansiyel tavanını hafifçe yükseltir.",
    playerBonuses:{u21DevMult:1.35, potBoost:2, u23DevMult:1.12},
    icon:"🚀", maxPlayers:5, assignedPlayers:[]},
+  // ── MAÇ ANALİSTİ (takım antrenörü slotunu kullanır) ───────────
+  {id:13,type:"team", n:"E.Varga",     spec:"Maç Analisti", hired:false,cost:1.4,bonus:3,
+   desc:"Rakipleri video ile analiz eder. Scout raporları tam isabetli olur, rakibe uygun taktiğin etkisi artar.",
+   teamBonuses:{scoutAcc:100, matchup:+1},
+   icon:"🔍"},
 ];
 const COACHES_MAX_TEAM=1;   // Aynı anda maks 1 takım antrenörü
 const COACHES_MAX_PLAYER=4; // Aynı anda maks 4 oyuncu antrenörü
+
+// ═══════════════════════════════════════════════════════════════
+// RAKİP ANALİZİ — OYUN KİMLİKLERİ, SCOUT RAPORU & TAKTİK EŞLEŞMESİ
+// ═══════════════════════════════════════════════════════════════
+// Her rakibin deterministik bir oyun kimliği var (kayıt gerektirmez).
+// Taktiğin bu kimliğe uyumu calcTacticBonus'a en fazla ±3 ekler.
+const TEAM_STYLES={
+  pres:  {l:"Yüksek Pres",       icon:"⚡", col:"#ff7a45",
+    desc:"Rakip sahada agresif baskı yapar, geriden oyun kurmana izin vermez.",
+    tip:"Uzun top ve Hızlı Kontra ile presi atla. Kısa pas ve rakip sahada baskı riskli."},
+  kontra:{l:"Kontra Atak",       icon:"🏹", col:"#e8b83a",
+    desc:"Topu sana bırakır, top kazanınca savunma arkasına hızlı koşu yapar.",
+    tip:"Defans hattını geri çek, Orta Sahaya Baskı ve Oyunu Yavaşlat ile geçişleri kes. İleri hat ve yoğun kanat tehlikeli."},
+  uzun:  {l:"Uzun Top & Fizik",  icon:"💪", col:"#a080ff",
+    desc:"Hava toplarına ve ikinci toplara oynar, fiziksel mücadeleyi sever.",
+    tip:"Kısa pasla topu yerde tut, Set Pres ile uzun topun kaynağını boğ. Geri hat güvenli."},
+  topa:  {l:"Topa Sahip Olma",   icon:"🔁", col:"#4da6ff",
+    desc:"Sabırlı kısa paslarla oyunu kontrol eder, topu kaptırmamaya çalışır.",
+    tip:"Yüksek baskı, rakip sahada pres ve Set Pres ile ritmini boz; top kazanınca Hızlı Kontra."},
+  blok:  {l:"Katı Savunma",      icon:"🧱", col:"#30c080",
+    desc:"Derin ve kompakt bir blokla kalesini kapatır, boşluk vermez.",
+    tip:"Kanatları kullan (İki Kanat), kısa pasla sabırlı ol, hattı ileri al. Kontra için boşluk yok."},
+};
+// Formasyona göre olası kimlikler (formasyonla tutarlı kalsın)
+const STYLE_BY_FORMATION={
+  "4-3-3":["pres","topa","pres"], "4-2-3-1":["topa","pres","kontra"],
+  "4-4-2":["uzun","kontra","pres"], "4-1-4-1":["blok","topa","kontra"],
+  "5-3-2":["blok","kontra","uzun"], "3-5-2":["kontra","uzun","topa"],
+};
+function scoutHash(s){
+  let h=5381; const str=String(s||"");
+  for(let i=0;i<str.length;i++) h=((h<<5)+h)^str.charCodeAt(i);
+  return h>>>0;
+}
+// Takımın oyun kimliği: yalnızca isimden deterministik (güç değişse de sezon boyunca sabit).
+// Tercih formasyonu bilinen takımlarda kimlik o formasyonla tutarlı seçilir.
+function getTeamStyle(teamName, teamStr){
+  const pref=TEAM_PREF_FORMATION[teamName];
+  const opts=(pref&&STYLE_BY_FORMATION[pref])||Object.keys(TEAM_STYLES);
+  return opts[scoutHash("style|"+teamName)%opts.length];
+}
+// Taktik ↔ rakip kimliği eşleşmesi: -3 ile +3 arası
+function calcStyleMatch(tac, styleKey, amp=0){
+  if(!styleKey||!TEAM_STYLES[styleKey]) return 0;
+  const t=tac||{};
+  const press=t.press??1, def=t.defLine??1, sty=t.style??0, wing=t.wing??1, zone=t.pressZone??0;
+  let m=0;
+  switch(styleKey){
+    case "pres":
+      if(sty===2) m+=2; else if(sty===0) m-=1;
+      if(t.tog0) m+=1; if(t.tog3) m+=1;
+      if(zone===2) m-=1;
+      break;
+    case "kontra":
+      if(def===0) m+=1; else if(def===2) m-=2;
+      if(t.tog5) m+=1; if(t.tog3) m+=1;
+      if(zone===2) m-=1; if(wing===2) m-=1;
+      break;
+    case "uzun":
+      if(def===0) m+=1; else if(def===2) m-=1;
+      if(sty===0) m+=1; else if(sty===2) m-=1;
+      if(t.tog1) m+=1; if(t.tog5) m+=1;
+      break;
+    case "topa":
+      if(press===2) m+=1; else if(press===0) m-=1;
+      if(zone===2) m+=1;
+      if(t.tog1) m+=1; if(t.tog0) m+=1; if(t.tog3) m-=1;
+      break;
+    case "blok":
+      if(wing===2) m+=1; if(t.tog4) m+=1;
+      if(sty===0) m+=1; else if(sty===2) m-=1;
+      if(def===2) m+=1;
+      if(t.tog0) m-=1; if(t.tog3) m-=1;
+      break;
+  }
+  if(m>0) m+=amp; // analist doğru taktiğin etkisini güçlendirir
+  return Math.max(-3,Math.min(3,m));
+}
+// Scout isabeti: analist %100, taktik antrenörü %80, kimse yoksa %60
+function getScoutAccuracy(coaches){
+  const hired=(coaches||[]).filter(c=>c&&c.hired&&c.type==="team");
+  const an=hired.find(c=>c.teamBonuses&&c.teamBonuses.scoutAcc);
+  if(an) return {acc:Math.max(0,Math.min(100,an.teamBonuses.scoutAcc)),amp:an.teamBonuses.matchup||0,src:an.n};
+  const tc=hired.find(c=>c.teamBonuses&&c.teamBonuses.tacticBonus);
+  if(tc) return {acc:80,amp:0,src:tc.n};
+  return {acc:60,amp:0,src:null};
+}
+// Scout raporu: trueStyle maç motorunda kullanılır, UI yalnızca shownStyle gösterir.
+// seed (ör. fikstür haftası) aynı maç için raporu sabit tutar.
+function getScoutReport(teamName, teamStr, coaches, seed=""){
+  const trueStyle=getTeamStyle(teamName, teamStr);
+  const {acc,amp,src}=getScoutAccuracy(coaches);
+  let shownStyle=trueStyle;
+  if(scoutHash("scout|"+teamName+"|"+seed)%100>=acc){
+    const others=Object.keys(TEAM_STYLES).filter(k=>k!==trueStyle);
+    shownStyle=others[scoutHash("alt|"+teamName+"|"+seed)%others.length];
+  }
+  return {trueStyle,shownStyle,acc,amp,src,formation:getRivalFormation(teamName, teamStr||70)};
+}
+function getDangerPlayer(db, teamName){
+  const list=(db||[]).filter(p=>p&&p.club===teamName&&!p.injured);
+  if(!list.length) return null;
+  return list.reduce((b,p)=>(p.ovr||0)>(b.ovr||0)?p:b,list[0]);
+}
+const PREF_SKIP_PREMATCH_KEY="fcym_pref_skip_prematch"; // cihaz tercihi, kayıt dosyasına girmez
+
+// Scout raporu kartı (Taktik sayfası + Maç Hazırlığı ekranında ortak)
+function ScoutReportCard({opp, report, tactic, danger=null, compact=false}){
+  if(!report) return null;
+  const st=TEAM_STYLES[report.shownStyle];
+  const match=calcStyleMatch(tactic, report.shownStyle, report.amp);
+  const mCol=match>0?"#30e070":match<0?"#ff5050":"#7898c0";
+  const mLbl=match>=2?"Çok uygun":match>0?"Uygun":match===0?"Nötr":match>-2?"Uyumsuz":"Ters taktik";
+  const accCol=report.acc>=100?"#30e070":report.acc>=80?"#e8b83a":"#ff9050";
+  return(
+    <div style={{background:"linear-gradient(135deg,rgba(10,20,42,.85),rgba(7,14,30,.65))",
+      borderRadius:8,padding:compact?"8px 10px":"10px 12px",border:`1px solid ${st.col}33`,marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,marginBottom:6}}>
+        <div style={{fontSize:".46rem",letterSpacing:1.2,color:"rgba(77,166,255,.55)",textTransform:"uppercase",fontWeight:700}}>
+          🔎 Scout Raporu · {opp}
+        </div>
+        <div style={{fontSize:".4rem",fontWeight:700,color:accCol,background:`${accCol}15`,
+          border:`1px solid ${accCol}35`,padding:"1px 6px",borderRadius:8,whiteSpace:"nowrap"}}>
+          İsabet %{report.acc}
+        </div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+        <div style={{fontSize:"1.2rem",lineHeight:1}}>{st.icon}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:".62rem",fontWeight:800,color:st.col}}>{st.l}</div>
+          <div style={{fontSize:".44rem",color:"rgba(160,185,220,.7)",lineHeight:1.4}}>{st.desc}</div>
+        </div>
+        <div style={{textAlign:"center",flexShrink:0}}>
+          <div style={{fontSize:".38rem",color:"rgba(255,255,255,.35)"}}>DİZİLİŞ</div>
+          <div style={{fontSize:".56rem",fontWeight:800,color:"#f0f6ff"}}>{report.formation}</div>
+        </div>
+      </div>
+      {danger&&<div style={{fontSize:".46rem",color:"rgba(255,150,120,.85)",marginBottom:6}}>
+        ⚠️ Tehlikeli oyuncu: <b>{danger.n}</b> ({danger.pos}, OVR {danger.ovr})
+      </div>}
+      {!compact&&<div style={{fontSize:".46rem",color:"rgba(232,184,58,.85)",lineHeight:1.5,marginBottom:6}}>💡 {st.tip}</div>}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+        padding:"5px 8px",borderRadius:6,background:`${mCol}12`,border:`1px solid ${mCol}30`}}>
+        <span style={{fontSize:".46rem",color:"rgba(200,215,240,.75)"}}>Taktik eşleşmesi</span>
+        <span style={{fontSize:".54rem",fontWeight:900,color:mCol}}>{match>0?"+"+match:match} · {mLbl}</span>
+      </div>
+      {report.acc<100&&<div style={{fontSize:".4rem",color:"rgba(120,152,192,.5)",marginTop:5,fontStyle:"italic"}}>
+        {report.src?`${report.src} raporu hazırladı.`:"Analist yok — rapor yanılıyor olabilir."} Tam isabet için Antrenman'dan Maç Analisti tut.
+      </div>}
+    </div>
+  );
+}
+
+// Maç öncesi hazırlık ekranı
+function PreMatchModal({fix, report, tactic, danger, myStr, onTactics, onStart, onClose, onSkipForever}){
+  if(!fix||!report) return null;
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.78)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto",
+        background:"linear-gradient(160deg,#0b1630,#060c1c)",borderRadius:12,
+        border:"1px solid rgba(77,166,255,.25)",boxShadow:"0 12px 40px rgba(0,0,0,.6)",padding:"14px 14px 12px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{fontSize:".7rem",fontWeight:900,color:"#f0f6ff",letterSpacing:1}}>📋 MAÇ HAZIRLIĞI</div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"rgba(255,255,255,.5)",
+            fontSize:".9rem",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+        </div>
+        <div style={{fontSize:".5rem",color:"rgba(160,185,220,.75)",marginBottom:10}}>
+          {fix.home?"🏠 Ev":"✈️ Deplasman"} · Rakip gücü <b style={{color:"#f0f6ff"}}>{fix.str}</b> · Senin gücün <b style={{color:"#f0f6ff"}}>{myStr}</b>
+        </div>
+        <ScoutReportCard opp={fix.opp} report={report} tactic={tactic} danger={danger}/>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onTactics} style={{flex:1,padding:"10px 8px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+            background:"rgba(77,166,255,.12)",border:"1px solid rgba(77,166,255,.35)",color:"#9cc8ff",
+            fontSize:".58rem",fontWeight:800}}>⚙️ Taktiğe Git</button>
+          <button onClick={onStart} style={{flex:1,padding:"10px 8px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+            background:"linear-gradient(135deg,#1ab855,#12883e)",border:"1px solid rgba(48,224,112,.5)",color:"#fff",
+            fontSize:".58rem",fontWeight:900,letterSpacing:1}}>▶ MAÇA BAŞLA</button>
+        </div>
+        <button onClick={onSkipForever} style={{marginTop:10,width:"100%",background:"none",border:"none",cursor:"pointer",
+          fontFamily:"inherit",fontSize:".42rem",color:"rgba(120,152,192,.55)",textDecoration:"underline"}}>
+          Bu ekranı bir daha gösterme (Ayarlar'dan geri açılabilir)
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MAÇ SİMÜLASYONU — GENİŞLETİLMİŞ
@@ -10547,8 +10739,8 @@ function PageFikstur({season,clubName="Club Manager: Glory Road"}){
 
 // ─── FORMASYON ────────────────────────────────────────────────
 // ─── FORMASYON & TAKTİK (BİRLEŞİK) ──────────────────────────
-function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:startingXI,setLineup:setStartingXI,autoLineup,setAutoLineup,tactic,setTactic,nextFixture,myStr}){
-  const [tab,setTab]=useState("formasyon"); // "formasyon" | "taktik"
+function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:startingXI,setLineup:setStartingXI,autoLineup,setAutoLineup,tactic,setTactic,nextFixture,myStr,initialTab="formasyon",onInitialTabUsed=()=>{}}){
+  const [tab,setTab]=useState(initialTab==="taktik"?"taktik":"formasyon"); // "formasyon" | "taktik"
   const tacs=[
     {l:"Hücum Baskısı", key:"press",  opts:["Düşük","Orta","Yüksek"],  desc:["Savunma odaklı, top kaybı riski az","Dengeli baskı","Yüksek baskı, daha fazla top kazanımı ama riskli"]},
     {l:"Defans Hattı",  key:"defLine",opts:["Geri","Orta","İleri"],    desc:["Kompakt savunma, az boşluk","Dengeli","Yüksek hatlı savunma, hücum desteği ama ofsayt riski"]},
@@ -10593,7 +10785,11 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
     tactic.tog5?1:0,                 // Orta Sahaya Baskı
   ];
   const togTotal=togEffects.reduce((a,b)=>a+b,0);
-  const totalEffect=tacticTotal+tacCoachBonus+togTotal;
+  // Rakip analizi: scout raporuna göre (menajerin bildiği kimlik) eşleşme etkisi
+  const scoutReport=nextFixture?getScoutReport(nextFixture.opp,oppStr,coaches,nextFixture.w):null;
+  const scoutMatch=scoutReport?calcStyleMatch(tactic,scoutReport.shownStyle,scoutReport.amp):0;
+  useEffect(()=>{ if(initialTab==="taktik") onInitialTabUsed(); },[]);
+  const totalEffect=tacticTotal+tacCoachBonus+togTotal+scoutMatch;
 
   const effStr=myS+totalEffect+(home?6:0);
   const winProb=Math.round(Math.max(8,Math.min(90,50+strDiff*1.8+totalEffect*3+(home?8:0))));
@@ -10957,8 +11153,9 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           padding:"7px 10px",background:"linear-gradient(135deg,rgba(232,151,90,.1),rgba(232,151,90,.03))",
           borderRadius:7,border:"1px solid rgba(232,151,90,.18)",display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:".7rem",flexShrink:0}}>💡</span>
-          <span>Rakip gücüne ve sahaya göre maç sonucunu <b style={{color:"#e8975a"}}>±6 OVR</b> kadar etkiler</span>
+          <span>Rakip gücüne, sahaya ve rakibin oyun tarzına göre maç sonucunu <b style={{color:"#e8975a"}}>±7 OVR</b> kadar etkiler</span>
         </div>
+        {scoutReport&&<ScoutReportCard opp={opp} report={scoutReport} tactic={tactic}/>}
         {tacs.map((t,ti)=>{
           const activeOpt=tactic[t.key]??1;
           const icons=["🔵","⚪","🔴"];
@@ -12835,9 +13032,11 @@ function PageAntrenman({coaches,onHire,onAssign,squad=[],trainFocus,setTrainFocu
       morale:"Moral",u23DevMult:"U23 Gelişim",u21DevMult:"U21 Gelişim",potBoost:"Potansiyel",
       globalDevMult:"Genel Gelişim",statBoost:"İstat. Artış",injMult:"Sak. Riski",
       spdBoost:"Hız Artış",seniorDevMult:"Kıdemli Gelişim",moralBase:"Moral Tabanı",setPiece:"Standart Durumlar",
+      scoutAcc:"Scout İsabeti",matchup:"Taktik Eşleşme",
     };
     const fmtBonus=(k,v)=>{
       if(k==="injMult") return `×${v} azalır`;
+      if(k==="scoutAcc") return `%${v}`;
       if(k==="u23DevMult"||k==="u21DevMult"||k==="globalDevMult"||k==="seniorDevMult") return `+${Math.round((v-1)*100)}%`;
       if(typeof v==="number"&&v>0) return `+${v}`;
       return `${v}`;
@@ -23429,7 +23628,7 @@ const NAV=[
 // ═══════════════════════════════════════════════════════════════
 // AYARLAR SAYFASI
 // ═══════════════════════════════════════════════════════════════
-function PageAyarlar({transferPace="normal",onPaceChange=()=>{}}){
+function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=false,onSkipPreMatchChange=()=>{}}){
   const PACES=[
     {key:"slow",  icon:"🐢", label:"Yavaş",     color:"#5dade2",
      desc:"Transfer teklifleri çok nadir gelir. Sakin bir pazar deneyimi yaşarsın."},
@@ -23508,6 +23707,23 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{}}){
         </div>
       </div>
 
+      {/* Maç Hazırlığı ekranı */}
+      <div style={{background:"rgba(0,0,0,.35)",borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,
+        padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:".62rem",fontWeight:800,color:C.wh,letterSpacing:.5}}>📋 Maç Hazırlığı Ekranı</div>
+          <div style={{fontSize:".46rem",color:C.dim,marginTop:2,lineHeight:1.4}}>
+            OYNA'ya basınca rakibin scout raporu ve taktik eşleşmesi gösterilir. Bu tercih cihaza kaydedilir.
+          </div>
+        </div>
+        <button onClick={()=>onSkipPreMatchChange(!skipPreMatch)} style={{
+          flexShrink:0,padding:"6px 12px",borderRadius:14,cursor:"pointer",fontFamily:"inherit",
+          fontSize:".5rem",fontWeight:800,
+          background:!skipPreMatch?"rgba(48,224,112,.18)":"rgba(255,255,255,.05)",
+          border:`1px solid ${!skipPreMatch?"#30e070":C.brd2}`,
+          color:!skipPreMatch?"#30e070":C.dim}}>{!skipPreMatch?"AÇIK":"KAPALI"}</button>
+      </div>
+
       {/* Bilgi kutusu */}
       <div style={{padding:"10px 14px",background:"rgba(52,152,219,.08)",borderRadius:8,
         border:"1px solid rgba(52,152,219,.25)"}}>
@@ -23558,6 +23774,11 @@ function App(){
   const [incomingOffers,setIncomingOffers]=useState([]);
   const [activeOffer,setActiveOffer]=useState(null);
   const [matchOverlay,setMatchOverlay]=useState(null);
+  // Maç hazırlığı (scout raporu) modalı + cihaz tercihi: ekranı atla
+  const [preMatch,setPreMatch]=useState(null);
+  const [formasyonInitTab,setFormasyonInitTab]=useState("formasyon");
+  const [skipPreMatch,setSkipPreMatchRaw]=useState(()=>safeLsGet(PREF_SKIP_PREMATCH_KEY,false)===true);
+  const setSkipPreMatch=(v)=>{setSkipPreMatchRaw(!!v);safeLsSet(PREF_SKIP_PREMATCH_KEY,!!v);};
   const [postMatchBasin,setPostMatchBasin]=useState(null); // {fix, result} — maç sonu basın toplantısı
   const [selectedPlayer,setSelectedPlayer]=useState(null);
   const [releaseConfirm,setReleaseConfirm]=useState(null); // serbest bırakma onay dialogu
@@ -23618,8 +23839,8 @@ function App(){
   const [tactic,setTactic]=useState({press:1,defLine:1,style:0,wing:1,pressZone:0});
   // Bireysel antrenman odakları: {playerId: focusKey}
   const [trainFocus,setTrainFocus]=useState({});
-  // Taktik maç bonusu hesapla: -4 ile +6 arası etki
-  const calcTacticBonus=(tac,oppStr,home)=>{
+  // Taktik maç bonusu hesapla: -7 ile +7 arası etki (rakip eşleşmesi dahil)
+  const calcTacticBonus=(tac,oppStr,home,oppStyle=null,matchAmp=0)=>{
     const myS=calcMyStr();
     const diff=myS-oppStr; // pozitif = biz güçlüyüz, negatif = rakip güçlü
     let bonus=0;
@@ -23649,6 +23870,8 @@ function App(){
     if(tac.tog4) bonus+=(diff>8?3:diff>0?1:-2);
     // tog5: Orta Sahaya Baskı — dengeli etki
     if(tac.tog5) bonus+=(diff>0?1:0);
+    // Rakip analizi: taktiğin rakibin gerçek oyun kimliğine uyumu (±3)
+    if(oppStyle) bonus+=calcStyleMatch(tac,oppStyle,matchAmp);
     // Sürpriz değişkenliği: aynı taktik her maç aynı sonucu vermesin
     const variance=(Math.random()-0.5)*2; // -1 ile +1 arası
     bonus+=variance;
@@ -24662,7 +24885,8 @@ function App(){
       }
     }catch(e){ console.warn("[FCY] Migrasyon hatası:",e); }
   },[]); // sadece mount'ta bir kez çalışır
-  const activeCoach=coaches.find(c=>c.hired);
+  // Takım antrenörü (analist dahil) varsa maç bonusu ondan gelir; yoksa eski davranış
+  const activeCoach=coaches.find(c=>c.hired&&c.type==="team")||coaches.find(c=>c.hired);
   const coachBonus=activeCoach?activeCoach.bonus:0;
   const myTeam=season.teams.find(t=>t.me)||season.teams[2];
   const myLg=season.league||"1. Lig";
@@ -27224,7 +27448,12 @@ function App(){
       if(data.manager) setManager(data.manager);
       if(data.clubName) setClubNameRaw(data.clubName);
       if(data.squad) setSquad(data.squad);
-      if(data.coaches) setCoaches(data.coaches);
+      if(data.coaches){
+        // Eski kayıtlarda sonradan eklenen antrenörler (ör. Maç Analisti) yok — id bazlı tamamla
+        const savedCoaches=Array.isArray(data.coaches)?data.coaches.filter(c=>c&&typeof c==="object"):[];
+        const savedIds=new Set(savedCoaches.map(c=>c.id));
+        setCoaches([...savedCoaches,...COACHES.filter(c=>!savedIds.has(c.id)).map(c=>({...c}))]);
+      }
       if(data.season){
         // ── Fikstür migrasyonu: eski w değerlerini yeni konumlara güncelle ──
         const migrateFixture=(fixture,lg)=>{
@@ -28089,7 +28318,7 @@ function App(){
                 </div>
               </div>
               {/* OYNA butonu */}
-              <button onClick={()=>setMatchOverlay(nextFix)} style={{
+              <button onClick={()=>{ if(skipPreMatch) setMatchOverlay(nextFix); else setPreMatch(nextFix); }} style={{
                 background:`linear-gradient(135deg,rgba(${accentRgb},1),rgba(${accentRgb},0.8))`,
                 boxShadow:`0 6px 24px rgba(${accentRgb},0.6), inset 0 1px 0 rgba(255,255,255,0.2)`,
                 border:`1px solid rgba(${accentRgb},0.7)`,
@@ -28140,7 +28369,7 @@ function App(){
             : page==="home"       ? <PageHome season={season} clubName={clubName} activeScenario={activeScenario} squad={squad} careerStats={careerStats} db={db}/>
             : page==="kadro"      ? <PageKadro squad={squad} onSelectPlayer={setSelectedPlayer} clubName={clubName}/>
             : page==="fikstur"    ? <PageFikstur season={season} clubName={clubName}/>
-            : page==="formasyon"  ? <PageFormasyonTaktik squad={squad} coaches={coaches} formation={formation} setFormation={setFormation} lineup={startingXI} setLineup={setStartingXI} autoLineup={autoLineup} setAutoLineup={setAutoLineup} tactic={tactic} setTactic={setTactic} nextFixture={(()=>{const nf=season.fixture&&season.fixture[0]?season.fixture[0]:null;if(!nf)return null;const liveStr=(season.teams.find(t=>t.n===nf.opp)?.str)||nf.str;return{...nf,str:liveStr};})()}  myStr={calcMyStr()} />
+            : page==="formasyon"  ? <PageFormasyonTaktik squad={squad} coaches={coaches} formation={formation} setFormation={setFormation} lineup={startingXI} setLineup={setStartingXI} autoLineup={autoLineup} setAutoLineup={setAutoLineup} tactic={tactic} setTactic={setTactic} nextFixture={(()=>{const nf=season.fixture&&season.fixture[0]?season.fixture[0]:null;if(!nf)return null;const liveStr=(season.teams.find(t=>t.n===nf.opp)?.str)||nf.str;return{...nf,str:liveStr};})()}  myStr={calcMyStr()} initialTab={formasyonInitTab} onInitialTabUsed={()=>setFormasyonInitTab("formasyon")} />
             : page==="antrenman"  ? <PageAntrenman coaches={coaches} onHire={handleHireCoach} onAssign={handleAssignPlayer} squad={squad} trainFocus={trainFocus} setTrainFocus={setTrainFocus} setSquad={setSquad}/>
             : page==="transfer"   ? <PageTransfer db={db} onAction={showToast} onAddToSquad={(p)=>{handleAddToSquad(p,"db");}} addNews={addNews} rep={rep} updateRep={updateRep} league={season.league||"1. Lig"} finans={finans} onMakeOffer={(pl)=>{
                 if(squad.length>=MAX_SQUAD){showToast(`⛔ Kadro dolu! Maksimum ${MAX_SQUAD} oyuncu. Önce birini sat veya bırak.`,4000);return;}
@@ -28154,7 +28383,7 @@ function App(){
             : page==="yetenek"    ? <PageYetenek onAction={showToast} squad={squad} youth={youth} clubName={clubName} squadFull={squad.length>=MAX_SQUAD} squadCount={squad.length} academyLevel={academyLevel} setAcademyLevel={setAcademyLevel} finans={finans} updateFinans={updateFinans} onDismissYouth={(id)=>setYouth(prev=>prev.filter(p=>p.id!==id))} onAddToSquad={(p)=>{
               if(squad.length>=MAX_SQUAD){showToast(`⛔ Kadro dolu! Maksimum ${MAX_SQUAD} oyuncu. Önce birini sat veya bırak.`,4000);return;}
               handleAddToSquad(p,"youth");addNews({type:"youth_promoted",player:p.n,club:clubName+" Altyapı",val:calcYouthPlayerVal(p),detail:`${p.age} yaşında, POT ${p.pot}`,date:new Date().toLocaleDateString("tr-TR")});showToast(p.n+" A takımına alındı!");}}/>            : page==="rehber"     ? (()=>{setTimeout(()=>{setTutorialOpen(true);setPage("home");},0);return null;})()
-            : page==="ayarlar"   ? <PageAyarlar transferPace={transferPace} onPaceChange={setTransferPace}/>
+            : page==="ayarlar"   ? <PageAyarlar transferPace={transferPace} onPaceChange={setTransferPace} skipPreMatch={skipPreMatch} onSkipPreMatchChange={setSkipPreMatch}/>
             : page==="kaydet"     ? <PageKaydet season={season} squad={squad} coaches={coaches} youth={youth} db={db} clubName={clubName} onLoad={(d)=>loadGameData(d)}
                 transferBudget={transferBudget} wageBudget={wageBudget} spent={spent} income={income} wageSpent={wageSpent}
                 fStadyum={fStadyum} fForma={fForma} fYayin={fYayin} fSponsor={fSponsor} fLigOdeme={fLigOdeme} fKupaPrim={fKupaPrim}
@@ -28200,7 +28429,18 @@ function App(){
         const liveFixture={...matchOverlay, str:liveOppStr};
         const isDerbyLive=checkIsDerby(clubName,matchOverlay.opp||"");
         const derbyBonus=isDerbyLive?3:0; // Derbi maçında +3 motivasyon bonusu
-        return <MatchOverlay fixture={liveFixture} coachBonus={coachBonus+derbyBonus} tacticBonus={calcTacticBonus(tactic,liveOppStr,matchOverlay.home)} myStr={calcMyStr()} onFinish={handleMatchFinish} clubName={clubName} squad={squad} lineup={startingXI} formation={formation}/>;
+        const scoutRep=getScoutReport(matchOverlay.opp,liveOppStr,coaches,matchOverlay.w);
+        return <MatchOverlay fixture={liveFixture} coachBonus={coachBonus+derbyBonus} tacticBonus={calcTacticBonus(tactic,liveOppStr,matchOverlay.home,scoutRep.trueStyle,scoutRep.amp)} myStr={calcMyStr()} onFinish={handleMatchFinish} clubName={clubName} squad={squad} lineup={startingXI} formation={formation}/>;
+      })()}
+      {preMatch&&!matchOverlay&&(()=>{
+        const pmStr=(season.teams.find(t=>t.n===preMatch.opp)?.str)||preMatch.str;
+        const pmFix={...preMatch,str:pmStr};
+        return <PreMatchModal fix={pmFix} report={getScoutReport(preMatch.opp,pmStr,coaches,preMatch.w)}
+          tactic={tactic} danger={getDangerPlayer(db,preMatch.opp)} myStr={calcMyStr()}
+          onTactics={()=>{setPreMatch(null);setFormasyonInitTab("taktik");setPage("formasyon");}}
+          onStart={()=>{const f=preMatch;setPreMatch(null);setMatchOverlay(f);}}
+          onClose={()=>setPreMatch(null)}
+          onSkipForever={()=>{const f=preMatch;setSkipPreMatch(true);setPreMatch(null);setMatchOverlay(f);}}/>;
       })()}
       {postMatchBasin&&<PostMatchBasinModal
         fix={postMatchBasin.fix}
