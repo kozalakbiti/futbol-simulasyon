@@ -31,13 +31,19 @@ const PITCH3D_WID=68;           // taç çizgisinden taç çizgisine (dünya Z)
 // görüşü kapatamaz. Kırpılan yatay mesafenin bir kısmı yüksekliğe eklenir
 // (bakış dikleşir, sahne yine sığar). out: {x,y,z} ya da Vector3 — tahsis yok.
 const PITCH3D_CAM_PAD_X=1.0, PITCH3D_CAM_PAD_Z=1.5, PITCH3D_CAM_MIN_Y=4, PITCH3D_CAM_MAX_Y=46;
-function pitch3dSafeCam(px,py,pz,out,liftK){
+const PITCH3D_CAM_LOW_Y=0.75;   // çim seviyesi vuruş kamerası (kilit an: şut/orta onayı)
+const PITCH3D_CAM_TOP_MAX_Y=80; // kuşbakışı kilit an kamerası (saha üstünde; dikey ekranda kadraj sığsın)
+// minY / maxY (isteğe bağlı): en düşük (çim seviyesi: PITCH3D_CAM_LOW_Y) / en yüksek
+// (kuşbakışı: PITCH3D_CAM_TOP_MAX_Y) yükseklik
+function pitch3dSafeCam(px,py,pz,out,liftK,minY,maxY){
   const D=PITCH3D_DIM, mx=D.halfLen+PITCH3D_CAM_PAD_X, mz=D.halfWid+PITCH3D_CAM_PAD_Z;
   const x=Number.isFinite(px)?px:0, z=Number.isFinite(pz)?pz:0;
   const k=Number.isFinite(liftK)?liftK:0.35;
   let y=Number.isFinite(py)?py:12;
   const cx=Math.max(-mx,Math.min(mx,x)), cz=Math.max(-mz,Math.min(mz,z));
-  y=Math.min(PITCH3D_CAM_MAX_Y,Math.max(PITCH3D_CAM_MIN_Y,y+Math.hypot(x-cx,z-cz)*k));
+  const lo=Number.isFinite(minY)?Math.max(0.4,minY):PITCH3D_CAM_MIN_Y;
+  const hi=Number.isFinite(maxY)?Math.max(lo,maxY):PITCH3D_CAM_MAX_Y;
+  y=Math.min(hi,Math.max(lo,y+Math.hypot(x-cx,z-cz)*k));
   // Kale ağının içine alçaktan girmesin
   if(Math.abs(cx)>D.halfLen-1&&Math.abs(cz)<D.goalWidth/2+2.5) y=Math.max(y,D.goalHeight+3);
   out.x=cx; out.y=y; out.z=cz;

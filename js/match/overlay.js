@@ -46,7 +46,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [viewMode,setViewMode]=useState(view3dInit.mode);
   const [view3dNotice,setView3dNotice]=useState("");
   const is3D=viewMode==="3d";
-  const [cam3D,setCam3D]=useState("broadcast");
+  const [cam3D,setCam3D]=useState("top"); // varsayılan: kuşbakışı 2.5D (tribün sahayı kapatmaz)
   const pitch3dApiRef=useRef(null);
   const viewModeRef=useRef(viewMode);
   viewModeRef.current=viewMode;

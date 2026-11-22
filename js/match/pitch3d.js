@@ -5,7 +5,7 @@
 //   <Pitch3D camera="broadcast" onCameraChange={setCam} height={220}
 //            onReady={api=>apiRef.current=api} onError={err=>...}/>
 //   camera verilmezse bileşen kamerayı kendi içinde tutar.
-//   Kamera kimlikleri: "broadcast" (Yayın) | "tactical" (Taktik)
+//   Kamera kimlikleri: "top" (Kuşbakışı 2.5D, maçta varsayılan) | "broadcast" (Yayın) | "tactical" (Taktik)
 //                      | "goal" (Kale arkası) | "follow" (Topu takip)
 //
 // onReady(api) — sahne kurulunca BİR KEZ çağrılır. api:
@@ -29,7 +29,9 @@
 //   getTimeScale()          → aktif zaman ölçeği
 //   screenToWorld(cx,cy,out)→ ekran → zemin düzlemi, DÜNYA {x,z} (out'a yazar) | null
 //   worldToScreen(wx,wy,wz,out) → dünya → ekran (client) {x,y} (out'a yazar) | null (kamera arkası)
-//   setCustomCamera(px,py,pz,lx,ly,lz,snap) → camera="custom" iken sabit poz (kilit an)
+//   setCustomCamera(px,py,pz,lx,ly,lz,snap,low) → camera="custom" iken sabit poz (kilit an).
+//                             low=true: çim seviyesi vuruş kamerası (dikey ekranda geri çekilme yok,
+//                             en düşük yükseklik PITCH3D_CAM_LOW_Y; yatayda yine saha kutusunda)
 //   renderOnce()            → döngü durmuşken tek kare çiz
 //   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
 //   screenToPitch(cx,cy)    → ekran (clientX/Y) → zemin düzlemi → {x,y} 0–100 | null
@@ -42,6 +44,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const PITCH3D_CAMERAS=[
+  {id:"top",      icon:"🛰️",label:"Kuşbakışı"},
   {id:"broadcast",icon:"📺",label:"Yayın"},
   {id:"tactical", icon:"🗺️",label:"Taktik"},
   {id:"goal",     icon:"🥅",label:"Kale"},
@@ -64,6 +67,18 @@ function pitch3dCameraPose(mode,f,aspect,st,out){
     const tanV=Math.tan((45*Math.PI/180)/2);
     const dist=Math.max((D.halfLen+6)/(tanV*a),(D.halfWid+5)/tanV)*1.04;
     return pitch3dSetPose(out,0,dist,dist*0.1,0,0,0);
+  }
+  if(mode==="top"){
+    // Kuşbakışı 2.5D: neredeyse tam tepeden, topu izler. Kamera sahanın üstünde
+    // durduğu için tribünler sahayı kapatamaz. Yatay ekranda saha boyu yatay,
+    // dikey ekranda hücum yönü (+X) yukarı bakar (dar ekranda daha yüksek).
+    const tanV=Math.tan((45*Math.PI/180)/2);
+    const portrait=a<1;
+    const y=Math.max(34,Math.min(75,(portrait?16:30)/(tanV*a)));
+    const fx=Math.max(-D.halfLen+8,Math.min(D.halfLen-8,f.x));
+    const fz=Math.max(-D.halfWid+10,Math.min(D.halfWid-10,f.z));
+    return portrait?pitch3dSetPose(out,fx-y*0.16,y,fz,fx,0,fz)
+      :pitch3dSetPose(out,fx,y,fz+y*0.16,fx,0,fz);
   }
   if(mode==="goal"){
     // Topun bulunduğu yarı sahadaki kalenin arkası (gidip gelmesin diye histerezis)
@@ -242,7 +257,7 @@ function createPitch3DScene(THREE,container,opts){
     const camState={goalSide:1};
     const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
     const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
-    const customCam={on:false,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
+    const customCam={on:false,low:false,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
     let timeScale=1, hookClock=0; // ağır çekim: kancalar ölçekli dt/saat alır
     // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
@@ -261,11 +276,13 @@ function createPitch3DScene(THREE,container,opts){
       const mode=opts.getCameraMode();
       if(mode==="custom"&&customCam.on){
         // Dar (dikey) ekranda aynı bakış yönünde geri çekil ki sahne sığsın
-        const fit=camera.aspect<1.25?Math.min(2,1.25/Math.max(0.3,camera.aspect)):1;
+        // Kadrajı çağıran hesaplar (kilit an: kuşbakışı yüksekliği en-boy oranına göre);
+        // burada geri çekilme yok. Kuşbakışında tavan PITCH3D_CAM_TOP_MAX_Y (sahanın üstü, güvenli).
         tLook.copy(customCam.look);
-        tPos.copy(customCam.pos).sub(tLook).multiplyScalar(fit).add(tLook);
-        // Kamera saha kutusunda kalır: tribün/çatı görüşü kapatmaz (geri çekilme dahil)
-        pitch3dSafeCam(tPos.x,tPos.y,tPos.z,tPos,0.55);
+        tPos.copy(customCam.pos);
+        // Kamera saha kutusunda kalır: tribün/çatı görüşü kapatmaz
+        pitch3dSafeCam(tPos.x,tPos.y,tPos.z,tPos,0.55,customCam.low?PITCH3D_CAM_LOW_Y:undefined,
+          customCam.low?undefined:PITCH3D_CAM_TOP_MAX_Y);
         if(tLook.y<0) tLook.y=0;
         if(!Number.isFinite(tLook.x+tLook.y+tLook.z)) tLook.set(0,0,0);
       } else if(clock<closeUp.until&&(mode==="follow"||mode==="broadcast")){
@@ -364,8 +381,8 @@ function createPitch3DScene(THREE,container,opts){
       // Yayın/Takip modunda (wx,wz) dünya noktasına sec saniyelik yakın plan
       closeUp:(wx,wz,sec=1.6)=>{closeUp.x=wx;closeUp.z=wz;closeUp.until=clock+sec;},
       // camera="custom" modunda kullanılacak sabit poz (dünya). snap: geçişsiz atla
-      setCustomCamera:(px,py,pz,lx,ly,lz,snap)=>{
-        customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true;
+      setCustomCamera:(px,py,pz,lx,ly,lz,snap,low)=>{
+        customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true; customCam.low=!!low;
         if(snap) first=true;
       },
       addFrameHook:(fn)=>{
