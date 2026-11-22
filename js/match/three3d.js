@@ -112,6 +112,9 @@ function hasWebGLSupport(){
 // 0–100 saha yüzdesi → dünya koordinatı. out (THREE.Vector3) verilirse ona yazar.
 // Sayı olmayan / NaN / Infinity girdiler saha ortasına (50) düşer.
 function pitchToWorld3D(x,y,h=0,out){
+  // String sayılar da kabul edilir ("42" → 42); geçersiz değer saha ortasına düşer
+  // (null/"" → NaN; Number(null)=0 olduğu için ayrıca kontrol edilir)
+  x=(x==null||x==="")?NaN:Number(x); y=(y==null||y==="")?NaN:Number(y); h=Number(h);
   const wx=((Number.isFinite(x)?x:50)/100-0.5)*PITCH3D_LEN;
   const wz=((Number.isFinite(y)?y:50)/100-0.5)*PITCH3D_WID;
   if(!Number.isFinite(h)) h=0;

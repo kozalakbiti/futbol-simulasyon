@@ -32,14 +32,29 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [oppFormChangedAt,setOppFormChangedAt]=useState(null); // taktik değişim dakikası
   // ── CANLI SAHA ANİMASYONU ──
   const [ballEvents,setBallEvents]=useState([]); // aktif saha efektleri [{id,x,y,type,team}]
-  // ── 3D ÖNİZLEME (beta) ── varsayılan kapalı; açılınca Three.js yüklenir
-  const [show3D,setShow3D]=useState(false);
+  // ── MAÇ GÖRÜNÜMÜ: 2D / 3D ── kalıcı tercih (fcym_match_view, varsayılan "2d").
+  // WebGL testi maç başına bir kez (olumlu sonuç three3d.js'te önbellekte).
+  const [view3dInit]=useState(()=>{
+    let ok=false; try{ ok=hasWebGLSupport(); }catch(e){ ok=false; }
+    return {ok,mode:ok&&getMatchViewPref()==="3d"?"3d":"2d"};
+  });
+  const webgl3dOk=view3dInit.ok;
+  const [viewMode,setViewMode]=useState(view3dInit.mode);
+  const [view3dNotice,setView3dNotice]=useState("");
+  const is3D=viewMode==="3d";
   const [cam3D,setCam3D]=useState("broadcast");
   const pitch3dApiRef=useRef(null);
-  const show3DRef=useRef(false);
-  show3DRef.current=show3D;
-  // Kilit an 3D mi oynansın? Tek koşul — Adım 4'te kalıcı 2D/3D tercihi buraya bağlanacak.
-  const use3DMoment=()=>show3DRef.current;
+  const viewModeRef=useRef(viewMode);
+  viewModeRef.current=viewMode;
+  // Kilit an 3D mi oynansın? 3D görünümdeyse evet (kilit an başında sabitlenir)
+  const use3DMoment=()=>viewModeRef.current==="3d";
+  // Gol atanlar (skor tabelası için; motor sonucu değişmez): [{min,team,name}]
+  const [goalList,setGoalList]=useState([]);
+  useEffect(()=>{
+    if(!view3dNotice) return;
+    const t=setTimeout(()=>setView3dNotice(""),4500);
+    return()=>clearTimeout(t);
+  },[view3dNotice]);
   // 3D olay kuyruğu: ballEvents'e eklenen her olayın kopyası (son 30). 2D ballEvents
   // olayları 1.1–2.2 sn sonra siler; 3D duraklatılmışken (devre arası, maç sonu)
   // gelen olaylar böylece kaybolmaz. players3d görülen id'leri kendisi ayıklar.
@@ -161,7 +176,11 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
   // Müdahale anı çözümlendi — skoru güncelle ve maçı devam ettir
   const handleMomentResolve=(res)=>{
+    const momentMin=activeMoment?.min||minute;
     setActiveMoment(null);
+    // Skor tabelası listesi (yalnız görsel)
+    if(res.goalScored) setGoalList(g=>[...g,{min:momentMin,team:"me",name:res.player||""}]);
+    else if(res.goalConceded) setGoalList(g=>[...g,{min:momentMin,team:"opp",name:""}]);
     // Gol/gol yenme güncelle
     if(res.goalScored){
       setMyScore(s=>s+1);
@@ -272,14 +291,16 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   },[ballPos]);
 
   // 3D önizleme: kendi takımımızın kısa isim etiketleri (2D sahadaki ile aynı kural)
-  const labels3d=React.useMemo(()=>playerDots.map((p,i)=>{
+  // (2D görünümde hesaplanmaz — hook sırası korunur, yalnızca içerik koşullu)
+  const labels3d=React.useMemo(()=>!is3D?null:playerDots.map((p,i)=>{
     const pl=lineup.length>0?squad[lineup[i]]:squad[i];
     if(!pl||!pl.n) return "";
     return pl.n.split(".")[1]||pl.n.split(" ")[0]||pl.n;
-  }),[lineup,squad,playerDots.length]);
+  }),[is3D,lineup,squad,playerDots.length]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
-  live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d};
+  if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d};
+  else live3dRef.current=null;
 
   useEffect(()=>{
     // Sadece başlangıç 11'ini scorer/assister havuzuna al (lineupRef — Babel korumalı)
@@ -459,6 +480,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           if(e.type==="goal"){
             if(e.team==="me") setMyScore(s=>s+1);
             else setOppScore(s=>s+1);
+            setGoalList(g=>[...g,{min:e.min,team:e.team==="me"?"me":"opp",name:e.team==="me"?(e.scorer||""):""}]);
             // Gol sesi: kısa düdük + stadyum kutlaması
             setTimeout(()=>{ playWhistle(false); setTimeout(()=>playCrowd(true),180); },0);
             // ── GOL SONRASI RESET: oyuncular mevkilerine dönsün ──
@@ -602,6 +624,40 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   // Top ısısına göre renk
   const ballCol=ballPos[0]>60?C.grn2:ballPos[0]<40?C.red2:C.gd;
 
+  // ── 2D/3D geçişi: maç akışına (interval, skor, kilit anlar, devre arası) dokunmaz ──
+  const pickView=(next)=>{
+    if(next==="3d"&&!webgl3dOk){ setView3dNotice("Cihazın 3D desteklemiyor; maç 2D görünümde devam ediyor."); return; }
+    if(next===viewModeRef.current) return;
+    if(next!=="3d") pitch3dApiRef.current=null;
+    setViewMode(next);
+    setMatchViewPref(next);
+    setView3dNotice("");
+    if(next==="3d"&&tab==="pitch") setTab("log"); // 3D'de "Saha" sekmesi yok
+  };
+  // 3D modda sonuç paneli kısa ekranda alta taşabilir → maç bitince "DEVAM ET" görünür olsun
+  const resultPanelRef=useRef(null);
+  useEffect(()=>{
+    if(phase!=="result"||viewMode!=="3d") return;
+    const t=setTimeout(()=>{
+      try{ resultPanelRef.current&&resultPanelRef.current.scrollIntoView({block:"end",behavior:"smooth"}); }catch(e){}
+    },150);
+    return()=>clearTimeout(t);
+  },[phase,viewMode]);
+  // Three yüklenemedi / Pitch3D hata verdi → bu maç için 2D (tercih kalıcı olarak değişmez)
+  const on3dViewError=()=>{
+    pitch3dApiRef.current=null;
+    if(viewModeRef.current!=="3d") return;
+    setViewMode("2d");
+    setView3dNotice("3D görünüm açılamadı; maç 2D görünümde devam ediyor.");
+  };
+  const view3dH=(()=>{
+    const vh=(typeof window!=="undefined"&&window.innerHeight)||640;
+    return phase==="result"?Math.max(180,Math.round(vh*0.3)):Math.max(220,Math.round(vh*0.45));
+  })();
+  const half3d=phase==="result"?"MAÇ SONU":(showHalftime||isHT)?"DEVRE ARASI":devre;
+  // 3D kilit an kendi sahnesini açar: o sırada canlı 3D sahne kapatılır (tek WebGL bağlamı)
+  const hide3dForMoment=!!(activeMoment&&activeMoment.view3D);
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.93)",zIndex:200,
       display:"flex",alignItems:"center",justifyContent:"center",padding:6}}>
@@ -612,6 +668,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
+          onFallback={on3dViewError}
         />
       ):(
         <InteractiveMoment
@@ -652,7 +709,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         />
       )}
       <div style={{width:"min(100vw,520px)",background:C.card,border:`1px solid rgba(77,166,255,0.22)`,
-        borderRadius:10,overflow:"hidden",display:"flex",flexDirection:"column",maxHeight:"98vh"}}>
+        borderRadius:10,overflowX:"hidden",overflowY:is3D?"auto":"hidden",
+        display:"flex",flexDirection:"column",maxHeight:"98vh"}}>
 
         {/* ── HEADER ── */}
         <div style={{background:"linear-gradient(135deg,#0b1d3a,#050e1c)",
@@ -661,7 +719,22 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           <div style={{fontSize:".48rem",letterSpacing:2,color:C.dim,textTransform:"uppercase"}}>
             {fixture.home?"🏠 EV":"✈️ DEP"} · {fixture.comp||"SL"} · Hafta {fixture.w}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:5}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
+            {/* Maç görünümü: 2D / 3D */}
+            <div style={{display:"flex",gap:1,background:"rgba(0,0,0,.4)",borderRadius:4,padding:2,border:`1px solid rgba(77,166,255,0.1)`}}>
+              {[["2d","2D"],["3d","3D"]].map(([k,l])=>{
+                const on=viewMode===k, off=k==="3d"&&!webgl3dOk;
+                return(
+                  <button key={k} onClick={()=>pickView(k)} aria-disabled={off}
+                    title={off?"Cihazın 3D desteklemiyor":k==="3d"?"3D maç görünümü":"2D maç görünümü"}
+                    style={{padding:"2px 6px",borderRadius:3,fontFamily:"inherit",border:"none",
+                      fontSize:".46rem",fontWeight:on?800:500,letterSpacing:.3,
+                      cursor:off?"not-allowed":"pointer",opacity:off?0.4:1,
+                      background:on?"linear-gradient(135deg,#6b3fd1,#8e5cf7)":"transparent",
+                      color:on?"#fff":C.dmr,transition:"all .15s"}}>{l}</button>
+                );
+              })}
+            </div>
             {/* Müdahale anı sayacı */}
             {phase==="playing"&&speed==="slow"&&(()=>{
               const total=momentsRef.current.length;
@@ -719,8 +792,15 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           </div>
         </div>
 
-        {/* ── SKOR PANELİ ── */}
-        <div style={{padding:"8px 14px 4px",background:"linear-gradient(180deg,#091728,transparent)",
+        {/* ── 2D/3D bildirimi (WebGL yok / 3D açılamadı) ── */}
+        {view3dNotice&&<div style={{margin:"5px 10px 0",padding:"4px 10px",borderRadius:5,flexShrink:0,
+          fontSize:".52rem",fontWeight:700,color:"#f5c26b",background:"rgba(245,194,107,.08)",
+          border:"1px solid rgba(245,194,107,.35)",textAlign:"center",animation:"fadeSlide .2s ease"}}>
+          ⚠️ {view3dNotice}
+        </div>}
+
+        {/* ── SKOR PANELİ ── (3D'de skor tabelası 3D görünümün üstünde) */}
+        {!is3D&&<div style={{padding:"8px 14px 4px",background:"linear-gradient(180deg,#091728,transparent)",
           display:"flex",alignItems:"center",flexShrink:0}}>
           <div style={{textAlign:"center",flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:3}}>
@@ -748,7 +828,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
               color:phase==="result"?(finalRes==="L"?C.grn2:finalRes==="W"?C.red2:C.gd):C.wh,
               transition:"all .3s"}}>{oppScore}</div>
           </div>
-        </div>
+        </div>}
 
         {/* ── PROGRESS BAR ── */}
         {phase==="playing"&&<div style={{padding:"0 12px 5px",flexShrink:0}}>
@@ -783,6 +863,30 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           </div>
         </div>}
 
+        {/* ── 3D MAÇ GÖRÜNÜMÜ (tek örnek) + SKOR TABELASI ── */}
+        {is3D&&<div style={{flexShrink:0,padding:"0 8px 6px"}}>
+          <div style={{position:"relative",height:view3dH}}>
+            {hide3dForMoment?(
+              <div style={{height:"100%",borderRadius:6,border:"1px solid rgba(77,166,255,.25)",
+                background:"#0b1220",display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:".6rem",color:"#9fb3c8"}}>🎮 Kilit an oynanıyor…</div>
+            ):(
+              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={view3dH} controlsAt="bottom"
+                paused={showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
+                onReady={api=>{
+                  pitch3dApiRef.current=api;
+                  api.setFocus(ballPos[0],ballPos[1]);
+                  // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
+                  try{ createMatchActors3D(api,{getSnapshot:()=>live3dRef.current}); }
+                  catch(e){ console.error("[3D] oyuncular kurulamadı",e); }
+                }}
+                onError={on3dViewError}/>
+            )}
+            <Scoreboard3D clubName={clubName} oppName={fixture.opp} myScore={myScore} oppScore={oppScore}
+              minute={minute} half={half3d} goals={goalList}/>
+          </div>
+        </div>}
+
         {/* ── FLASH OLAY ── */}
         {flash&&<div style={{margin:"0 10px 5px",padding:"7px 12px",borderRadius:5,flexShrink:0,
           background:flash.col===C.grn2?"rgba(39,174,96,.15)":flash.col===C.red2?"rgba(232,64,64,.15)":"rgba(200,153,42,.12)",
@@ -792,7 +896,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
         {/* ── SEKMELER ── */}
         <div style={{display:"flex",borderBottom:`1px solid rgba(77,166,255,0.1)`,flexShrink:0}}>
-          {[["log","📋 Olaylar"],["pitch","⚽ Saha"],["stats","📊 Stats"],["ratings","⭐ Puanlar"]].map(([t,l])=>(
+          {[["log","📋 Olaylar"],["pitch","⚽ Saha"],["stats","📊 Stats"],["ratings","⭐ Puanlar"]].filter(([t])=>!(is3D&&t==="pitch")).map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t)} style={{
               flex:1,padding:"5px 2px",border:"none",fontFamily:"inherit",cursor:"pointer",
               fontSize:".5rem",letterSpacing:.3,
@@ -803,7 +907,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         </div>
 
         {/* ── HER ZAMAN GÖRÜNÜR MİNİ SAHA — Sekme bağımsız ── */}
-        {phase==="playing"&&<div style={{flexShrink:0,padding:"6px 8px 0"}}>
+        {phase==="playing"&&!is3D&&<div style={{flexShrink:0,padding:"6px 8px 0"}}>
           <div style={{position:"relative",borderRadius:5,overflow:"hidden",
             height:90,border:"1.5px solid #2a6a2a",
             background:"linear-gradient(180deg,#1a5c1a 0%,#1e6b1e 45%,#1a5c1a 100%)"}}>
@@ -930,30 +1034,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         </div>}
 
         {/* ── SAHA SEKMESİ — Canlı Animasyonlu ── */}
-        {tab==="pitch"&&<div style={{flex:1,padding:"6px 8px",display:"flex",flexDirection:"column",gap:5,overflowY:"auto"}}>
-
-          {/* ═══ 3D ÖNİZLEME (beta) — katlanabilir, varsayılan kapalı ═══ */}
-          <div style={{borderRadius:6,border:"1px solid rgba(77,166,255,.25)",background:"rgba(0,0,0,.25)",overflow:"hidden",flexShrink:0}}>
-            <button onClick={()=>setShow3D(v=>!v)}
-              style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
-                padding:"5px 8px",background:"transparent",border:"none",cursor:"pointer",
-                color:C.ac2,fontSize:".58rem",fontWeight:700,letterSpacing:.4}}>
-              <span>🧊 3D Önizleme (beta)</span>
-              <span style={{color:C.dmr}}>{show3D?"▲ Kapat":"▼ Aç"}</span>
-            </button>
-            {show3D&&<div style={{padding:"0 5px 5px"}}>
-              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={210}
-                paused={!!activeMoment||showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
-                onReady={api=>{
-                  pitch3dApiRef.current=api;
-                  api.setFocus(ballPos[0],ballPos[1]);
-                  // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
-                  try{ createMatchActors3D(api,{getSnapshot:()=>live3dRef.current}); }
-                  catch(e){ console.error("[3D] oyuncular kurulamadı",e); }
-                }}
-                onError={()=>{pitch3dApiRef.current=null;}}/>
-            </div>}
-          </div>
+        {tab==="pitch"&&!is3D&&<div style={{flex:1,padding:"6px 8px",display:"flex",flexDirection:"column",gap:5,overflowY:"auto"}}>
 
           {/* ═══ CANLI SAHA ═══ */}
           <div style={{position:"relative",borderRadius:6,overflow:"hidden",
@@ -1322,7 +1403,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         </div>}
 
         {/* ── SONUÇ PANELİ — Sinematik ── */}
-        {phase==="result"&&r&&<div style={{
+        {phase==="result"&&r&&<div ref={resultPanelRef} style={{
           padding:"14px 14px 16px",
           borderTop:`2px solid ${resCol}44`,flexShrink:0,
           background:`linear-gradient(0deg,${

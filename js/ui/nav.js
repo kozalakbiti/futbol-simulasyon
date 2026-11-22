@@ -26,6 +26,10 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
     {key:"fast",  icon:"🔥", label:"Hareketli", color:"#ff5050",
      desc:"Pazar çok hareketli — oyuncularına sık sık teklif gelir, kararları hızlı alman gerekir!"},
   ];
+  // Maç görünümü tercihi (hud3d.js: fcym_match_view) — maç ekranındaki 2D/3D düğmesiyle aynı anahtar
+  const [matchView,setMatchView]=useState(()=>getMatchViewPref());
+  const [webgl3dOk]=useState(()=>{ try{ return hasWebGLSupport(); }catch(e){ return false; } });
+  const pickMatchView=(v)=>{ if(v==="3d"&&!webgl3dOk) return; setMatchView(v); setMatchViewPref(v); };
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflowY:"auto",padding:"12px 10px",gap:16}}>
       {/* Başlık */}
@@ -111,6 +115,32 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
           background:!skipPreMatch?"rgba(48,224,112,.18)":"rgba(255,255,255,.05)",
           border:`1px solid ${!skipPreMatch?"#30e070":C.brd2}`,
           color:!skipPreMatch?"#30e070":C.dim}}>{!skipPreMatch?"AÇIK":"KAPALI"}</button>
+      </div>
+
+      {/* Maç görünümü: 2D / 3D */}
+      <div style={{background:"rgba(0,0,0,.35)",borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,
+        padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:".62rem",fontWeight:800,color:C.wh,letterSpacing:.5}}>🧊 Maç Görünümü</div>
+          <div style={{fontSize:".46rem",color:C.dim,marginTop:2,lineHeight:1.4}}>
+            {webgl3dOk
+              ?"3D: canlı maç ve kilit anlar 3D sahada oynanır (daha fazla pil/işlemci). Maç sırasında da değiştirilebilir. Bu tercih cihaza kaydedilir."
+              :"Cihazın 3D desteklemiyor; maçlar 2D görünümde oynanır."}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:2,flexShrink:0,background:"rgba(0,0,0,.4)",borderRadius:14,padding:2,
+          border:`1px solid ${C.brd2}`}}>
+          {[["2d","2D"],["3d","3D"]].map(([k,l])=>{
+            const on=(webgl3dOk?matchView:"2d")===k, off=k==="3d"&&!webgl3dOk;
+            return(
+              <button key={k} onClick={()=>pickMatchView(k)} disabled={off}
+                title={off?"Cihazın 3D desteklemiyor":undefined}
+                style={{padding:"5px 11px",borderRadius:12,fontFamily:"inherit",border:"none",
+                  fontSize:".5rem",fontWeight:800,cursor:off?"not-allowed":"pointer",opacity:off?0.4:1,
+                  background:on?"rgba(142,92,247,.3)":"transparent",color:on?"#c4a8ff":C.dim}}>{l}</button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Bilgi kutusu */}

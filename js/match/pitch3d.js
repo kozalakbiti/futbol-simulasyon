@@ -27,7 +27,8 @@
 //   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
 //   screenToPitch(cx,cy)    → ekran (clientX/Y) → zemin düzlemi → {x,y} 0–100 | null
 //   isDisposed()            → unmount olduysa true (eski api'yi kullanmayı bırak)
-// Prop'lar: paused (render döngüsünü durdurur), interactive (touch-action:none)
+// Prop'lar: paused (render döngüsünü durdurur), interactive (touch-action:none),
+//   controlsAt ("top" | "bottom": kamera düğmelerinin köşesi; HUD üstteyse "bottom")
 // Temizlik: unmount'ta scene içindeki HER ŞEY disposeObject3D ile serbest
 // bırakılır; gruplara eklenen mesh'ler için ayrıca dispose gerekmez.
 // Kendi eklediğin dinleyicileri addFrameHook'un döndürdüğü fonksiyonla kaldır.
@@ -417,7 +418,7 @@ function createPitch3DScene(THREE,container,opts){
 
 // paused: true iken render döngüsü durur (son kare ekranda kalır)
 // interactive: true iken canvas dokunma hareketlerini yutar (touch-action:none) — Adım 3
-function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false}){
+function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top"}){
   const mountRef=useRef(null);
   const instRef=useRef(null);
   const [innerCam,setInnerCam]=useState("broadcast");
@@ -493,7 +494,8 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
         color:"#f5c26b",lineHeight:1.5,background:"rgba(11,18,32,.92)"}}>
         ⚠️ {errMsg}
       </div>}
-      {showControls&&status==="ready"&&<div style={{position:"absolute",top:5,right:5,display:"flex",gap:3,zIndex:2}}>
+      {showControls&&status==="ready"&&<div style={{position:"absolute",...(controlsAt==="bottom"?{bottom:5}:{top:5}),right:5,
+        display:"flex",flexWrap:"wrap",justifyContent:"flex-end",maxWidth:"calc(100% - 10px)",gap:3,zIndex:2}}>
         {PITCH3D_CAMERAS.map(c=>{
           const on=c.id===camMode;
           return(

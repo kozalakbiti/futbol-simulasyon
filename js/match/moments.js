@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const MOMENT_TYPES={
-    corner:{
+  corner:{
     id:"corner", icon:"🚩", label:"KORNER!", color:"#ffd060",
     desc:"Köşe vuruşu kazandık! Nasıl kullanacaksın?",
     options:[
@@ -12,7 +12,7 @@ const MOMENT_TYPES={
       {id:"far",   icon:"🎯", label:"Uzak Direk",    desc:"Süpriz açı girişimi",      stat:"sht", bonus:0.20},
     ]
   },
-    freekick:{
+  freekick:{
     id:"freekick", icon:"📐", label:"SERBEST VURUŞ!", color:"#3498db",
     desc:"Tehlikeli bölgede serbest vuruş! Tercihini yap.",
     options:[
@@ -21,7 +21,7 @@ const MOMENT_TYPES={
       {id:"pass",  icon:"↩️", label:"Kısa Kombinasyon",desc:"Pozisyon oluştur",      stat:"pas", bonus:0.22},
     ]
   },
-    counter:{
+  counter:{
     id:"counter", icon:"⚡", label:"KONTR ATAK!", color:"#30e070",
     desc:"Hızlı çıkış fırsatı! Rakip savunma açık!",
     options:[
@@ -30,7 +30,7 @@ const MOMENT_TYPES={
       {id:"wait",  icon:"⏸️", label:"Bekle & Gör",   desc:"Pozisyon kur, daha güvenli",stat:"pas",bonus:0.18},
     ]
   },
-    penalty:{
+  penalty:{
     id:"penalty", icon:"🔴", label:"PENALTI!", color:"#ff5050",
     desc:"Hakem gösterdi! Penaltı noktasına gidiyoruz.",
     options:[
@@ -39,7 +39,7 @@ const MOMENT_TYPES={
       {id:"chip",  icon:"🎩", label:"Çip Vuruş",     desc:"Ortaya yüksek, riskli",   stat:"sht", bonus:0.28},
     ]
   },
-    oneonone:{
+  oneonone:{
     id:"oneonone", icon:"🎯", label:"BİREBİR!", color:"#9b59b6",
     desc:"Forvet kaleci karşısında! Büyük gol fırsatı!",
     options:[
@@ -48,7 +48,7 @@ const MOMENT_TYPES={
       {id:"fake",  icon:"💃", label:"Yanıltma + Şut",desc:"Kaleciye hamle, sonra şut",stat:"spd",bonus:0.38},
     ]
   },
-    tackle:{
+  tackle:{
     id:"tackle", icon:"🛡️", label:"KRİTİK MÜDAHALE!", color:"#1abc9c",
     desc:"Rakip hücuma geçti! Savunma kararı ver.",
     options:[

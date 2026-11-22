@@ -34,12 +34,12 @@ Branch: `feature/3d-mac-motoru` · Kütüphane: Three.js r128 (cdnjs, UMD, ihtiy
 - [x] Sonucun 3D animasyonu, ardından **aynı `onResolve` sözleşmesi**
 - [x] 3D yüklenemezse mevcut 2D `InteractiveMoment`'e düşme
 
-### 4. Skor tabelası ve 2D/3D geçişi — 🔨 devam ediyor
-- [ ] Adım 3 denetim bulgularının düzeltilmesi (özellikle denge; aşağıdaki günlüğe bak)
-- [ ] 3D görünüm üzerinde skor tabelası (takımlar, skor, dakika, devre, gol atanlar), gol anında vurgu
-- [ ] `MatchOverlay`'e 2D/3D geçiş düğmesi; tercih `safeLsGet/safeLsSet` ile ayrı anahtarda saklanır
-- [ ] WebGL yoksa düğme devre dışı + Türkçe uyarı; 2D akışı (sekmeler, devre arası, sonuç paneli) bozulmaz
-- [ ] Performans: 3D kapalıyken render döngüsü durur, maç kapanınca her şey temizlenir
+### 4. Skor tabelası ve 2D/3D geçişi — ✅ tamamlandı
+- [x] Adım 3 denetim bulgularının düzeltilmesi (özellikle denge; aşağıdaki günlüğe bak)
+- [x] 3D görünüm üzerinde skor tabelası (takımlar, skor, dakika, devre, gol atanlar), gol anında vurgu
+- [x] `MatchOverlay`'e 2D/3D geçiş düğmesi; tercih ayrı anahtarda (`fcym_match_view`) saklanır
+- [x] WebGL yoksa düğme devre dışı + Türkçe uyarı; 2D akışı (sekmeler, devre arası, sonuç paneli) bozulmaz
+- [x] Performans: 3D kapalıyken render döngüsü durur, maç kapanınca her şey temizlenir
 
 ## İlerleme günlüğü
 
@@ -114,3 +114,44 @@ _(Her adım bittikçe buraya eklenir: ne yapıldı, kod-denetleyici bulguları, 
   - [küçük] NaN atlanan oyuncu slotu saha ortasında görünebilir.
   - [küçük] `pitchToWorld3D` string sayıları saha ortasına düşürüyor.
   - Hepsi Adım 4'ün başında düzeltilecek.
+- **Commit:** `a36f297`
+
+### Adım 4 — Skor tabelası ve 2D/3D geçişi ✅
+- **Adım 3 düzeltmeleri:**
+  - **Pas kalitesi:** Kesilme riski %50, alıcıya isabet %25, ilerleme/tehdit %25.
+  - **Şut kalitesi:** Kaleciden uzaklık ve köşe isabeti sayılıyor. Kaleci blok riskine 0.35 ağırlıkla giriyor. Penaltı ve birebirde kaleci rastgele bir yana kaymış başlıyor.
+  - **Rota terimi:** Asimetrik; üst sınır +0.05, alt sınır −0.12.
+  - **Otomatik rota:** Sabit −0.12. Hiçbir el çiziminden iyi olamaz.
+  - **Denge ölçümü (`bal3.js`):** En iyi rota ortalaması +0.049, rastgele makul rota ortalaması ≈0. İyi oynayan biri 2D'ye göre en fazla ~+5 puan alıyor.
+  - **Diğer:** `MOMENT_TYPES` girintisi geri alındı. Başarılı faulde düdük efekti oynuyor. NaN slotu gizleniyor; string koordinatlar kabul ediliyor.
+- **Yeni dosya `js/match/hud3d.js`:**
+  - `Scoreboard3D` (HTML katman): rozet, skor, dakika, devre, son goller; golde yanıp sönme ve parıltı.
+  - `getMatchViewPref`/`setMatchViewPref`: `fcym_match_view` anahtarı, değer `"2d"`/`"3d"`, varsayılan `"2d"`.
+- **overlay.js:**
+  - Başlıkta 2D/3D düğmesi var.
+  - 3D modda tam genişlikte sahne ve tabela gösteriliyor; mini saha, Saha sekmesi ve büyük skor paneli gizleniyor.
+  - Beta önizleme kaldırıldı.
+  - 3D kilit an sırasında canlı sahne kapatılıyor, yani aynı anda tek WebGL bağlamı var.
+  - 3D açılamazsa o maç için 2D'ye dönülüyor; tercih kalıcı olarak değişmiyor.
+  - 2D modda 3D'ye özgü hiçbir maliyet yok.
+- **Diğer dosyalar:** `pitch3d.js`'e `controlsAt` prop'u eklendi. Ayarlar sayfasına (`js/ui/nav.js`) "Maç Görünümü 2D/3D" seçeneği eklendi.
+- **Kod denetimi:** Kritik ya da önemli hata yok. Derleme, yükleme sırası, isim çakışması, hook sırası (viewMode değişince değişmiyor) ve WebGL bağlam yönetimi temiz. Maç akışı, kayıt şekli ve denge doğrulandı. 4 küçük bulgu çıktı, ana oturumda düzeltildi:
+  - `setMatchViewPref` artık `safeLsSet` kullanmıyor. `safeLsSet` kota dolunca en eski menajer kaydını siliyordu.
+  - 3D modda maç bitince sonuç paneli görünür alana kaydırılıyor, böylece "DEVAM ET" düğmesi görünüyor.
+  - Ayarlar'da WebGL yokken 2D seçili gösteriliyor.
+  - 3D kilit an hata yüzünden 2D'ye düşerse maç görünümü de 2D'ye geçiyor. "2D'ye geç" düğmesi yalnız o anı etkiliyor.
+- **Düzeltme sonrası kontrol:** Babel 7.23.5 derlemesi, `node --check` ve sunucu tarafı render testi geçti.
+
+## Sonuç ve açık işler
+4 adımın hepsi tamamlandı. Oyun henüz gerçek tarayıcıda / Android WebView'da elle test edilmedi. Test edilmesi gerekenler:
+- 2D↔3D'yi maç sırasında defalarca değiştir; interval, skor, devre arası ve kilit anlar bozulmamalı, konsolda WebGL bağlam uyarısı çıkmamalı.
+- 6 kilit an tipinin hepsinde çizim, risk göstergesi, güç barı ve animasyon doğru çalışmalı; mobilde dokunarak çizim yapılabilmeli.
+- 360 px genişlikte başlık düğmeleri, tabela ve kamera düğmeleri çakışmamalı; sonuç panelinde "DEVAM ET" görünmeli.
+- Ağ kapalıyken ya da WebGL yokken 2D'ye düşüş ve uyarılar çıkmalı.
+- Android'de FPS kontrol edilmeli (yaklaşık 190 çizim çağrısı var).
+
+Bilinen sınırlamalar:
+- Rakip golcü adları motorda olmadığı için tabelada yalnız dakika görünüyor.
+- 3D modda Saha sekmesindeki formasyon özeti gizli.
+- Kalecide dalış animasyonu yok.
+- Şut yüksekliği çizilemiyor.

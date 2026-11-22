@@ -68,10 +68,11 @@ const MOMENT3D_LAYOUTS={
 };
 
 // Seçenek → ne çizilecek. lofted: havadan top (risk yalnız iniş bölgesinde),
-// header: pası kafayla bitir, carry: şuttan önce topu rotanın bir kısmında sür.
+// header: pası kafayla bitir, carry: şuttan önce topu rotanın bir kısmında sür,
+// curl: falsolu şut (barajı/araya girenleri kısmen aşar, blok riski azalır).
 const MOMENT3D_OPTION_KIND={
   corner:  {high:{kind:"pass",lofted:true,header:true},short:{kind:"pass"},far:{kind:"pass",lofted:true,header:true}},
-  freekick:{direct:{kind:"shot"},wall:{kind:"shot",lofted:true},pass:{kind:"pass"}},
+  freekick:{direct:{kind:"shot",curl:true},wall:{kind:"shot",lofted:true},pass:{kind:"pass"}},
   counter: {sprint:{kind:"pass"},dribble:{kind:"shot",carry:true},wait:{kind:"pass"}},
   penalty: {power:{kind:"shot"},place:{kind:"shot"},chip:{kind:"shot",lofted:true}},
   oneonone:{shoot:{kind:"shot"},lob:{kind:"shot",lofted:true},fake:{kind:"shot",carry:true}},
@@ -116,16 +117,23 @@ function moment3dRouteRisk(pts,opps,lofted){
 
 // ── DENGE: rota kalitesi → başarı şansına eklenen terim ──
 // calcMomentChance (moments.js) 2D formülünün aynısıdır; 3D yalnızca bu terimi ekler.
-// q=0.6 (tipik, makul bir rota: orta risk + alıcıya yakın / kale içi ama köşe değil)
-// → 0; mükemmel rota (q=1) → +0.12; kötü rota (q≤0.2, ör. kale dışı) → −0.12.
-// Çoğu oyuncu q≈0.5–0.75 aralığında çizer → ortalama terim ≈ 0…+0.04, yani
-// ortalama başarı oranı 2D ile kabaca aynı kalır (başsız testte rastgele makul
-// rotalarla tip başına ortalama terim −0.07…+0.05, genel ortalama ≈ 0). Süre dolup
-// otomatik rota seçilirse kalite 0.6'yla sınırlanır ve ayrıca −0.04 uygulanır.
-// Sonuç yine 0.08–0.92 ile sınırlanır.
+// Terim (q−0.6)·0.3, ASİMETRİK sınırlı: en fazla +0.05, en az −0.12.
+//   q=0.6 (makul rota) → 0 · q≥0.77 → +0.05 (tavan) · q≤0.2 (ör. kale dışı) → −0.12.
+// Pas kalitesi: kesilme riski (%50) + alıcıya isabet (%25) + ilerleme/tehdit (%25);
+//   geriye/yana kısa güvenli pas tam puan almaz. Şut: kaleciden uzaklık + köşe
+//   isabeti (direğe çok yakın cezalı); blok riskine kaleci 0.35 ağırlıkla girer,
+//   penaltı/birebirde kaleci bir yana kaymış başlar.
+// Başsız denge ölçümü (18 seçenek × 105×105 düz rota, 4 tekrar):
+//   en iyi rota terimi ort +0.049 (17/18 seçenekte tavan +0.05, serbest vuruş
+//   direkt +0.034) · rastgele makul rota ort +0.001 (seçenek başına −0.030…+0.022)
+//   · makul rotaların en iyi %25'i ort +0.049 → iyi oyuncu 2D'den en fazla ~+5 puan.
+// Süre dolup otomatik rota seçilirse sabit MOMENT3D_AUTO_TERM (= alt sınır −0.12):
+//   hiçbir geçerli el çiziminden iyi olamaz. Sonuç yine 0.08–0.92 ile sınırlanır.
+const MOMENT3D_TERM_MAX=0.05, MOMENT3D_TERM_MIN=-0.12;
+const MOMENT3D_AUTO_TERM=MOMENT3D_TERM_MIN; // otomatik rota = en kötü geçerli el çizimi
 function moment3dRouteTerm(q){
   const v=(Number.isFinite(q)?q:0.6)-0.6;
-  return Math.max(-0.12,Math.min(0.12,v*0.3));
+  return Math.max(MOMENT3D_TERM_MIN,Math.min(MOMENT3D_TERM_MAX,v*0.3));
 }
 
 // Başarısızlık mesajına uygun animasyon: "wide" | "post" | "save" | "cut"
@@ -188,9 +196,16 @@ function createMoment3DController(api,cfg){
     }
   }
   let gkIdx=-1, gkW=null;
-  if(lay.gk){ gkIdx=opp.length; gkW=wp(lay.gk); riskers.push({x:gkW.x,z:gkW.z,idx:gkIdx,gk:true}); opp.push({id:opp.length,x:lay.gk[0],y:lay.gk[1],role:"GK"}); }
-  // Şut blok riski: kaleci hariç; duvar şutun yüksek gittiği için kısmen bloklar
-  const fieldRiskers=riskers.filter(r=>!r.gk).map(r=>r.wall?{x:r.x,z:r.z,idx:r.idx,gk:false,w:0.3}:r);
+  if(lay.gk){
+    // Penaltı/birebirde kaleci bir tarafa hafif kaymış başlar (en iyi köşe her an değişir)
+    const gy=(cfg.type==="penalty"||cfg.type==="oneonone")?lay.gk[1]+(Math.random()*2-1)*2.2:lay.gk[1];
+    gkIdx=opp.length; gkW=wp([lay.gk[0],gy]);
+    riskers.push({x:gkW.x,z:gkW.z,idx:gkIdx,gk:true});
+    opp.push({id:opp.length,x:lay.gk[0],y:gy,role:"GK"});
+  }
+  // Şut blok riski: duvar şutun yüksek gittiği için kısmen (0.18), kaleci düşük ağırlıkla (0.35)
+  const fieldRiskers=riskers.map(r=>r.wall?{x:r.x,z:r.z,idx:r.idx,gk:false,w:0.18}
+    :r.gk?{x:r.x,z:r.z,idx:r.idx,gk:true,w:0.35}:r);
   const snap={my,opp,ball:lay.ball,events:[],labels:[cfg.label||""]};
   const actors=createMatchActors3D(api,{getSnapshot:()=>snap});
 
@@ -267,9 +282,15 @@ function createMoment3DController(api,cfg){
     for(let i=0;i<mateW.length;i++){ const d=Math.hypot(mateW[i].x-end.x,mateW[i].z-end.z); if(d<bd){ bd=d; best=i; } }
     const r=moment3dRouteRisk(pts,riskers,lofted);
     const recv=clamp(1-(bd-2)/7,0,1);
+    // İlerleme/tehdit: alıcının rakip kaleye yakınlığı ya da rotanın x ilerlemesi.
+    // Geriye ya da yana kısa güvenli pas tam puan almaz.
+    const dGoal=Math.hypot(L-end.x,end.z);
+    const threat=clamp(1-(dGoal-8)/24,0,1);
+    const prog=clamp((end.x-ballW.x)/18,0,1);
+    const adv=Math.max(threat,prog*0.85);
     const valid=len>=3;
-    const q=valid?clamp((1-r.risk)*0.65+recv*0.35,0,1):0;
-    return {valid,kind:"pass",quality:q,risk:r.risk,worstIdx:r.idx,worstU:r.u,recvIdx:best,recvDist:bd,end:{x:end.x,z:end.z},len};
+    const q=valid?clamp((1-r.risk)*0.5+recv*0.25+adv*0.25,0,1):0;
+    return {valid,kind:"pass",quality:q,risk:r.risk,worstIdx:r.idx,worstU:r.u,recvIdx:best,recvDist:bd,adv,end:{x:end.x,z:end.z},len};
   };
   const evalShot=(pts)=>{
     const n=pts.length, len=polyLen(pts);
@@ -286,12 +307,15 @@ function createMoment3DController(api,cfg){
     const tz=cross?clamp(cross.z,-(GW+10),GW+10):clamp(pts[n-1].z,-(GW+10),GW+10);
     const inGoal=!!cross&&Math.abs(tz)<GW-0.15;
     const kz=gkW?gkW.z:0;
-    const place=clamp(Math.abs(tz-kz)/(GW*0.85),0,1);
+    // place: kaleciden uzaklık · acc: köşe isabeti (direğe çok yakın = dışarı/direk riski)
+    const place=clamp(Math.abs(tz-kz)/(GW*1.2),0,1);
+    const edge=Math.abs(tz)/GW;
+    const acc=edge<=0.72?0.45+0.55*edge/0.72:clamp(1-(edge-0.72)/0.28*0.55,0,1);
     const shotPts=pts.slice(0,cutAt); if(cross) shotPts.push(cross);
     const r=moment3dRouteRisk(shotPts,fieldRiskers,lofted);
     // Havadan şutta ve topu sürerek (dribling/yanıltma) yapılan şutta blok daha az
-    const block=r.risk*(lofted?0.4:1)*(info.carry?0.5:1);
-    const q=inGoal?clamp((0.35+0.65*place)*(1-block*0.7),0,1):0.05;
+    const block=r.risk*(lofted?0.4:1)*(info.carry?0.5:1)*(info.curl?0.55:1);
+    const q=inGoal?clamp((0.2+0.4*place+0.4*acc)*(1-block*0.75),0,1):0.05;
     return {valid:len>=2,kind:"shot",quality:q,risk:block,inGoal,targetZ:tz,worstIdx:r.idx,worstU:r.u,len};
   };
   const evalTackle=(I)=>{
@@ -588,6 +612,16 @@ function createMoment3DController(api,cfg){
       startRunner("away",0,[attW,runW],MOMENT3D_ATT_SPEED,true,[{u,fn:()=>{
         runner=null;
         const b=actors.getBall(), bx=b?b.x:at.x, bz=b?b.z:at.z;
+        if(o.optId==="foul"){
+          // Stratejik faul (başarılı): hakem düdüğü — kart yok ("kart riski" atlatıldı),
+          // rakip yere düşer, top olduğu yerde kalır ve hücum durur.
+          actors.ringFx(bx,bz,0xffffff,0.55,3);
+          later(0.22,()=>actors.ringFx(bx,bz,0xffffff,0.55,4.5));
+          later(0.44,()=>actors.ringFx(bx,bz,0xf1c40f,0.7,6));
+          actors.movePlayer("away",0,bx-0.4,bz+0.9);
+          actors.playBallScript([{x:bx+1.5,z:bz+0.6,y:0,h:0.1,dur:0.5,fn:()=>finishSoon(1.2)}],0);
+          return;
+        }
         actors.ringFx(bx,bz,0x1abc9c,0.8,5);
         actors.movePlayer("away",0,bx-0.8,bz+1.2);            // rakip dengesini kaybeder
         actors.playBallScript([{x:bx+14,z:clamp(bz+sgnOf(bz)*12,-H+2,H-2),y:0,h:4,dur:0.9,fn:()=>finishSoon(0.8)}],0);
@@ -802,10 +836,11 @@ function Moment3DStage({moment,onResolve,onFallback}){
     const power=powerRef.current, o=optRef.current, c=ctrlRef.current;
     if(!o) return;
     const ev=c?c.getEval():null;
-    // Otomatik rota (süre doldu / çizilmedi) ödül getirmez: kalite en fazla 0.6 → terim ≤ −0.04
+    // Otomatik rota (süre doldu / çizilmedi) sabit en düşük terimi alır: hiçbir geçerli
+    // el çiziminden iyi olamaz (el çizimi en kötü ihtimalle de MOMENT3D_TERM_MIN alır).
     const q0=ev&&ev.valid?ev.quality:0.45;
-    const q=autoRef.current?Math.min(q0,0.6):q0;
-    const term=moment3dRouteTerm(q)-(autoRef.current?0.04:0);
+    const q=autoRef.current?Math.min(q0,0.2):q0;
+    const term=autoRef.current?MOMENT3D_AUTO_TERM:moment3dRouteTerm(q);
     const chance=calcMomentChance(player,o,power,term);
     const success=Math.random()<chance;
     const msg=getMomentMsg(moment.type,o.id,success,player.n);
@@ -910,7 +945,7 @@ function Moment3DStage({moment,onResolve,onFallback}){
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <div style={{flex:1,fontSize:".5rem",color:"rgba(255,255,255,.6)",lineHeight:1.4}}>
                 {opt?.icon} <b style={{color:config.color}}>{opt?.label}</b> — {ktext?ktext.tag:""}.
-                {" "}Yeniden çizmek için tekrar sürükle. Süre dolarsa otomatik rota seçilir.
+                {" "}Yeniden çizmek için tekrar sürükle. Süre dolarsa otomatik rota seçilir (en düşük rota puanı).
               </div>
               <button onClick={()=>ctrlRef.current&&ctrlRef.current.clear()} style={{...btnBase,
                 fontSize:".56rem",padding:"8px 10px",color:"#ddd",background:"rgba(255,255,255,.06)",
@@ -1016,6 +1051,10 @@ function InteractiveMoment3D(props){
   }
   return(
     <Moment3DStage moment={props.moment} onResolve={props.onResolve}
-      onFallback={(msg)=>{ setNotice(msg||""); setMode("2d"); }}/>
+      onFallback={(msg)=>{
+        setNotice(msg||""); setMode("2d");
+        // Gerçek hata (mesaj dolu) → üst bileşen maç görünümünü de 2D'ye alsın; "2D'ye geç" düğmesi (boş mesaj) yalnız bu anı etkiler
+        if(msg&&props.onFallback){ try{ props.onFallback(msg); }catch(e){} }
+      }}/>
   );
 }

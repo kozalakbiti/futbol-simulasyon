@@ -143,9 +143,14 @@ function createMatchActors3D(api,opts={}){
     const list=teams[team];
     const n=dots?dots.length:0;
     for(let i=0;i<n;i++){
-      const d=dots[i]; if(!d||!Number.isFinite(d.x)||!Number.isFinite(d.y)) continue; // NaN koruması
+      const d=dots[i];
+      const dx=d?Number(d.x):NaN, dy=d?Number(d.y):NaN;
+      if(!Number.isFinite(dx)||!Number.isFinite(dy)){ // NaN koruması: geçerli veri gelene kadar gizli
+        if(list[i]) list[i].g.visible=false;
+        continue;
+      }
       const p=ensurePlayer(team,i);
-      pitchToWorld3D(d.x,d.y,0,p.tgt);
+      pitchToWorld3D(dx,dy,0,p.tgt);
       const gk=d.role==="GK";
       p.torso.material=team==="home"?(gk?mats.homeGK:mats.home):(gk?mats.awayGK:mats.away);
       if(!p.has){ p.pos.copy(p.tgt); p.has=true; p.g.position.copy(p.pos); p.g.rotation.y=p.yaw; }
