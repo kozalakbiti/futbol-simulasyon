@@ -18,15 +18,16 @@ Branch: `feature/3d-mac-motoru` · Kütüphane: Three.js r128 (cdnjs, UMD, ihtiy
 - [x] Kameralar: Yayın (yan tribün), Taktik (üstten), Kale arkası, Topu takip; yumuşak geçiş ve kamera seçici
 - [x] Yeniden boyutlandırma (ResizeObserver), DPR sınırı, unmount'ta tam `dispose`
 
-### 2. 22 oyuncu ve maç olayları senkronizasyonu — 🔨 devam ediyor
-- [ ] Adım 1 denetim bulgularının düzeltilmesi (aşağıdaki günlüğe bak)
-- [ ] 11 + 11 düşük poligon oyuncu (forma renkleri, kaleci farklı renk, numara/isim etiketi)
-- [ ] `playerDots`/`oppDots`/`ballPos`'u ref üzerinden okuyup lerp ile izleme (2D ile aynı koordinat sistemi)
-- [ ] Top: yay çizen pas/şut animasyonu, gölge
-- [ ] `ballEvents`/olay tipine göre 3D efektler: gol (file sallanır + kamera yakın plan), kurtarış, aut, korner, kart
-- [ ] Gol sonrası santra dönüşü
+### 2. 22 oyuncu ve maç olayları senkronizasyonu — ✅ tamamlandı
+- [x] Adım 1 denetim bulgularının düzeltilmesi (aşağıdaki günlüğe bak)
+- [x] 11 + 11 düşük poligon oyuncu (forma renkleri, kaleci farklı renk, numara/isim etiketi)
+- [x] `playerDots`/`oppDots`/`ballPos`'u ref üzerinden okuyup lerp ile izleme (2D ile aynı koordinat sistemi)
+- [x] Top: yay çizen pas/şut animasyonu, gölge
+- [x] `ballEvents`/olay tipine göre 3D efektler: gol (file sallanır + kamera yakın plan), kurtarış, aut, korner, kart
+- [x] Gol sonrası santra dönüşü
 
-### 3. Kilit anlarda interaktif pas/şut çizimi ve müdahale — ⏳ bekliyor
+### 3. Kilit anlarda interaktif pas/şut çizimi ve müdahale — 🔨 devam ediyor
+- [ ] Adım 2 denetim bulgularının düzeltilmesi (aşağıdaki günlüğe bak)
 - [ ] `InteractiveMoment3D`: kilit an sahnesi (oyuncular olay tipine göre dizilir, kamera yaklaşır)
 - [ ] Parmakla/fareyle sahaya pas veya şut rotası çizme (raycast → zemin), rota önizlemesi, rakip araya girme riski göstergesi
 - [ ] Rota kalitesi + oyuncu istatistikleri + mevcut seçenek/güç mantığıyla başarı hesabı; savunma anında (tackle) müdahale noktası seçme
@@ -58,3 +59,30 @@ _(Her adım bittikçe buraya eklenir: ne yapıldı, kod-denetleyici bulguları, 
   - [küçük] 3D kutusunda `flexShrink:0` eksik.
   - [not] Kilit an veya devre arası ekranı açıkken render döngüsü durmuyor (`paused` prop'u önerildi).
   - Hepsi Adım 2'nin başında düzeltilecek.
+- **Commit:** `d69bc76`
+
+### Adım 2 — 22 oyuncu ve maç olayları ✅
+- **Adım 1 düzeltmeleri:**
+  - `touch-action` yalnızca `interactive` modda `none` oluyor.
+  - Kurulum hata verirse her şey geri alınıyor.
+  - Three.js artık iki kez yüklenmiyor.
+  - WebGL için yalnızca olumlu sonuç önbelleğe alınıyor.
+  - Render hatasında döngü durup hata gösteriliyor.
+  - 3D kutusuna `flexShrink:0` eklendi.
+  - `Pitch3D`'ye `paused` prop'u eklendi (kilit an, devre arası, sonuç ekranında duruyor).
+- **Yeni dosya `js/match/players3d.js`:** `createMatchActors3D(api,{getSnapshot})` → `{update, triggerEvent, resetKickoff, dispose}`, ayrıca `ACTORS3D_COLORS`.
+  - **Oyuncular:** 22 düşük poligon oyuncu. Geometri ve malzeme paylaşılıyor. Bizimkiler mavi, rakip kırmızı, kaleciler ayrı renk. Bizim oyuncuların üstünde isim etiketi var.
+  - **Hareket:** Oyuncular hedefe lerp ile koşuyor, hareket yönüne dönüyor, koşarken sallanıyor.
+  - **Top:** Kısa mesafede yuvarlanıyor, uzunda yay çiziyor. Zemin gölgesi yüksekliğe göre değişiyor.
+  - **Efektler:** gol (file şişer, renkli halka/parçacık, yakın plan), kaçan şut, kurtarış, direk, korner (4 köşe bayrağı eklendi), sarı/kırmızı kart. Golden sonra top santraya yayla dönüyor.
+- **Pitch3D API'sine eklenenler:** `setFocusWorld`, `getCameraMode`, `closeUp`, `addDisposeHook`. overlay.js içinde `live3dRef` snapshot'ı ve `labels3d` eklendi.
+- **Kod denetimi:** Engelleyici hata yok. Derleme, yükleme sırası, isim çakışması ve hook kuralları temiz; 2D akış değişmedi. Adım 1 düzeltmeleri doğrulandı. Bulgular:
+  - [önemli] `three3d.js:58-62`: "yüklendi ama THREE yok" dalında reddedilmiş Promise önbellekte kalıyor, 3D sayfa yenilenene kadar yeniden denenmiyor.
+  - [önemli] `paused` zamanlaması:
+    - 90. dakika golü ve devre arası tick'indeki olaylar 3D'de kayboluyor.
+    - Sahne duraklatılmış haldeyken kurulursa ya da yeniden boyutlanırsa boş kalıyor; tek karelik bir `renderOnce` yolu gerekiyor.
+  - [küçük] "keeper" olayında kale yönü ters.
+  - [küçük] NaN koordinatlara karşı koruma yok.
+  - [küçük] `pitch3dCameraPose` ve `hooks.forEach` her karede yeni nesne ayırıyor.
+  - [not] overlay'deki `setFocus` efekti artık yedek işlevi görüyor.
+  - Hepsi Adım 3'ün başında düzeltilecek.

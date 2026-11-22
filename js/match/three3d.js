@@ -5,7 +5,7 @@
 //   loadThreeJs() → Promise<THREE>. Tekrar çağrılınca aynı Promise döner,
 //   window.THREE zaten varsa hemen çözülür, hata/timeout'ta reddeder
 //   (reddedilince bir sonraki çağrı yeniden dener).
-// • hasWebGLSupport() → boolean (sonuç önbelleğe alınır).
+// • hasWebGLSupport() → boolean (yalnızca olumlu sonuç önbelleğe alınır).
 // • KOORDİNAT SİSTEMİ (2D MatchOverlay ile aynı, overlay.js'ten doğrulandı):
 //   2D: x 0–100 soldan sağa, y 0–100 yukarıdan aşağıya (kanat).
 //       x=0 tarafı BİZİM kalemiz (kalecimiz x≈12), x=100 tarafı RAKİP kalesi
@@ -41,14 +41,37 @@ function loadThreeJs(){
   if(THREE3D_LOADER.promise) return THREE3D_LOADER.promise;
   THREE3D_LOADER.promise=new Promise((resolve,reject)=>{
     let done=false;
-    const script=document.createElement("script");
+    // Aynı URL'li etiket DOM'da varsa (ör. zaman aşımından sonra hâlâ iniyorsa)
+    // yenisini ekleme, onun olaylarını bekle → çift yükleme olmaz.
+    let script=document.querySelector('script[src="'+THREE_JS_URL+'"]');
+    const isNew=!script;
+    if(isNew){
+      script=document.createElement("script");
+      script.src=THREE_JS_URL;
+      script.async=true;
+      script.crossOrigin="anonymous";
+      // Kalıcı dinleyiciler: geç gelen yükleme işaretlenir (window.THREE ilk
+      // satırdaki kontrolle kullanılır); geç gelen hata etiketi kaldırır ki
+      // sonraki deneme yeniden indirebilsin.
+      script.addEventListener("load",()=>script.setAttribute("data-three3d-loaded","1"));
+      script.addEventListener("error",()=>{ if(script.parentNode) script.parentNode.removeChild(script); });
+    } else if(script.getAttribute("data-three3d-loaded")==="1"){
+      // Etiket yüklenmiş ama THREE yok → bozuk; kaldır, sonraki çağrı yeniden indirsin
+      if(script.parentNode) script.parentNode.removeChild(script);
+      THREE3D_LOADER.promise=null;
+      reject(new Error("Three.js yüklendi ama THREE bulunamadı"));
+      return;
+    }
+    const onLoad=()=>finish(null);
+    const onErr=()=>finish(new Error("Three.js indirilemedi"));
     const finish=(err)=>{
       if(done) return;
       done=true;
       clearTimeout(timer);
-      script.onload=null; script.onerror=null;
+      script.removeEventListener("load",onLoad);
+      script.removeEventListener("error",onErr);
       if(err){
-        if(script.parentNode) script.parentNode.removeChild(script);
+        // Zaman aşımında etiket DOM'da kalır (geç gelirse window.THREE kullanılır)
         THREE3D_LOADER.promise=null; // sonraki çağrı yeniden denesin
         reject(err);
       } else if(window.THREE&&window.THREE.WebGLRenderer){
@@ -59,19 +82,17 @@ function loadThreeJs(){
       }
     };
     const timer=setTimeout(()=>finish(new Error("Three.js yükleme zaman aşımı")),THREE_JS_TIMEOUT_MS);
-    script.src=THREE_JS_URL;
-    script.async=true;
-    script.crossOrigin="anonymous";
-    script.onload=()=>finish(null);
-    script.onerror=()=>finish(new Error("Three.js indirilemedi"));
-    document.head.appendChild(script);
+    script.addEventListener("load",onLoad);
+    script.addEventListener("error",onErr);
+    if(isNew) document.head.appendChild(script);
   });
   return THREE3D_LOADER.promise;
 }
 
 // WebGL desteği var mı? (geçici bağlamı hemen serbest bırakır)
 function hasWebGLSupport(){
-  if(THREE3D_LOADER.webgl!==null) return THREE3D_LOADER.webgl;
+  // Yalnızca "var" sonucu önbelleğe alınır; "yok" geçici olabilir (bağlam sınırı vb.)
+  if(THREE3D_LOADER.webgl===true) return true;
   let ok=false;
   try{
     const cv=document.createElement("canvas");
@@ -82,7 +103,7 @@ function hasWebGLSupport(){
       if(lose) lose.loseContext();
     }
   }catch(e){ ok=false; }
-  THREE3D_LOADER.webgl=ok;
+  if(ok) THREE3D_LOADER.webgl=true;
   return ok;
 }
 

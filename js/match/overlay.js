@@ -256,6 +256,16 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     if(api&&!api.isDisposed()) api.setFocus(ballPos[0],ballPos[1]);
   },[ballPos]);
 
+  // 3D önizleme: kendi takımımızın kısa isim etiketleri (2D sahadaki ile aynı kural)
+  const labels3d=React.useMemo(()=>playerDots.map((p,i)=>{
+    const pl=lineup.length>0?squad[lineup[i]]:squad[i];
+    if(!pl||!pl.n) return "";
+    return pl.n.split(".")[1]||pl.n.split(" ")[0]||pl.n;
+  }),[lineup,squad,playerDots.length]);
+  // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
+  const live3dRef=useRef(null);
+  live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:ballEvents,labels:labels3d};
+
   useEffect(()=>{
     // Sadece başlangıç 11'ini scorer/assister havuzuna al (lineupRef — Babel korumalı)
     const safeLineup=lineupRef.current||lineup||[];
@@ -898,7 +908,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         {tab==="pitch"&&<div style={{flex:1,padding:"6px 8px",display:"flex",flexDirection:"column",gap:5,overflowY:"auto"}}>
 
           {/* ═══ 3D ÖNİZLEME (beta) — katlanabilir, varsayılan kapalı ═══ */}
-          <div style={{borderRadius:6,border:"1px solid rgba(77,166,255,.25)",background:"rgba(0,0,0,.25)",overflow:"hidden"}}>
+          <div style={{borderRadius:6,border:"1px solid rgba(77,166,255,.25)",background:"rgba(0,0,0,.25)",overflow:"hidden",flexShrink:0}}>
             <button onClick={()=>setShow3D(v=>!v)}
               style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
                 padding:"5px 8px",background:"transparent",border:"none",cursor:"pointer",
@@ -908,7 +918,14 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             </button>
             {show3D&&<div style={{padding:"0 5px 5px"}}>
               <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={210}
-                onReady={api=>{pitch3dApiRef.current=api;api.setFocus(ballPos[0],ballPos[1]);}}
+                paused={!!activeMoment||showHalftime||phase!=="playing"}
+                onReady={api=>{
+                  pitch3dApiRef.current=api;
+                  api.setFocus(ballPos[0],ballPos[1]);
+                  // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
+                  try{ createMatchActors3D(api,{getSnapshot:()=>live3dRef.current}); }
+                  catch(e){ console.error("[3D] oyuncular kurulamadı",e); }
+                }}
                 onError={()=>{pitch3dApiRef.current=null;}}/>
             </div>}
           </div>

@@ -16,9 +16,15 @@
 //   toPitch(wx,wz)          → dünya → 0–100 saha yüzdesi
 //   setFocus(x,y)           → 0–100; "Takip" kamerası bu noktayı yumuşakça izler
 //   getFocus()              → yumuşatılmış odak (dünya {x,z})
-//   addFrameHook(fn)        → fn(dt,t) her karede çağrılır; dönen fonksiyon kaldırır
+//   setFocusWorld(wx,wz)    → aynısı, dünya koordinatıyla (kare başına tahsis yok)
+//   getCameraMode()         → aktif kamera kimliği
+//   closeUp(wx,wz,sec)      → Yayın/Takip modunda kısa yakın plan (gol vb.)
+//   addFrameHook(fn)        → fn(dt,t) her karede çağrılır (t: duraklamada duran saat);
+//                             dönen fonksiyon kaldırır
+//   addDisposeHook(fn)      → sahne silinmeden hemen önce fn() çağrılır
 //   screenToPitch(cx,cy)    → ekran (clientX/Y) → zemin düzlemi → {x,y} 0–100 | null
 //   isDisposed()            → unmount olduysa true (eski api'yi kullanmayı bırak)
+// Prop'lar: paused (render döngüsünü durdurur), interactive (touch-action:none)
 // Temizlik: unmount'ta scene içindeki HER ŞEY disposeObject3D ile serbest
 // bırakılır; gruplara eklenen mesh'ler için ayrıca dispose gerekmez.
 // Kendi eklediğin dinleyicileri addFrameHook'un döndürdüğü fonksiyonla kaldır.
@@ -188,133 +194,184 @@ function buildPitch3DMeshes(THREE){
   return g;
 }
 
-// Sahneyi kurar, render döngüsünü başlatır → {api, destroy}
+// Sahneyi kurar, render döngüsünü başlatır → {api, destroy, setPaused, setInteractive}
+// Kurulum yarıda hata fırlatırsa o ana kadar eklenen her şey geri alınır
+// (dinleyiciler, sahne, WebGL bağlamı, canvas) ve hata yeniden fırlatılır.
 function createPitch3DScene(THREE,container,opts){
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const renderer=new THREE.WebGLRenderer({antialias:dpr<1.5,alpha:false,powerPreference:"high-performance"});
-  renderer.setPixelRatio(dpr);
-  renderer.setClearColor(0x0b1220,1);
   const canvas=renderer.domElement;
-  canvas.style.cssText="display:block;width:100%;height:100%;touch-action:none;";
-  container.appendChild(canvas);
-
-  const scene=new THREE.Scene();
-  const camera=new THREE.PerspectiveCamera(45,1.6,1,400);
-
-  scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
-  const sun=new THREE.DirectionalLight(0xffffff,0.75);
-  sun.position.set(30,80,45); scene.add(sun);
-
-  const groups={pitch:buildPitch3DMeshes(THREE),players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
-  Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
-
-  // Odak + kamera durumu
-  const focusTarget={x:0,z:0}, focus={x:0,z:0};
-  const camPos=new THREE.Vector3(), camLook=new THREE.Vector3();
-  const tPos=new THREE.Vector3(), tLook=new THREE.Vector3();
-  const camState={goalSide:1};
-  let first=true, disposed=false, raf=0, running=false, lastT=0, visibleOnScreen=true;
-  const hooks=new Set();
-  let size={w:1,h:1};
-
-  const resize=()=>{
-    const w=Math.max(1,container.clientWidth), h=Math.max(1,container.clientHeight);
-    if(w===size.w&&h===size.h) return;
-    size={w,h};
-    renderer.setSize(w,h,false);
-    camera.aspect=w/h; camera.updateProjectionMatrix();
-  };
-
-  const frame=(now)=>{
-    if(!running) return;
-    raf=requestAnimationFrame(frame);
-    const t=now/1000;
-    const dt=lastT?Math.min(0.1,t-lastT):0.016;
-    lastT=t;
-    // Odak yumuşatma
-    const kf=1-Math.exp(-dt*4);
-    focus.x+=(focusTarget.x-focus.x)*kf; focus.z+=(focusTarget.z-focus.z)*kf;
-    // Kamera hedefi + yumuşak geçiş
-    const pose=pitch3dCameraPose(opts.getCameraMode(),focus,camera.aspect,camState);
-    tPos.set(pose.pos[0],pose.pos[1],pose.pos[2]); tLook.set(pose.look[0],pose.look[1],pose.look[2]);
-    if(first){camPos.copy(tPos);camLook.copy(tLook);first=false;}
-    else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);}
-    camera.position.copy(camPos); camera.lookAt(camLook);
-    hooks.forEach(fn=>{try{fn(dt,t);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}});
-    renderer.render(scene,camera);
-  };
-  const start=()=>{
-    if(running||disposed||document.hidden||!visibleOnScreen) return;
-    running=true; lastT=0; raf=requestAnimationFrame(frame);
-  };
+  const cleanups=[];            // kurulumda eklenen dinleyicilerin geri alma fonksiyonları
+  const disposeHooks=new Set(); // Adım 2+ denetleyicileri (sahne silinmeden ÖNCE çağrılır)
+  let scene=null, disposed=false, running=false, raf=0;
   const stop=()=>{running=false; if(raf) cancelAnimationFrame(raf); raf=0;};
-
-  const onVis=()=>{document.hidden?stop():start();};
-  document.addEventListener("visibilitychange",onVis);
-
-  let ro=null, io=null;
-  if(typeof ResizeObserver!=="undefined"){ro=new ResizeObserver(()=>resize());ro.observe(container);}
-  else window.addEventListener("resize",resize);
-  if(typeof IntersectionObserver!=="undefined"){
-    io=new IntersectionObserver(ents=>{
-      visibleOnScreen=ents.some(e=>e.isIntersecting);
-      visibleOnScreen?start():stop();
-    });
-    io.observe(container);
-  }
-
-  const onLost=(e)=>{e.preventDefault();stop();opts.onContextLost&&opts.onContextLost();};
-  canvas.addEventListener("webglcontextlost",onLost);
-
-  const raycaster=new THREE.Raycaster(), ndc=new THREE.Vector2();
-  const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3();
-
-  const api={
-    THREE,scene,camera,renderer,container,groups,
-    toWorld:(x,y,h=0,out)=>pitchToWorld3D(x,y,h,out),
-    toPitch:(wx,wz)=>worldToPitch3D(wx,wz),
-    setFocus:(x,y)=>{const w=pitchToWorld3D(x,y);focusTarget.x=w.x;focusTarget.z=w.z;},
-    getFocus:()=>({x:focus.x,z:focus.z}),
-    addFrameHook:(fn)=>{hooks.add(fn);return()=>hooks.delete(fn);},
-    screenToPitch:(cx,cy)=>{
-      const r=canvas.getBoundingClientRect();
-      if(!r.width||!r.height) return null;
-      ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);
-      raycaster.setFromCamera(ndc,camera);
-      if(!raycaster.ray.intersectPlane(groundPlane,hit)) return null;
-      return worldToPitch3D(hit.x,hit.z);
-    },
-    isDisposed:()=>disposed,
-  };
-
-  resize();
-  start();
-
-  const destroy=()=>{
-    if(disposed) return;
-    disposed=true;
+  const teardown=()=>{
     stop();
-    hooks.clear();
-    document.removeEventListener("visibilitychange",onVis);
-    if(ro) ro.disconnect(); else window.removeEventListener("resize",resize);
-    if(io) io.disconnect();
-    canvas.removeEventListener("webglcontextlost",onLost);
-    disposeObject3D(scene);
-    renderer.dispose();
+    disposeHooks.forEach(fn=>{try{fn();}catch(e){console.error("[Pitch3D] dispose hook hatası",e);}});
+    disposeHooks.clear();
+    cleanups.forEach(fn=>{try{fn();}catch(e){}});
+    cleanups.length=0;
+    if(scene) disposeObject3D(scene);
+    try{renderer.dispose();}catch(e){}
     try{renderer.forceContextLoss();}catch(e){}
     if(canvas.parentNode) canvas.parentNode.removeChild(canvas);
   };
-  return {api,destroy};
+
+  try{
+    renderer.setPixelRatio(dpr);
+    renderer.setClearColor(0x0b1220,1);
+    // Dokunma: etkileşim modu kapalıyken sayfa kaydırması serbest kalsın
+    canvas.style.cssText="display:block;width:100%;height:100%;";
+    canvas.style.touchAction=opts.interactive?"none":"auto";
+    container.appendChild(canvas);
+
+    scene=new THREE.Scene();
+    const camera=new THREE.PerspectiveCamera(45,1.6,1,400);
+
+    scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
+    const sun=new THREE.DirectionalLight(0xffffff,0.75);
+    sun.position.set(30,80,45); scene.add(sun);
+
+    const groups={pitch:buildPitch3DMeshes(THREE),players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
+    Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
+
+    // Odak + kamera durumu
+    const focusTarget={x:0,z:0}, focus={x:0,z:0};
+    const camPos=new THREE.Vector3(), camLook=new THREE.Vector3();
+    const tPos=new THREE.Vector3(), tLook=new THREE.Vector3();
+    const camState={goalSide:1};
+    const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
+    let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
+    const hooks=new Set();
+    let size={w:1,h:1};
+
+    const resize=()=>{
+      const w=Math.max(1,container.clientWidth), h=Math.max(1,container.clientHeight);
+      if(w===size.w&&h===size.h) return;
+      size={w,h};
+      renderer.setSize(w,h,false);
+      camera.aspect=w/h; camera.updateProjectionMatrix();
+    };
+
+    const frame=(now)=>{
+      if(!running) return;
+      raf=requestAnimationFrame(frame);
+      const t=now/1000;
+      const dt=lastT?Math.min(0.1,t-lastT):0.016;
+      lastT=t; clock+=dt;
+      // Odak yumuşatma
+      const kf=1-Math.exp(-dt*4);
+      focus.x+=(focusTarget.x-focus.x)*kf; focus.z+=(focusTarget.z-focus.z)*kf;
+      // Kamera hedefi + yumuşak geçiş (yakın plan yalnızca Yayın/Takip modunda)
+      const mode=opts.getCameraMode();
+      if(clock<closeUp.until&&(mode==="follow"||mode==="broadcast")){
+        const sx=closeUp.x>=0?1:-1;
+        tPos.set(closeUp.x-sx*13,5.5,closeUp.z+11); tLook.set(closeUp.x,1,closeUp.z);
+      } else {
+        const pose=pitch3dCameraPose(mode,focus,camera.aspect,camState);
+        tPos.set(pose.pos[0],pose.pos[1],pose.pos[2]); tLook.set(pose.look[0],pose.look[1],pose.look[2]);
+      }
+      if(first){camPos.copy(tPos);camLook.copy(tLook);first=false;}
+      else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);}
+      camera.position.copy(camPos); camera.lookAt(camLook);
+      hooks.forEach(fn=>{try{fn(dt,clock);}catch(e){console.error("[Pitch3D] frame hook hatası",e);}});
+      try{
+        renderer.render(scene,camera);
+      }catch(err){
+        // Her karede konsolu doldurmasın: döngüyü durdur, hata yoluna yönlendir
+        stop();
+        opts.onRenderError&&opts.onRenderError(err);
+      }
+    };
+    const start=()=>{
+      if(running||disposed||paused||document.hidden||!visibleOnScreen) return;
+      running=true; lastT=0; raf=requestAnimationFrame(frame);
+    };
+
+    const onVis=()=>{document.hidden?stop():start();};
+    document.addEventListener("visibilitychange",onVis);
+    cleanups.push(()=>document.removeEventListener("visibilitychange",onVis));
+
+    if(typeof ResizeObserver!=="undefined"){
+      const ro=new ResizeObserver(()=>resize()); ro.observe(container);
+      cleanups.push(()=>ro.disconnect());
+    } else {
+      window.addEventListener("resize",resize);
+      cleanups.push(()=>window.removeEventListener("resize",resize));
+    }
+    if(typeof IntersectionObserver!=="undefined"){
+      const io=new IntersectionObserver(ents=>{
+        visibleOnScreen=ents.some(e=>e.isIntersecting);
+        visibleOnScreen?start():stop();
+      });
+      io.observe(container);
+      cleanups.push(()=>io.disconnect());
+    }
+
+    const onLost=(e)=>{e.preventDefault();stop();opts.onContextLost&&opts.onContextLost();};
+    canvas.addEventListener("webglcontextlost",onLost);
+    cleanups.push(()=>canvas.removeEventListener("webglcontextlost",onLost));
+
+    const raycaster=new THREE.Raycaster(), ndc=new THREE.Vector2();
+    const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hit=new THREE.Vector3();
+
+    const api={
+      THREE,scene,camera,renderer,container,groups,
+      toWorld:(x,y,h=0,out)=>pitchToWorld3D(x,y,h,out),
+      toPitch:(wx,wz)=>worldToPitch3D(wx,wz),
+      setFocus:(x,y)=>{const w=pitchToWorld3D(x,y);focusTarget.x=w.x;focusTarget.z=w.z;},
+      setFocusWorld:(wx,wz)=>{focusTarget.x=wx;focusTarget.z=wz;}, // kare başına tahsis yok
+      getFocus:()=>({x:focus.x,z:focus.z}),
+      getCameraMode:()=>opts.getCameraMode(),
+      // Yayın/Takip modunda (wx,wz) dünya noktasına sec saniyelik yakın plan
+      closeUp:(wx,wz,sec=1.6)=>{closeUp.x=wx;closeUp.z=wz;closeUp.until=clock+sec;},
+      addFrameHook:(fn)=>{hooks.add(fn);return()=>hooks.delete(fn);},
+      addDisposeHook:(fn)=>{disposeHooks.add(fn);return()=>disposeHooks.delete(fn);},
+      screenToPitch:(cx,cy)=>{
+        const r=canvas.getBoundingClientRect();
+        if(!r.width||!r.height) return null;
+        ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);
+        raycaster.setFromCamera(ndc,camera);
+        if(!raycaster.ray.intersectPlane(groundPlane,hit)) return null;
+        return worldToPitch3D(hit.x,hit.z);
+      },
+      isDisposed:()=>disposed,
+    };
+    cleanups.push(()=>hooks.clear());
+
+    resize();
+    start();
+
+    const destroy=()=>{
+      if(disposed) return;
+      disposed=true;
+      teardown();
+    };
+    const setPaused=(p)=>{paused=!!p; paused?stop():start();};
+    const setInteractive=(on)=>{canvas.style.touchAction=on?"none":"auto";};
+    return {api,destroy,setPaused,setInteractive};
+  }catch(err){
+    disposed=true;
+    teardown();
+    throw err;
+  }
 }
 
-function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true}){
+// paused: true iken render döngüsü durur (son kare ekranda kalır)
+// interactive: true iken canvas dokunma hareketlerini yutar (touch-action:none) — Adım 3
+function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false}){
   const mountRef=useRef(null);
+  const instRef=useRef(null);
   const [innerCam,setInnerCam]=useState("broadcast");
   const camMode=camera||innerCam;
   const camModeRef=useRef(camMode);
   camModeRef.current=camMode;
   const cbRef=useRef({onReady,onError});
   cbRef.current={onReady,onError};
+  const pausedRef=useRef(paused);
+  pausedRef.current=paused;
+  const interactiveRef=useRef(interactive);
+  interactiveRef.current=interactive;
   const [status,setStatus]=useState("loading"); // loading | ready | error
   const [errMsg,setErrMsg]=useState("");
 
@@ -324,7 +381,7 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
       if(cancelled) return;
       if(err) console.warn("[Pitch3D]",err);
       setErrMsg(msg); setStatus("error");
-      if(inst){inst.destroy();inst=null;}
+      if(inst){inst.destroy();inst=null;instRef.current=null;}
       try{cbRef.current.onError&&cbRef.current.onError(err||new Error(msg));}catch(e){}
     };
     if(!hasWebGLSupport()){
@@ -336,19 +393,27 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
       try{
         inst=createPitch3DScene(THREE,mountRef.current,{
           getCameraMode:()=>camModeRef.current,
+          paused:pausedRef.current,
+          interactive:interactiveRef.current,
           onContextLost:()=>fail("3D grafik bağlamı kaybedildi. Bölümü kapatıp yeniden açmayı dene."),
+          // destroy'u render çağrısının dışında yap (döngü zaten durdu)
+          onRenderError:(err)=>setTimeout(()=>fail("3D çizimde bir hata oluştu; 3D görünüm kapatıldı. 2D saha çalışmaya devam ediyor.",err),0),
         });
       }catch(err){
         fail("3D görünüm başlatılamadı. 2D saha çalışmaya devam ediyor.",err);
         return;
       }
+      instRef.current=inst;
       setStatus("ready");
       try{cbRef.current.onReady&&cbRef.current.onReady(inst.api);}catch(e){console.error("[Pitch3D] onReady hatası",e);}
     }).catch(err=>{
       fail("3D kütüphanesi yüklenemedi (internet bağlantını kontrol et). 2D saha çalışmaya devam ediyor.",err);
     });
-    return ()=>{cancelled=true; if(inst){inst.destroy();inst=null;}};
+    return ()=>{cancelled=true; instRef.current=null; if(inst){inst.destroy();inst=null;}};
   },[]);
+
+  useEffect(()=>{ if(instRef.current) instRef.current.setPaused(paused); },[paused]);
+  useEffect(()=>{ if(instRef.current) instRef.current.setInteractive(interactive); },[interactive]);
 
   const pickCam=(id)=>{
     if(camera===undefined||camera===null) setInnerCam(id);
@@ -357,7 +422,7 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
 
   return(
     <div style={{position:"relative",width:"100%",height,borderRadius:6,overflow:"hidden",
-      background:"#0b1220",border:"1px solid rgba(77,166,255,.25)",touchAction:"none"}}>
+      background:"#0b1220",border:"1px solid rgba(77,166,255,.25)",touchAction:interactive?"none":"auto"}}>
       <div ref={mountRef} style={{position:"absolute",inset:0}}/>
       {status==="loading"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
         justifyContent:"center",fontSize:".62rem",color:"#9fb3c8",letterSpacing:.5}}>
