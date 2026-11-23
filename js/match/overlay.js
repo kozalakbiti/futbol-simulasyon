@@ -105,6 +105,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   })());
   const momentsRef=useRef([]);     // planlanmış anlar
   const pausedRef=useRef(false);   // interval duraklatıldı mı
+  const mountedRef=useRef(true);   // unmount sonrası gecikmeli devam interval başlatmasın
+  useEffect(()=>()=>{ mountedRef.current=false; },[]);
   const lineupRef=useRef(lineup);  // lineup — Babel 500KB koruması
   useEffect(()=>{lineupRef.current=lineup;},[lineup]);
   const result=useRef(null);
@@ -203,7 +205,11 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
       setLog(l=>[...l,{min:0,text:`🎮 [MÜDAHALE] ${res.msg}`,col:res.success?C.grn2:"#e67e22"}]);
     }
     // Maçı devam ettir
+    //   Eski interval (varsa) önce temizlenir: iki interval üst üste binip saati/olayları
+    //   iki kat sürmesin ya da duraklatma bayrağı yarışıp maç takılı kalmasın
     setTimeout(()=>{
+      if(!mountedRef.current) return;
+      clearInterval(ivRef.current);
       pausedRef.current=false;
       runIntervalRef.current&&runIntervalRef.current();
     },300);
@@ -712,8 +718,9 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
               });
             }
             // Interval'ı yeniden başlat
+            clearInterval(ivRef.current);
             pausedRef.current=false;
-            runIntervalRef.current();
+            runIntervalRef.current&&runIntervalRef.current();
           }}
         />
       )}

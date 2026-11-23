@@ -308,3 +308,10 @@ Bilinen sınırlamalar:
 - **Vuruş ekranı kesin:** kırmızı ok her bırakılışta vuruş ekranına geçer — uzun pas yönü de (vuruş ekranından havadan pas), pas hakkı bitmişse/penaltıda kaleye yönlendirilir; `pointercancel`/`lostpointercapture` da bırakış sayılır; kırmızı nişan sırasında top kapılmaz; süre nişanda dolarsa vuruş ekranı açılır.
 - **Canlı akış %35 hızlı:** `ACTORS3D_SLOW=0.55×1.35` (koşu, top, senaryo ve 3D maç saati birlikte).
 - **Kısa paslaşma:** pas puanı mesafeyle düşer (en yakın uygun arkadaş önde), ≤22 m yerden pas, 22–32 m havadan son çare, >32 m pas yok; oyunu çevirme bonusu kaldırıldı. 2D bölgesinden kopunca uzun top yerine bölgeye yaklaştıran kısa pas/sürme; uzun top yalnız ≥45 m ve 3.5 sn sonra.
+
+### Adım 12 — PAS/ŞUT düğmeleri, sınırsız pas, vuruş ekranı saydamlığı, akıcı canlı paslaşma, kilitlenme ✅
+- **Sağ alt PAS + ŞUT düğmeleri** (yan yana, ≥52 px): ŞUT (`shootNow`) ok çekmeden doğrudan vuruş ekranına geçer (kaleye, güç 62; `forceShot` ile tür her zaman şut, kendi yarıdan da). PAS (`togglePassMode`) pas modunu açar: arkadaşlar sarı halkayla parlar, dokun = pas, arkadaştan sürükle = koşu yolu. Açık oyunda topa sahip oyuncudan çekiş HER ZAMAN yeşil sürme okudur (ikinci çekiş = şut kuralı kaldırıldı); kırmızı ok yalnız duran topta. Kornerde ŞUT düğmesi yok.
+- **Pas sınırı kaldırıldı:** `MOMENT3D_MAX_PASSES` yok; rozet yalnız pas sayısını gösterir. Her başarılı pas süreye 4·0.75^(pas−1) sn ekler (toplam ≤16 sn) → kilit an sonsuza uzamaz. Güvenlik zamanlayıcıları 75/90 sn.
+- **Vuruş ekranı saydamlığı:** top ile kale arasındaki ~16 m'lik (ileride genişleyen) koridordaki oyuncular (kaleci hariç) opaklık 0.25 (`MOMENT3D_FADE_OP`).
+- **Canlı akış:** topu alan oyuncu ≈0.15–0.45 sn'de karar verir; sürme puanı paslaşmanın altında; en ileri 2 hücumcu topun önüne, rakibin seyrek olduğu kulvara koşar (`pickRunners`); senaryo sonrası kısa mesafede yerden pas.
+- **Kilitlenme:** sonuçtan 6 sn sonra (gerçek zaman) animasyon bitmediyse kilit an kapanır; sonuç kartı en geç 6.5 sn'de; "Atla ⏭" ve "Devam ▶" düğmeleri; maç devam ederken eski interval temizlenir (çift interval yok).
