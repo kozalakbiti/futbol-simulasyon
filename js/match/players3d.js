@@ -82,7 +82,11 @@ const ACTORS3D_EV_WAIT=1.6;
 //   Yerden pasta sürtünme ×PASS² → aynı mesafede top aynı yoldan 1.4× hızlı gider (süre /1.4).
 const ACTORS3D_ARCADE_RUN=1.4, ACTORS3D_ARCADE_PASS=1.4;
 // Kilit an seri pası: kickTo hız çarpanı tavanı ve yerden pasın en yüksek çıkış hızı (m/sn)
+//   (Adım 17: Adım 16'daki ×2 tavan — 13 / 140 m/sn — geri alındı: top 1–2 karede hedefe "ışınlanıyordu")
 const ACTORS3D_KICK_MUL_MAX=6.5, ACTORS3D_KICK_VMAX=70;
+// Canlı akış doğallığı (Adım 16): oyuncu başına bağımsız çapa yumuşatma süresi (sn, alt–üst),
+//   mevki çevresinde salınım genliği (m), topa yönelme yarıçapı (m) ve koşu hızı varyasyonu (±)
+const ACTORS3D_NAT_TAU=[0.3,0.85], ACTORS3D_NAT_AMP=[0.7,2.3], ACTORS3D_NAT_PULL_R=20, ACTORS3D_NAT_SPD=0.12;
 const ACTORS3D_PACE={
   slow:0.6*ACTORS3D_SLOW,     // senaryo/olay süreleri bu oranla uzar
   // Adım 15: oyuncu hızları ~×1.2 (daha dinamik pozisyon alma)
@@ -98,7 +102,7 @@ const ACTORS3D_PACE={
   tick:0.47/ACTORS3D_SLOW,    // normal hızda ballPos güncelleme aralığı (sn; tempo() referansı)
 };
 
-const ACTORS3D_BALL_CANVAS={cv:null};   // futbol topu dokusu tuvali (bir kez üretilir)
+const ACTORS3D_BALL_CANVAS={cv:null,bump:null};   // futbol topu dokusu + dikiş kabartması tuvalleri (bir kez üretilir)
 const ACTORS3D_BLOB_CANVAS={cv:null};   // yumuşak gölge/parıltı lekesi tuvali (bir kez üretilir)
 // Top izi (gol/kurtarış/şut senaryosu, hızlı top): nokta sayısı ve izin açıldığı hız (m/sn)
 const ACTORS3D_TRAIL_N=18, ACTORS3D_TRAIL_V=10;
@@ -158,8 +162,10 @@ function createMatchActors3D(api,opts={}){
     // Top: fiziksel tabanlı (hemisfer + güneş ışığı sahnede var → siyah kalmaz); dengeli pürüzlülük
     ball:M(new THREE.MeshStandardMaterial({color:COL.ball,roughness:0.42,metalness:0.04,emissive:0x111111})),
     flag:M(new THREE.MeshBasicMaterial({color:0xffd23f,side:THREE.DoubleSide})),
-    shadow:M(new THREE.MeshBasicMaterial({color:0x000000,map:blobTex,transparent:true,opacity:blobTex?0.5:0.32,depthWrite:false})),
-    ballShadow:M(new THREE.MeshBasicMaterial({color:0x000000,map:blobTex,transparent:true,opacity:0.4,depthWrite:false})),
+    shadow:M(new THREE.MeshBasicMaterial({color:0x000000,map:blobTex,transparent:true,opacity:blobTex?0.5:0.32,depthWrite:false,
+      polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3})),
+    ballShadow:M(new THREE.MeshBasicMaterial({color:0x0a140a,map:blobTex,transparent:true,opacity:0.4,depthWrite:false,
+      polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3})),
   };
 
   const root=new THREE.Group(); root.name="actors";
@@ -188,14 +194,21 @@ function createMatchActors3D(api,opts={}){
   // Klasik futbol topu dokusu (CanvasTexture, eşdikdörtgen): kesik ikosahedron — 12 siyah beşgen
   //   (ikosahedron köşeleri) + 20 beyaz altıgen (dodekahedron köşeleri), aralarında dikiş çizgisi.
   //   Her piksel küre yönüne çevrilip en yakın yüz merkezine göre boyanır (Voronoi).
-  //   Tuval modül düzeyinde bir kez üretilir (her kilit anda ~13 ms takılma olmasın).
+  //   Tuval modül düzeyinde bir kez üretilir (her kilit anda takılma olmasın).
+  //   Yüksek çözünürlük (1024×512, oturum başına bir kez ~4× eski süre). Paneller piksel başına KÜRE
+  //   YÖNÜNDEN hesaplandığı için kutuplarda bozulmaz. Aynı geçişte dikiş kabartması (bumpMap):
+  //   panel ortası yüksek, dikişe yaklaştıkça yumuşakça oluğa iner.
   try{
-    let cv=ACTORS3D_BALL_CANVAS.cv;
+    let cv=ACTORS3D_BALL_CANVAS.cv, bcv=ACTORS3D_BALL_CANVAS.bump;
     if(!cv){
-    const TW=512, TH=256; cv=document.createElement("canvas"); cv.width=TW; cv.height=TH;
+    const TW=1024, TH=512; cv=document.createElement("canvas"); cv.width=TW; cv.height=TH;
+    bcv=document.createElement("canvas"); bcv.width=TW; bcv.height=TH;
     const g2=cv.getContext("2d"), img=g2&&g2.createImageData?g2.createImageData(TW,TH):null;
+    const gb=bcv.getContext("2d"), bimg=gb&&gb.createImageData?gb.createImageData(TW,TH):null;
+    if(!bimg) bcv=null;
     if(!img) cv=null;
     if(img){
+      const bpx=bimg?bimg.data:null;
       const PHI=(1+Math.sqrt(5))/2, IP=1/PHI, C=[];
       const push=(x,y,z,pent)=>{ const l=Math.hypot(x,y,z); C.push([x/l,y/l,z/l,pent]); };
       for(const a of [-1,1]) for(const b of [-1,1]){ push(0,a,b*PHI,1); push(a,b*PHI,0,1); push(a*PHI,0,b,1); }
@@ -207,19 +220,23 @@ function createMatchActors3D(api,opts={}){
           const ph=(x+0.5)/TW*Math.PI*2, dx=-Math.cos(ph)*st, dy=ct, dz=Math.sin(ph)*st;
           let b1=-2, b2=-2, k1=0;
           for(let i=0;i<C.length;i++){ const c=C[i], d=c[0]*dx+c[1]*dy+c[2]*dz; if(d>b1){ b2=b1; b1=d; k1=i; } else if(d>b2) b2=d; }
-          const seam=Math.acos(Math.min(1,b2))-Math.acos(Math.min(1,b1))<0.035;
+          const gap=Math.acos(Math.min(1,b2))-Math.acos(Math.min(1,b1)), seam=gap<0.03;
           const v=seam?70:C[k1][3]?24:246, j=(y*TW+x)*4;
           px[j]=v; px[j+1]=v; px[j+2]=v+(C[k1][3]||seam?0:4); px[j+3]=255;
+          if(bpx){ const e=Math.min(1,gap/0.09), hv=Math.round(255*(0.25+0.75*e*e*(3-2*e))); bpx[j]=hv; bpx[j+1]=hv; bpx[j+2]=hv; bpx[j+3]=255; }
         }
       }
       g2.putImageData(img,0,0);
-      ACTORS3D_BALL_CANVAS.cv=cv;
+      if(bimg) gb.putImageData(bimg,0,0);
+      ACTORS3D_BALL_CANVAS.cv=cv; ACTORS3D_BALL_CANVAS.bump=bcv;
     }
     }
     if(cv){
       // encoding ayarlanmaz: renderer doğrusal çıktı veriyor (diğer CanvasTexture'larla aynı)
       const tex=new THREE.CanvasTexture(cv); owned.texs.push(tex);
-      mats.ball.map=tex; mats.ball.needsUpdate=true;
+      mats.ball.map=tex;
+      if(bcv){ const bt=new THREE.CanvasTexture(bcv); owned.texs.push(bt); mats.ball.bumpMap=bt; mats.ball.bumpScale=0.012; }
+      mats.ball.needsUpdate=true;
     }
   }catch(e){ /* doku üretilemedi: düz beyaz top */ }
 
@@ -280,7 +297,13 @@ function createMatchActors3D(api,opts={}){
     return {g,rig,body:rig.body,team,idx,pos:new THREE.Vector3(),tgt:new THREE.Vector3(),
       yaw:home?Math.PI/2:-Math.PI/2,speed:0,has:false,gk:false,role:"CM",
       vx:0,vz:0,lx:0,lz:0,ovr:false,ox:0,oz:0,cap:0,driven:false,
-      faceT:0,faceYaw:0,tackleCd:0,label:null,labelText:null,badge:null};
+      faceT:0,faceYaw:0,tackleCd:0,label:null,labelText:null,badge:null,
+      // Doğal hareket (canlı akış): bağımsız tepki süresi, salınım fazı/frekansı/genliği, topa yönelme, hız
+      nvTau:ACTORS3D_NAT_TAU[0]+Math.random()*(ACTORS3D_NAT_TAU[1]-ACTORS3D_NAT_TAU[0]),
+      nvPh:Math.random()*Math.PI*2, nvPh2:Math.random()*Math.PI*2,
+      nvFf:0.16+Math.random()*0.22, nvFz:0.13+Math.random()*0.24,
+      nvAmp:ACTORS3D_NAT_AMP[0]+Math.random()*(ACTORS3D_NAT_AMP[1]-ACTORS3D_NAT_AMP[0]),
+      nvPull:0.35+Math.random()*0.55, nvSpd:1+(Math.random()*2-1)*ACTORS3D_NAT_SPD};
   };
   const ensurePlayer=(team,i)=>{
     const list=teams[team];
@@ -486,7 +509,8 @@ function createMatchActors3D(api,opts={}){
   const ball=new THREE.Mesh(ballGeo,mats.ball); ballRoot.add(ball);
   const ballShadow=new THREE.Mesh(shadowGeo,mats.ballShadow); ballShadow.renderOrder=1; ballRoot.add(ballShadow);
   // Temas gölgesi: top yerdeyken altında küçük, koyu çekirdek (yükseldikçe söner)
-  const ballContactMat=M(new THREE.MeshBasicMaterial({color:0x000000,map:blobTex,transparent:true,opacity:0.7,depthWrite:false}));
+  const ballContactMat=M(new THREE.MeshBasicMaterial({color:0x050a05,map:blobTex,transparent:true,opacity:0.7,depthWrite:false,
+    polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
   const ballContact=new THREE.Mesh(shadowGeo,ballContactMat); ballContact.renderOrder=2; ballRoot.add(ballContact);
   // Top izi: kısa, sönen nokta şeridi (tek Points, toplamsal; renk siyaha inince görünmez).
   //   Konum/renk dizileri bir kez ayrılır; karede yalnız kaydırılır (tahsis yok).
@@ -714,7 +738,6 @@ function createMatchActors3D(api,opts={}){
     return F&&F[i]?F[i]:null;
   };
   const updateAnchors=(dt)=>{
-    const k=1-Math.exp(-dt/0.5);
     const possT=own.team||rcv.team||lastPoss;
     const ko=!own.team&&!freeBall&&!rcv.team&&Math.hypot(bpos.x,bpos.z)<1.5;   // santra bekleniyor
     for(let t=0;t<2;t++){
@@ -756,10 +779,26 @@ function createMatchActors3D(api,opts={}){
             }
             if(mo){ f=f*0.5+(mx*dir-1.8)*0.5; z=z*0.5+mz*0.5; }
           }
+          // Doğal hareket (Adım 16): her oyuncu mevkisi çevresinde KENDİ fazı/frekansıyla salınır
+          //   (iki sinüs toplamı → periyodik görünmez) ve topa yakınsa kendi eğilimiyle topa yönelir
+          //   (en çok %35, topa 3 m'den fazla yaklaşmaz) → takım tek blok halinde düz kaymaz.
+          const wA=p.nvAmp*(ko?0.3:1);
+          f+=wA*(Math.sin(clk*p.nvFf*6.283+p.nvPh)*0.7+Math.sin(clk*p.nvFf*2.9+p.nvPh2)*0.3);
+          z+=wA*(Math.sin(clk*p.nvFz*6.283+p.nvPh2)*0.7+Math.sin(clk*p.nvFz*3.7+p.nvPh)*0.3);
+          {
+            const bfx=bpos.x*dir, bz=bpos.z, dB=Math.hypot(bfx-f,bz-z);
+            if(dB<ACTORS3D_NAT_PULL_R&&dB>3){
+              const pk=Math.min(0.35,p.nvPull*(1-dB/ACTORS3D_NAT_PULL_R)*(cls===1?0.45:cls===3?0.8:1)*(att?0.7:1));
+              const mv=Math.min(pk*dB,dB-3);
+              f+=(bfx-f)/dB*mv; z+=(bz-z)/dB*mv;
+            }
+          }
           if(ko) f=Math.min(f,-1.2);                                     // santrada kendi yarısında
         }
         const wx=clamp(f*dir,-L+1,L-1), wz=clamp(z,-H+1.5,H-1.5);
         if(!p.anOn){ p.anOn=true; p.anX=p.tgt.x; p.anZ=p.tgt.z; }
+        // Oyuncu başına bağımsız tepki süresi (eskiden herkes 0.5 sn → senkron kayma)
+        const k=1-Math.exp(-dt/(p.nvTau||0.5));
         p.anX+=(wx-p.anX)*k; p.anZ+=(wz-p.anZ)*k;
         p.tgt.x=p.anX; p.tgt.z=p.anZ;
       }
@@ -1619,7 +1658,7 @@ function createMatchActors3D(api,opts={}){
           const kp=p.ovr&&p.cap>0?kOvr:kPos;
           dx=(tx-p.pos.x)*kp; dz=(tz-p.pos.z)*kp;
           const step=Math.hypot(dx,dz);
-          let maxStep=(p.cap>0?p.cap:(manual?14:PACE.run*tp))*dt;
+          let maxStep=(p.cap>0?p.cap:(manual?14:PACE.run*tp*(p.nvSpd||1)))*dt;   // canlı akış: oyuncu başına hız varyasyonu
           if(pinned) maxStep*=0.15;                     // yerdeyken neredeyse hareketsiz
           if(step>maxStep){ dx*=maxStep/step; dz*=maxStep/step; }
           p.pos.x+=dx; p.pos.z+=dz;

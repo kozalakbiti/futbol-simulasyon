@@ -58,7 +58,7 @@ function createRigKit3D(THREE,COL){
       {g:cyl(0.375,0.375,0.06,8,0.13,0.72),c:c.belt},                // bel bandı (forma/şort sınırı)
       {g:cyl(0.54,0.35,0.92,8,0.56,0.62),c:c.shirt},
       {g:sph(0.52,8,5,0,0.98,0,1,0.32,0.62),c:c.shirt},              // omuz kubbesi
-      {g:box(0.5,0.08,0.06,0,0.36,0.31),c:c.shorts===0xf2f2f2?0xffffff:0x0b1320}, // göğüs bandı (sponsor şeridi)
+      {g:box(0.5,0.08,0.06,0,0.36,0.31),c:c.gloves?0xf4f4f4:c.shorts===0xf2f2f2?0xffffff:0x0b1320}, // göğüs bandı (sponsor şeridi; kalecide açık → ön net)
       {g:cyl(0.12,0.14,0.22,6,1.08),c:SKIN[skin]},
     ]);
   });
@@ -153,6 +153,8 @@ function rigBusy3D(rig){ return !!(rig&&rig.act&&rig.actT<rig.actDur); }
 
 // Yumuşak geçiş (smoothstep) — üst seviyede: kare döngüsünde closure tahsisi olmasın
 function rig3dEase(a,b,k){ return a+(b-a)*(k<0?0:k>1?1:k*k*(3-2*k)); }
+// Doğrusal karışım (kaleci hazır duruşu; kare döngüsünde closure tahsisi olmasın diye üst seviyede)
+function rig3dMix(a,b,t){ return a+(b-a)*t; }
 
 function animateRig3D(rig,dt,speed){
   const ease=rig3dEase;
@@ -178,6 +180,22 @@ function animateRig3D(rig,dt,speed){
   rig.armL.rotation.set(s*armA+0.05*idle,0,0.13+0.1*run+br*0.035*idle);
   rig.armR.rotation.set(-s*armA+0.05*idle,0,-0.13-0.1*run-br*0.035*idle);
   rig.head.rotation.set(-0.1*run+br*0.02*idle,-s*0.08*run,0);
+  // ── Kaleci hazır duruşu (dururken / yavaş yan adımda): bacaklar omuz genişliğinde açık, dizler
+  //   kırık, kalça alçak, gövde öne eğik, eldivenler önde ve hafif yanda (yüz/göğüs net okunur).
+  //   Koşuya geçtikçe (≥3 m/sn) söner; eylemler (dalış vb.) aşağıda üstüne yazar.
+  if(rig.kit&&rig.kit.slice(-2)==="GK"){
+    const rd=Math.max(0,1-sp/3);
+    if(rd>0){
+      B.position.y-=0.14*rd;
+      B.rotation.x=rig3dMix(B.rotation.x,0.2,rd);
+      rig.thighL.rotation.x=rig3dMix(rig.thighL.rotation.x,-0.5,rd); rig.thighL.rotation.z=rig3dMix(rig.thighL.rotation.z,0.2,rd);
+      rig.thighR.rotation.x=rig3dMix(rig.thighR.rotation.x,-0.5,rd); rig.thighR.rotation.z=rig3dMix(rig.thighR.rotation.z,-0.2,rd);
+      rig.shinL.rotation.x=rig3dMix(rig.shinL.rotation.x,0.78,rd); rig.shinR.rotation.x=rig3dMix(rig.shinR.rotation.x,0.78,rd);
+      rig.armL.rotation.x=rig3dMix(rig.armL.rotation.x,-0.8+br*0.03,rd); rig.armL.rotation.z=rig3dMix(rig.armL.rotation.z,0.38,rd);
+      rig.armR.rotation.x=rig3dMix(rig.armR.rotation.x,-0.8-br*0.03,rd); rig.armR.rotation.z=rig3dMix(rig.armR.rotation.z,-0.38,rd);
+      rig.head.rotation.x=rig3dMix(rig.head.rotation.x,-0.16,rd);   // gövde eğikken bakış öne (topa)
+    }
+  }
   // ── Eylem katmanı ──
   if(!rig.act) return;
   rig.actT+=dt;

@@ -152,7 +152,9 @@ function pitch3dGrassCanvases(gw,gh){
 
 // Sahayı (çim, çizgiler, kaleler, stadyum kenarı) kurar → THREE.Group
 //   maxAniso: renderer'ın desteklediği en yüksek anizotropi (çim dokusu; en çok 8 kullanılır)
-function buildPitch3DMeshes(THREE,maxAniso){
+//   day (isteğe bağlı): gündüz — Phong çim + yaprak kabartması (bumpMap), gölge alan çim/çizgi,
+//   parlak direkler + arka destek çubukları/ipler, alphaMap örgülü file (day3d.js tuvalleri)
+function buildPitch3DMeshes(THREE,maxAniso,day){
   const D=PITCH3D_DIM, W=D.lineW, L=D.halfLen, H=D.halfWid;
   const g=new THREE.Group(); g.name="pitch";
   const flat=(geo)=>{geo.rotateX(-Math.PI/2);return geo;};
@@ -161,6 +163,7 @@ function buildPitch3DMeshes(THREE,maxAniso){
   const ground=new THREE.Mesh(flat(new THREE.PlaneGeometry(200,150)),
     new THREE.MeshLambertMaterial({color:0x17241b}));
   ground.position.y=-0.03; g.add(ground);
+  if(day){ ground.material.color.setHex(0x2c4a2a); ground.receiveShadow=true; }
   // Çim: TEK düzlem (eski 14 şerit mesh'i yerine 1 çizim çağrısı). map = biçme deseni (iki yönde
   //   damalı açık/koyu bantlar + orta ölçekli leke, saha boyunca tek kopya); aoMap = ince çim
   //   tanesi (256² gürültü, ~1.4 m'de bir tekrar) — yalnız ortam (hemisfer) ışığını çarparak
@@ -168,10 +171,17 @@ function buildPitch3DMeshes(THREE,maxAniso){
   const GW2=PITCH3D_LEN+10, GH2=PITCH3D_WID+8;
   const grassGeo=flat(new THREE.PlaneGeometry(GW2,GH2));
   grassGeo.setAttribute("uv2",new THREE.BufferAttribute(grassGeo.attributes.uv.array.slice(0),2)); // aoMap uv2 ister
-  const grassMat=new THREE.MeshLambertMaterial({color:0xffffff});
+  // Gündüz: Phong (r128 Lambert bumpMap desteklemez) — düşük parlaklık, yakında yaprak kabartması
+  // Adım 17: gündüz çimi MeshStandardMaterial (yüksek pürüzlülük, metal yok): Phong'un plastik parlama
+  //   lekesi yok; r128 doğrusal ışık modunda Lambert ile aynı parlaklık ölçeği (palet bozulmaz)
+  const grassMat=day?new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.94,metalness:0})
+    :new THREE.MeshLambertMaterial({color:0xffffff});
   const cvs=pitch3dGrassCanvases(GW2,GH2);
   const aniso=Math.max(1,Math.min(8,Number(maxAniso)||1));
-  if(cvs.map){
+  const dayGrass=day?day3dGrassCanvas(GW2,GH2):null;
+  if(dayGrass){
+    const t=new THREE.CanvasTexture(dayGrass); t.anisotropy=aniso; grassMat.map=t;   // 2048×1024: yakında ~5 cm/texel
+  } else if(cvs.map){
     const t=new THREE.CanvasTexture(cvs.map); t.anisotropy=aniso; grassMat.map=t;   // mipmap: 1024×512 (2'nin kuvveti)
   } else grassMat.color.setHex(0x2f7d33);
   if(cvs.grain){
@@ -179,11 +189,19 @@ function buildPitch3DMeshes(THREE,maxAniso){
     t.repeat.set(Math.round(GW2/1.4),Math.round(GH2/1.4)); t.anisotropy=aniso;
     grassMat.aoMap=t; grassMat.aoMapIntensity=1;
   }
+  if(day){
+    // Yaprak kabartması: 256² dikey çizgili gürültü, ~0.9 m'de bir tekrar (uzakta mipmap → düz)
+    const bt=day3dTex(THREE,"grassBump",aniso);
+    if(bt){ bt.repeat.set(Math.round(GW2/0.9),Math.round(GH2/0.9)); grassMat.bumpMap=bt; grassMat.bumpScale=0.35; }
+  }
   const grassBase=new THREE.Mesh(grassGeo,grassMat);
   grassBase.position.y=-0.01; g.add(grassBase);
+  if(day) grassBase.receiveShadow=true;
 
   // Çizgiler (WebGL'de çizgi kalınlığı desteklenmediği için ince düz mesh'ler)
-  const lineMat=new THREE.MeshBasicMaterial({color:0xf2f2f2,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  // Gündüz: net beyaz, ışık/gölge alan çizgi (tribün çatısının gölgesinde de doğal görünür)
+  const lineMat=day?new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x3a3a3a,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})
+    :new THREE.MeshBasicMaterial({color:0xf2f2f2,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   const LY=0.02;
   const segX=(x1,x2,z)=>{ // X boyunca
     const m=new THREE.Mesh(flat(new THREE.PlaneGeometry(Math.abs(x2-x1)+W,W)),lineMat);
@@ -223,8 +241,33 @@ function buildPitch3DMeshes(THREE,maxAniso){
   arc( L, H,D.cornerR,Math.PI,Math.PI*1.5);
   arc(-L, H,D.cornerR,Math.PI*1.5,Math.PI*2);
 
-  // Kaleler: direkler + üst direk + basit file (çizgi ızgarası)
-  const postMat=new THREE.MeshLambertMaterial({color:0xffffff});
+  if(day) g.children.forEach(o=>{ if(o.material===lineMat) o.receiveShadow=true; });
+  if(day){
+    // Aşınmış çim (Adım 17): iki kale ağzı + iki penaltı noktası — tek geometri, tek çizim çağrısı.
+    //   Çimin üstünde, çizgilerin altında (polygonOffset −1, çizgiler −2), gölge alır.
+    const wt=day3dTex(THREE,"wear");
+    if(wt){
+      wt.wrapS=wt.wrapT=THREE.ClampToEdgeWrapping;
+      const pos=[], uv=[];
+      const patch=(cx,cz,w,d)=>{   // w: x boyu, d: z boyu (m)
+        const x0=cx-w/2, x1=cx+w/2, z0=cz-d/2, z1=cz+d/2, y=0.012;
+        pos.push(x0,y,z0, x0,y,z1, x1,y,z1, x0,y,z0, x1,y,z1, x1,y,z0);
+        uv.push(0,0, 0,1, 1,1, 0,0, 1,1, 1,0);
+      };
+      [-1,1].forEach(s=>{ patch(s*(L-2.6),0,5.5,8.5); patch(s*(L-D.penSpot),0,3.2,3.2); });
+      const wg=new THREE.BufferGeometry();
+      wg.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+      wg.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
+      wg.computeVertexNormals();
+      const wm=new THREE.MeshLambertMaterial({map:wt,transparent:true,depthWrite:false,
+        polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+      const wear=new THREE.Mesh(wg,wm); wear.name="wear"; wear.receiveShadow=true; wear.renderOrder=0; g.add(wear);
+    }
+  }
+
+  // Kaleler: direkler + üst direk + basit file (çizgi ızgarası; gündüzde alphaMap örgü)
+  const postMat=day?new THREE.MeshPhongMaterial({color:0xffffff,specular:0x8a8a8a,shininess:70,emissive:0x202020})
+    :new THREE.MeshLambertMaterial({color:0xffffff});
   const netMat=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.35});
   const netFillMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.06,
     side:THREE.DoubleSide,depthWrite:false});
@@ -247,11 +290,41 @@ function buildPitch3DMeshes(THREE,maxAniso){
       a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z, a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z],3));
     return new THREE.Mesh(geo,netFillMat);
   };
+  // Gündüz file: 4 yüz tek geometri (uv = metre / göz aralığı), baklava örgü alphaMap, iki yüzlü
+  const NET_CELL=0.14;
+  const dayNetMat=day?(()=>{
+    const at=day3dTex(THREE,"net",Math.min(4,Math.max(1,Number(maxAniso)||1)));
+    return new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x2a2a2a,alphaMap:at||null,transparent:true,
+      opacity:at?0.95:0.12,side:THREE.DoubleSide,depthWrite:false});
+  })():null;
+  const netFaces=(faces)=>{
+    const pos=[], uv=[];
+    faces.forEach(([a,b,c,d])=>{
+      const u=a.distanceTo(b)/NET_CELL, v=a.distanceTo(d)/NET_CELL;
+      // a(0,0) b(u,0) c(u,v) d(0,v)
+      pos.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z, a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z);
+      uv.push(0,0,u,0,u,v, 0,0,u,v,0,v);
+    });
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+    geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
+    geo.computeVertexNormals();
+    const m=new THREE.Mesh(geo,dayNetMat); m.renderOrder=3; return m;
+  };
+  // İki nokta arası ince silindir (destek çubuğu / ip) → mergeGeos3D parçası
+  const rodY=new THREE.Vector3(0,1,0), rodQ=new THREE.Quaternion(), rodM=new THREE.Matrix4(), rodS=new THREE.Vector3(1,1,1);
+  const rod=(a,b,r,c)=>{
+    const d=b.clone().sub(a), len=d.length();
+    const geo=new THREE.CylinderGeometry(r,r,len,6,1,true);
+    rodQ.setFromUnitVectors(rodY,d.normalize());
+    rodM.compose(a.clone().add(b).multiplyScalar(0.5),rodQ,rodS); geo.applyMatrix4(rodM);
+    return {g:geo,c};
+  };
   [-1,1].forEach(s=>{
     const goal=new THREE.Group(); goal.name=s<0?"goalHome":"goalAway";
     const x0=s*L, x1=s*(L+gd), V=(x,y,z)=>new THREE.Vector3(x,y,z);
-    [-gw,gw].forEach(z=>{const p=new THREE.Mesh(postGeo,postMat);p.position.set(x0,gh/2,z);goal.add(p);});
-    const bar=new THREE.Mesh(barGeo,postMat); bar.position.set(x0,gh,0); goal.add(bar);
+    [-gw,gw].forEach(z=>{const p=new THREE.Mesh(postGeo,postMat);p.position.set(x0,gh/2,z);if(day){p.castShadow=true;p.receiveShadow=true;}goal.add(p);});
+    const bar=new THREE.Mesh(barGeo,postMat); bar.position.set(x0,gh,0); if(day){bar.castShadow=true;bar.receiveShadow=true;} goal.add(bar);
     const bh=gh*0.75; // arka üst yükseklik (file hafif eğimli)
     const net=new THREE.Group(); net.name="net";
     const faces=[
@@ -260,7 +333,24 @@ function buildPitch3DMeshes(THREE,maxAniso){
       [V(x0,0,-gw),V(x1,0,-gw),V(x1,bh,-gw),V(x0,gh,-gw)],    // yan
       [V(x0,0,gw),V(x1,0,gw),V(x1,bh,gw),V(x0,gh,gw)],        // yan
     ];
-    faces.forEach(f=>{net.add(netGrid(f,0.45));net.add(quad(f[0],f[1],f[2],f[3]));});
+    if(day){
+      net.add(netFaces(faces));
+      // Arka çerçeve: yan/arka zemin çubukları, arka dikmeler, üst eğik destekler (direk tepesinden
+      //   arkaya), arka üst çubuk + gerilmiş ipler (arka köşelerden zemindeki kazıklara). 1 çizim çağrısı.
+      const bc=0xd5dade, rc=0xf4f4f0, rr=0.035;
+      const rods=[];
+      [-gw,gw].forEach(z=>{
+        rods.push(rod(V(x0,0.03,z),V(x1,0.03,z),rr,bc));            // yan zemin çubuğu
+        rods.push(rod(V(x1,0,z),V(x1,bh,z),rr,bc));                 // arka dikme
+        rods.push(rod(V(x0,gh,z),V(x1,bh,z),rr,bc));                // üst eğik destek
+        const peg=V(x1+s*0.9,0.02,z+Math.sign(z)*0.7);
+        rods.push(rod(V(x1,bh,z),peg,0.012,rc));                     // gergi ipi
+      });
+      rods.push(rod(V(x1,0.03,-gw),V(x1,0.03,gw),rr,bc));            // arka zemin çubuğu
+      rods.push(rod(V(x1,bh,-gw),V(x1,bh,gw),rr,bc));                // arka üst çubuk
+      const frame=new THREE.Mesh(mergeGeos3D(THREE,rods),new THREE.MeshPhongMaterial({vertexColors:true,specular:0x555555,shininess:40}));
+      frame.castShadow=true; frame.name="goalFrame"; goal.add(frame);
+    } else faces.forEach(f=>{net.add(netGrid(f,0.45));net.add(quad(f[0],f[1],f[2],f[3]));});
     goal.add(net);
     g.add(goal);
   });
@@ -294,7 +384,13 @@ function createPitch3DScene(THREE,container,opts){
 
   try{
     renderer.setPixelRatio(dpr);
-    renderer.setClearColor(0x0b1220,1);
+    const day=!!opts.day;          // gündüz sahnesi (kilit an): gök, güneş + gölge, İngiliz tribünleri (day3d.js)
+    renderer.setClearColor(day?DAY3D_SKY_CLEAR:0x0b1220,1);
+    if(day){
+      // Yumuşak gölgeler: yalnız güneş gölge yapar (tek ışık); harita boyutu cihaza göre (day3dLights)
+      renderer.shadowMap.enabled=true;
+      renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    }
     // Dokunma: 3D tuval parmak hareketlerini her zaman yutar (mobilde sayfa kaymasın)
     canvas.style.cssText="display:block;width:100%;height:100%;touch-action:none;";
     container.appendChild(canvas);
@@ -302,14 +398,24 @@ function createPitch3DScene(THREE,container,opts){
     scene=new THREE.Scene();
     const camera=new THREE.PerspectiveCamera(PITCH3D_FOV,1.6,1,400);
 
-    scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
-    const sun=new THREE.DirectionalLight(0xffffff,0.75);
-    sun.position.set(30,80,45); scene.add(sun);
+    if(day){
+      let lowEnd=false;
+      try{ lowEnd=!!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches)||Math.min(window.innerWidth||0,window.innerHeight||0)<500; }catch(e){}
+      day3dLights(THREE,scene,lowEnd);
+    } else {
+      scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
+      const sun=new THREE.DirectionalLight(0xffffff,0.75);
+      sun.position.set(30,80,45); scene.add(sun);
+    }
 
     // Akşam/gece stadyum atmosferi: ufuk gradyanlı gök kubbesi (vertex rengi, fog'dan etkilenmez;
     //   kamera far=400 içinde) + pus (THREE.Fog). Pus her zaman sahnede (program değişimi/takılma
     //   olmasın); kuşbakışında near/far çok uzak = etkisiz, çim seviyesi vuruş kamerasında yumuşak pus.
-    {
+    if(day){
+      // Gündüz: mavi gök + bulut kubbesi; pus gökyüzünün ufuk rengiyle aynı (uzak tribün/ağaç hafif puslu)
+      scene.add(day3dSkyDome(THREE));
+      scene.fog=new THREE.Fog(DAY3D_FOG,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
+    } else {
       const SR=300, sky=new THREE.SphereGeometry(SR,24,12);
       const pos=sky.attributes.position, col=new Float32Array(pos.count*3);
       const cTop=new THREE.Color(0x03060f), cMid=new THREE.Color(0x0d1a33), cHor=new THREE.Color(0x3a3352), cGlow=new THREE.Color(0x6a4d5c), tmp=new THREE.Color();
@@ -326,11 +432,11 @@ function createPitch3DScene(THREE,container,opts){
       scene.add(skyMesh);
       scene.fog=new THREE.Fog(0x2a2a44,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
     }
-    const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1),
+    const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1,day),
       players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
     // Stadyum (tribün + taraftar + projektör + pano + kulübe); sahne ile birlikte temizlenir
-    const stadium=buildStadium3D(THREE);
+    const stadium=buildStadium3D(THREE,{day});
     groups.pitch.add(stadium.group);
 
     // Odak + kamera durumu
@@ -555,7 +661,8 @@ function createPitch3DScene(THREE,container,opts){
 
 // paused: true iken render döngüsü durur (son kare ekranda kalır)
 // interactive: (eski) — Adım 7'den beri tuval her zaman dokunma hareketlerini yutar (touch-action:none)
-function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top"}){
+// day: gündüz sahnesi (yalnız kurulumda okunur; kilit an kullanır)
+function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top",day=false}){
   const mountRef=useRef(null);
   const instRef=useRef(null);
   const [innerCam,setInnerCam]=useState("broadcast");
@@ -591,6 +698,7 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
           getCameraMode:()=>camModeRef.current,
           paused:pausedRef.current,
           interactive:interactiveRef.current,
+          day:!!day,
           onContextLost:()=>fail("3D grafik bağlamı kaybedildi. Bölümü kapatıp yeniden açmayı dene."),
           // destroy'u render çağrısının dışında yap (döngü zaten durdu)
           onRenderError:(err)=>setTimeout(()=>fail("3D çizimde bir hata oluştu; 3D görünüm kapatıldı. 2D saha çalışmaya devam ediyor.",err),0),
