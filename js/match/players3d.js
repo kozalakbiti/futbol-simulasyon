@@ -361,7 +361,10 @@ function createMatchActors3D(api,opts={}){
     const dx=px-bpos.x, dz=pz-bpos.z, d=Math.hypot(dx,dz);
     if(d<0.3){ kickBall(0,0,0); return 0.1; }
     const k=Number.isFinite(mul)&&mul>1?Math.min(3,mul):1;
-    const ux=dx/d, uz=dz/d, T=passTime(d,lofted)/k;
+    // Havadan pasta çarpanın yalnız karekökü uygulanır ve süre ≥1.05 sn tutulur (tepe ≥1.35 m):
+    //   T/mul tepeyi 1/mul² düşürüp topu savunmacının içinden diz hizasında geçirirdi
+    const T=lofted?(k>1?Math.max(1.05,passTime(d,true)/Math.sqrt(k)):passTime(d,true)):passTime(d,false)/k;
+    const ux=dx/d, uz=dz/d;
     if(lofted){ const vh=d/T; kickBall(ux*vh,G_ACC*T/2,uz*vh); landSoft=true; return T; }
     if(k>1){
       // Aynı mesafeyi T/mul sürede alan yerden pas: v0 = d/T + a·T/2 (a = ROLL_FRIC)
@@ -477,6 +480,10 @@ function createMatchActors3D(api,opts={}){
     let ds=(ahead?0.35:0.95)+(anc.on&&(anc.x-o.pos.x)*dir>6?0.25:0)-(pressure<3?0.35:0)-own.drN*0.4+Math.random()*0.3;
     if(o.gk) ds=-9;
     if(best&&bs>ds){ startPass(o,best,bestLoft); return; }
+    if(o.gk){ // kaleci top sürmez: kısa seçenek yoksa en yakın arkadaşa (gerekirse havadan)
+      const q=nearestTo(o.pos.x,o.pos.z,o,o.team,true);
+      if(q){ startPass(o,q,Math.hypot(q.pos.x-o.pos.x,q.pos.z-o.pos.z)>ACTORS3D_PASS_SHORT); return; }
+    }
     // Boş alana sür: ileri + çapaya doğru kanat ayarı
     own.dribble=true; own.drN++;
     const az=anc.on?(anc.z-o.pos.z)*0.4:0;

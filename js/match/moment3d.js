@@ -506,7 +506,8 @@ function createMoment3DController(api,cfg){
     if(isTackle||phase!=="play"||outcome) return false;
     if(shotSt.armed) return true;
     if(!shotSt.dribbled) return false;
-    const a=ctlA(); return !!a&&Math.hypot(a.vx,a.vz)<MOMENT3D_SHOT_STOP_V;
+    // Histerezis: hazır olunca 1.6 m/sn'ye kadar hazır kalır (eşikte titreyip HUD'u yormasın)
+    const a=ctlA(); return !!a&&Math.hypot(a.vx,a.vz)<(shotSt.ready?MOMENT3D_SHOT_STOP_V+0.4:MOMENT3D_SHOT_STOP_V);
   };
   // Koşu yolu: idx = koşan takım arkadaşı, pts = rota (dünya), i = sıradaki nokta
   const run={idx:-1,pts:[],i:0};
@@ -684,6 +685,11 @@ function createMoment3DController(api,cfg){
     const f=0.73+clamp(power,0,100)*0.0045;
     const lx=clamp(bx+dx*tStar*f,-L+1,L-1), lz=clamp(bz+dz*tStar*f,-H+1,H-1);
     if(inBox(lx,lz)&&(Math.abs(bz)>12||type==="corner")){ cls.kind="cross"; cls.lx=lx; cls.lz=lz; return cls; }
+    // Uzun pas atılamıyorsa (penaltı / pas hakkı bitti) kaleye yönelen vuruş, mesafeden
+    //   bağımsız (kendi yarıdan da) şuttur → vuruş ekranı hiçbir zaman boşa çıkmaz
+    if(dx>0.05&&(isPen||passes>=MOMENT3D_MAX_PASSES)){
+      cls.kind="shot"; cls.zHit=clamp(bz+dz*(L-bx)/dx,-(GW+2.4),GW+2.4); return cls;
+    }
     const d=6+clamp(power,0,100)*0.3;
     cls.kind="lpass"; cls.lx=clamp(bx+dx*d,-L+1,L-1); cls.lz=clamp(bz+dz*d,-H+1,H-1);
     return cls;
@@ -1058,7 +1064,7 @@ function createMoment3DController(api,cfg){
     }
     if(toMate){ // öngörülü hedef: alıcının hızına göre (iki yineleme)
       for(let k=0;k<2;k++){
-        const T=(lofted?clamp(0.75+d*0.03,0.9,2.4):d/12)/MOMENT3D_PASS_SPEED;
+        const T=lofted?Math.max(1.05,clamp(0.75+d*0.03,0.9,2.4)/Math.sqrt(MOMENT3D_PASS_SPEED)):d/12/MOMENT3D_PASS_SPEED; // kickTo ile aynı oran
         px=r.x+r.vx*Math.min(T,1.2); pz=r.z+r.vz*Math.min(T,1.2);
         d=Math.hypot(px-B.x,pz-B.z);
       }
@@ -1691,7 +1697,7 @@ function createMoment3DController(api,cfg){
     steer(r,tx,tz,7.5,8,14,dt,0);
     // Hızlı yerden pas hedef noktaya varınca (alıcı henüz yetişmediyse) top orada yavaşlar:
     //   keskin pas alıcının önünden kaçıp uzaklaşmasın
-    if(!pi.lofted&&pi.t>=pi.T*0.85&&db>1.3&&actors.getBallVel&&actors.isBallFree&&actors.isBallFree()){
+    if(!pi.lofted&&pi.t>=pi.T&&db>1.3&&actors.getBallVel&&actors.isBallFree&&actors.isBallFree()){
       const bv=actors.getBallVel(); if(bv){ const k=Math.exp(-5*dt); bv.x*=k; bv.z*=k; }
     }
     if((db<1.3&&B.y<1.8)||pi.t>pi.T+1.0){
@@ -2406,7 +2412,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,onResolve,onFallback
               <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",display:"flex",flexDirection:"column",alignItems:"center",width:"min(92%,360px)"}}>
                 <div style={{fontSize:".42rem",color:"rgba(255,255,255,.85)",textAlign:"center",lineHeight:1.4,
                   background:"rgba(0,0,0,.5)",padding:"2px 8px",borderRadius:5}}>
-                  Orta: düz · Sağdan vur: sola kavis · Soldan: sağa kavis · Alt: yüksek{hud.strikeKind==="cross"?"":" / aşırtma"} · Üst: sert, düşen
+                  {hud.strikeKind==="lpass"?"Topa dokun: havadan uzun pas":<>Orta: düz · Sağdan vur: sola kavis · Soldan: sağa kavis · Alt: yüksek{hud.strikeKind==="cross"?"":" / aşırtma"} · Üst: sert, düşen</>}
                 </div>
                 {/* Geri sayım: dolunca düz vuruş (MOMENT3D_STRIKE_SEC) */}
                 <div style={{width:"min(46vw,210px)",height:4,borderRadius:2,background:"rgba(255,255,255,.15)",marginTop:5,overflow:"hidden"}}>
