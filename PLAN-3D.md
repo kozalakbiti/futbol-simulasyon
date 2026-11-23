@@ -315,3 +315,27 @@ Bilinen sınırlamalar:
 - **Vuruş ekranı saydamlığı:** top ile kale arasındaki ~16 m'lik (ileride genişleyen) koridordaki oyuncular (kaleci hariç) opaklık 0.25 (`MOMENT3D_FADE_OP`).
 - **Canlı akış:** topu alan oyuncu ≈0.15–0.45 sn'de karar verir; sürme puanı paslaşmanın altında; en ileri 2 hücumcu topun önüne, rakibin seyrek olduğu kulvara koşar (`pickRunners`); senaryo sonrası kısa mesafede yerden pas.
 - **Kilitlenme:** sonuçtan 6 sn sonra (gerçek zaman) animasyon bitmediyse kilit an kapanır; sonuç kartı en geç 6.5 sn'de; "Atla ⏭" ve "Devam ▶" düğmeleri; maç devam ederken eski interval temizlenir (çift interval yok).
+
+### Adım 13 — Senaryo çeşitliliği, yön aktarımı, omuz kamerası, kaleci tepkisi, akıcı paslaşma, etiketler
+- **Yeni kilit anlar:** `scramble` (ceza sahası karambolü), `cross` (kanat ortası — ŞUT düğmesi kanatta **ORTA** olur, vuruş ekranı → kafa), `through` (ara pası → birebir), `longshot` (uzaktan şut). `planMoments` maçta 5 an seçer: aynı tür maçta bir kez, art arda aynı tür yok, son 8 an (`MOMENT_RECENT`, oturum boyu) ağırlığı düşürür; penaltı nadir, savunma anı en çok bir kez (2. yarı). 306 maçlık denemede art arda / tekrar 0.
+- **2.5D → 3D yön aktarımı:** basılı yeşil okun son yönü kaydedilir (`lastDrib`); parmak kalktıktan 3 sn içinde ŞUT'a basılırsa vuruş (ve kamera) o yöne hizalanır, ok kale ağzı dışındaysa direk içine kırpılır.
+- **Vuruş ekranı:** omuz kamerası (topun 2.5 m gerisi, vurucunun karşı tarafına 0.75 m, 1.2 m); görüş hattındaki tüm oyuncular + vurucu 0.25 opaklık; vuruş animasyonunda vurucu 0.9 sn yarı saydam.
+- **Kaleci tepki gecikmesi:** kilit anda top şut mesafesinin %20'sini (2–5 m) kat edip yön belli olunca + refleks (rakip gücüne göre 0.16–0.32 sn, penaltıda yarısı) — en geç varıştan 0.15 sn önce; sonuç fiziği (erişim) değişmedi, yalnız dalışın zamanlaması. Canlı akışta `diveLater` (3.5 m algı + 0.16–0.24 sn refleks).
+- **Bağlamsal ŞUT:** kendi yarı sahada ya da kaleye >38 m'de pasif (soluk, basılamaz).
+- **Canlı akış:** yerden pas varış hızı 4.8 → 7.2 (×SLOW), çapa takibi ve senaryo uçuşları hızlı, %35 tek pas, verkaç (pası veren öne koşar, öndeyse geri pas tercih edilir), pas havadayken alıcının takımı boş kulvarlara koşar.
+- **İsim etiketleri:** kameraya uzaklığa göre ölçek; ~0.17 sn'de bir ekranda çakışma kontrolü (topa en yakın önce), çakışan önce yükselir, yer yoksa gizlenir.
+
+### Adım 14 — Sade vuruş ekranı, odak çemberi, gol mesafesi, arcade tempo, sentez sesler
+- **Sade 3D vuruş ekranı:** saydamlık yerine gizleme — vurucu dahil tüm saha oyuncuları gizli (`setPlayerHidden`: gövde, etiket, gölge); ekranda top, kale, kaleci, çim, tribün (frikikte baraj). Gizli oyuncu şut fiziğinde engel değil. Şutta sonuç animasyonu boyunca gizli kalır; orta/uzun pasta onayla geri gelir. Sağ altta kırmızı **✕ İPTAL** → vuruş yapılmadan 2.5D'ye dönüş.
+- **2.5D odak:** kamera ×0.78 yakın (kadraj 28 m), topa sahip oyuncunun çevresinde 18 m'lik yarı saydam odak çemberi; pasta kamera ve çember beklemeden alıcıya kayar.
+- **Gol mesafesi:** vuruş noktası → kale (ortada kafa noktası) metre; gol anında büyük **GOL!** + `xx.x metre`, sonuç kartında "Vuruş mesafesi".
+- **Arcade tempo:** canlı yerden pas varış hızı 7.2 → 11.5 (×SLOW), vuruş gerilmesi 0.2 → 0.08 sn, karar beklemeleri ~yarıya; kilit an pas hızı ×1.6 (`MOMENT3D_PASS_SPEED` 2.9).
+- **Sesler (`js/match/sfx.js`, `MATCH_SFX`):** Web Audio sentezi — vuruş/pas, düdük (kısa/uzun/üçlü), tribün, gol, direk, kurtarış; ilk dokunuşta `AudioContext` açılır. Canlı maçta düdükler sentezle (yoksa kayıtlı ses), golde kayıtlı sese ek tribün coşkusu.
+
+### Adım 15 — Vuruş sonrası 2.5D, kaleci çizgide, uzun süre, anlık pas, konfeti, canlı hız
+- **3D → 2.5D anında:** vuruş onaylandığı karede alçak kamera yok; kuşbakışı top + kale ağzını kadraja alır (geçişsiz). Uçuş, falso, kaleci dalışı, direk, sonuç 2.5D'de. Oyuncular yeniden görünür ve şut fiziğinde yine engel. Havadaki top yüksekliğe göre büyür (en çok ×1.7).
+- **Kaleci:** kale çizgisinde (0.4 m önünde) başlar ve kalır, çizgi boyunca topun tarafına kayar; yüzü her zaman topa dönük; üstüne gelen şutta da kısa kurtarış hamlesi.
+- **Süre:** kilit an 20 sn (oyun zamanı), başarılı pas +6 sn (azalan), top sürme metre başına +0.12 sn (en çok +6 sn). Bekçiler 150 / 170 sn.
+- **Anlık pas:** ağır çekimden çıkış anında (yavaşlama yumuşak kalır); pas bırakıldığı karede tam hızda çıkar, `MOMENT3D_PASS_SPEED` 3.3.
+- **Konfeti:** 0.6 m'lik tek renkli kareler yerine 120 küçük (0.2) siyah-beyaz-kırmızı kâğıt, süzülerek düşer.
+- **Canlı akış:** oyuncu hızları ~×1.2, yerden pas varış hızı 14.5 (×SLOW), konum/dönüş takibi daha çevik.

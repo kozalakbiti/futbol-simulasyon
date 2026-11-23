@@ -24,7 +24,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [ballPos,setBallPos]=useState([50,50]); // top pozisyonu [x,y]
   const [heatDots,setHeatDots]=useState([]);  // ısı haritası noktaları
   const [speed,setSpeed]=useState("slow");  // slow | normal | fast
-  const [soundOn,setSoundOn]=useState(true);
+  const [soundOn,setSoundOn]=useState(()=>{ try{ return typeof MATCH_SFX==="undefined"||MATCH_SFX.enabled!==false; }catch(_){ return true; } });
   // ── İNTERAKTİF ANLAR ──
   const [activeMoment,setActiveMoment]=useState(null); // aktif müdahale anı
   const [momentBonus,setMomentBonus]=useState(0);      // toplanan gol bonusu
@@ -134,7 +134,10 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   };
 
   // Maç başı düdüğü — hakem düdüğü (kısa)
+  // Web Audio sentez sesleri (sfx.js) varsa düdük/tribün onlarla; yoksa kayıtlı sesler
+  const sfx=()=>(soundOnRef.current&&typeof MATCH_SFX!=="undefined")?MATCH_SFX:null;
   const playWhistle=(long=false)=>{
+    const S=sfx(); if(S){ S.whistle(long?"long":"short"); return; }
     if(long){
       // Devre arası / maç sonu: ref düdüğü
       playSound('whistle_ref',0.9);
@@ -145,11 +148,12 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   };
 
   // Maç sonu: gerçek final düdüğü sesi
-  const playFinalWhistle=()=>{ playSound('final_whistle',1.0); };
+  const playFinalWhistle=()=>{ const S=sfx(); if(S){ S.whistle("triple"); return; } playSound('final_whistle',1.0); };
 
   // Stadyum sesi — gol kutlaması
-  const playCrowd=(joy=true)=>{
+  const playCrowd=(joy=true,noSynth=false)=>{
     if(!joy) return; // uğultu kaldırıldı
+    if(!noSynth){ const S=sfx(); if(S) S.goal(); }      // sentez tribün coşkusu (kayıtlı sesin altında)
     // Gol: önce Mackolik bildirimi, sonra stadyum (2s'de fade-out ile biter)
     playSound('goal_notify',1.0);
     if(soundOnRef.current){
@@ -176,9 +180,9 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   };
 
   // Faul düdüğü — metal düdük (kısa)
-  const playFoulWhistle=()=>{ playSound('whistle_short',0.7); };
+  const playFoulWhistle=()=>{ const S=sfx(); if(S){ S.whistle("short"); return; } playSound('whistle_short',0.7); };
 
-  useEffect(()=>{ soundOnRef.current=soundOn; },[soundOn]);
+  useEffect(()=>{ soundOnRef.current=soundOn; try{ if(typeof MATCH_SFX!=="undefined") MATCH_SFX.setEnabled(soundOn); }catch(_){} },[soundOn]);
 
   // Müdahale anı çözümlendi — skoru güncelle ve maçı devam ettir
   const handleMomentResolve=(res)=>{
@@ -191,7 +195,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     if(res.goalScored){
       setMyScore(s=>s+1);
       playWhistle(false);
-      setTimeout(()=>playCrowd(true),180);
+      setTimeout(()=>playCrowd(true,true),180);   // sentez tribün sesi kilit anda zaten çaldı
       setFlash({text:`⚽ GOL! ${res.player} — ${MOMENT_TYPES[res.momentType]?.label||""}`,col:C.grn2,big:true,min:0});
       setTimeout(()=>setFlash(null),3500);
       setLog(l=>[...l,{min:momentsRef.current.find(m=>m.type===res.momentType)?.min||0,

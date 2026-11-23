@@ -48,6 +48,42 @@ const MOMENT_TYPES={
       {id:"fake",  icon:"💃", label:"Yanıltma + Şut",desc:"Kaleciye hamle, sonra şut",stat:"spd",bonus:0.38},
     ]
   },
+  scramble:{
+    id:"scramble", icon:"💥", label:"CEZA SAHASINDA KARAMBOL!", color:"#e67e22",
+    desc:"Top ceza sahasında sekti! Saniyeler içinde karar ver.",
+    options:[
+      {id:"poke",  icon:"🦶", label:"Hemen Vur",      desc:"İlk dokunuşta kaleye",     stat:"sht", bonus:0.36},
+      {id:"lay",   icon:"↪️", label:"Arkadaşa Bırak", desc:"Boştaki arkadaşa çıkar",   stat:"pas", bonus:0.30},
+      {id:"turn",  icon:"🔄", label:"Dönüp Vur",      desc:"Savunmacıyı sırtla, dön",  stat:"spd", bonus:0.32},
+    ]
+  },
+  cross:{
+    id:"cross", icon:"⤴️", label:"KANAT ORTASI!", color:"#f39c12",
+    desc:"Kanatta topla buluştun, ceza sahası dolu!",
+    options:[
+      {id:"high",  icon:"🎯", label:"Arka Direğe Orta",desc:"Kafa vuruşu için yüksek top", stat:"pas", bonus:0.34},
+      {id:"low",   icon:"➡️", label:"Yerden Kesme",    desc:"Ceza sahasına sert yerden",  stat:"pas", bonus:0.30},
+      {id:"cut",   icon:"↩️", label:"İçeri Kat & Vur", desc:"Çizgiden içeri, şut",        stat:"sht", bonus:0.26},
+    ]
+  },
+  through:{
+    id:"through", icon:"🗡️", label:"ARA PASI!", color:"#16a085",
+    desc:"Savunmanın arkası boş! Forvet koşuya kalkıyor.",
+    options:[
+      {id:"ball",  icon:"🧭", label:"Ara Pası",        desc:"Savunmanın arkasına",       stat:"pas", bonus:0.38},
+      {id:"finish",icon:"⚽", label:"Kaleciyle Karşı Karşıya",desc:"Birebirde bitir",   stat:"sht", bonus:0.36},
+      {id:"chip",  icon:"🌈", label:"Havadan Aşırt",   desc:"Kalecinin üstünden",        stat:"sht", bonus:0.26},
+    ]
+  },
+  longshot:{
+    id:"longshot", icon:"🚀", label:"UZAKTAN ŞUT FIRSATI!", color:"#c0392b",
+    desc:"Ceza sahası dışında boşluk var! Dene ya da oyun kur.",
+    options:[
+      {id:"power", icon:"💥", label:"Sert Şut",        desc:"Kaleciyi zorla",            stat:"sht", bonus:0.30},
+      {id:"curl",  icon:"🌀", label:"Plase Falso",     desc:"Uzak köşeye kavisli",       stat:"sht", bonus:0.28},
+      {id:"work",  icon:"🔁", label:"Pas Kombinasyonu",desc:"Daha iyi pozisyon ara",     stat:"pas", bonus:0.24},
+    ]
+  },
   tackle:{
     id:"tackle", icon:"🛡️", label:"KRİTİK MÜDAHALE!", color:"#1abc9c",
     desc:"Rakip hücuma geçti! Savunma kararı ver.",
@@ -58,6 +94,9 @@ const MOMENT_TYPES={
     ]
   },
 };
+
+// Oturum boyu son görülen kilit an türleri (maçlar arası cooldown; kayda yazılmaz)
+const MOMENT_RECENT={list:[]};
 
 // Maç başı müdahale anlarını planlayan fonksiyon
 function planMoments(myStr, oppStr, squad){
@@ -72,25 +111,46 @@ function planMoments(myStr, oppStr, squad){
   const pickPlayer=(pool)=>pool[Math.floor(Math.random()*pool.length)]||all[0]||src[0];
   const moments=[];
 
-  // 4-6 rastgele müdahale anı planla, dakikalarla
-  const types=Object.keys(MOMENT_TYPES);
   const usedMins=new Set();
   const pickMin=(lo,hi)=>{
     let m;
     let tries=0;
-    do{ m=lo+Math.floor(Math.random()*(hi-lo)); tries++; }while(usedMins.has(m)&&tries<20);
+    do{ m=lo+Math.floor(Math.random()*(hi-lo)); tries++; }while((usedMins.has(m)||[...usedMins].some(u=>Math.abs(u-m)<4))&&tries<30);
     usedMins.add(m);
     return m;
   };
 
-  // Her maçta 5 an: dağılım 1.devrede 2, 2.devrede 3
-  const plan=[
-    {type:"corner",   min:pickMin(10,38), player:pickPlayer([...atk,...mid])},
-    {type:"counter",  min:pickMin(20,44), player:pickPlayer([...atk,...mid])},
-    {type:"tackle",   min:pickMin(48,65), player:pickPlayer(def)},
-    {type:"freekick", min:pickMin(55,78), player:pickPlayer([...atk,...mid])},
-    {type:Math.random()>0.5?"oneonone":"penalty", min:pickMin(70,88), player:pickPlayer(atk)},
-  ];
+  // ROTASYON + COOLDOWN: maçta 5 an; aynı tür bir maçta en çok bir kez, art arda iki an
+  //   aynı türden olamaz ve son maçlarda görülen türler (MOMENT_RECENT, oturum boyu) bekletilir.
+  //   Ağırlık: hücum türleri; penaltı nadir; savunma (tackle) maçta en çok bir kez, 2. yarıda.
+  const atkPool=[...atk,...mid];
+  const W={corner:0.8,freekick:1,counter:0.8,scramble:1.1,cross:1.1,through:1.1,oneonone:0.9,longshot:1,penalty:0.45};
+  const recent=MOMENT_RECENT.list;
+  const pickType=(used,prevType)=>{
+    let tot=0; const cand=[];
+    for(const t in W){
+      if(used.has(t)||t===prevType) continue;
+      const ri=recent.lastIndexOf(t);                       // yakın zamanda görüldüyse bekleme cezası
+      const cool=ri<0?1:Math.min(1,0.15+0.17*(recent.length-1-ri));
+      const w=W[t]*cool; if(w<=0) continue;
+      cand.push([t,w]); tot+=w;
+    }
+    let r=Math.random()*tot;
+    for(const [t,w] of cand){ if((r-=w)<=0) return t; }
+    return cand.length?cand[cand.length-1][0]:"counter";
+  };
+  const mins=[pickMin(10,24),pickMin(27,44),pickMin(50,64),pickMin(66,78),pickMin(80,88)].sort((x,y)=>x-y);
+  const tackleSlot=Math.random()<0.6?(2+Math.floor(Math.random()*2)):-1;   // 2. yarıda en çok bir savunma anı
+  const used=new Set(); let prev=null;
+  const plan=mins.map((min,i)=>{
+    const type=i===tackleSlot?"tackle":pickType(used,prev);
+    used.add(type); prev=type;
+    const pool=type==="tackle"?def:(type==="penalty"||type==="oneonone"||type==="through"?atk:atkPool);
+    return {type,min,player:pickPlayer(pool.length?pool:all)};
+  });
+  // Oturum boyu son görülen türler (cooldown penceresi 8)
+  plan.forEach(p=>{ recent.push(p.type); });
+  while(recent.length>8) recent.shift();
 
   plan.forEach(p=>{
     const mt=MOMENT_TYPES[p.type];
@@ -114,6 +174,10 @@ function getMomentMsg(type,optId,success,name){
     counter:{sprint:{ok:`${name} savunmayı geçti, GOL!`,fail:`${name} süratle gitti ama kaleci kurtardı!`},dribble:{ok:`Muhteşem dribling! ${name} GOL!`,fail:`Dribling güzeldi ama direkten döndü.`},wait:{ok:`Sabırla oynandı, ${name} GOL!`,fail:`Beklemek işe yaramadı, top kaybı.`}},
     penalty:{power:{ok:`${name} güçlü vuruş, köşeye! GOL!`,fail:`Çok sert, direkten döndü!`},place:{ok:`${name} kalecinin tersine! GOL!`,fail:`Kaleci tarafı seçti ve kurtardı!`},chip:{ok:`Cesur çip! GOL!`,fail:`Çip ortaya düştü, kaleci yakaladı!`}},
     oneonone:{shoot:{ok:`${name} ilk dokunuşta GOL!`,fail:`${name} vurdu ama kaleci kurtardı!`},lob:{ok:`${name} enfes çip! GOL!`,fail:`Çip yüksek kaldı, dışarı.`},fake:{ok:`${name} kaleciye yıldırdı! GOL!`,fail:`Yanıltma bitmeden kaleci atıldı!`}},
+    scramble:{poke:{ok:`Karambolde ilk dokunuş! ${name} GOL!`,fail:`${name} vurdu ama ayaklar arasında kaldı.`},lay:{ok:`${name} bıraktı, arkadaşı tamamladı: GOL!`,fail:`Bırakılan top savunmaya takıldı.`},turn:{ok:`${name} döndü ve vurdu: GOL!`,fail:`Dönüş yavaş kaldı, top kaptırıldı.`}},
+    cross:{high:{ok:`Arka direğe orta, kafa: GOL!`,fail:`Orta kaleciye gitti.`},low:{ok:`Yerden kesme, iç tarafa dokunuş: GOL!`,fail:`Kesme ortayı savunma uzaklaştırdı.`},cut:{ok:`${name} içeri kattı, köşeye GOL!`,fail:`İçeri katış şutu dışarı gitti.`}},
+    through:{ball:{ok:`Muhteşem ara pası! ${name} bitirdi: GOL!`,fail:`Ara pası uzun kaldı, kaleci aldı.`},finish:{ok:`${name} kaleciyle karşı karşıya: GOL!`,fail:`${name} birebirde kaleciye takıldı!`},chip:{ok:`${name} kalecinin üstünden aşırttı: GOL!`,fail:`Aşırtma üstten auta gitti.`}},
+    longshot:{power:{ok:`${name} uzaktan füze! GOL!`,fail:`Sert şut kaleciden döndü.`},curl:{ok:`${name} uzak köşeye falso: GOL!`,fail:`Falso az farkla dışarı.`},work:{ok:`Sabırlı paslaşma, ${name} GOL!`,fail:`Kombinasyon kesildi.`}},
     tackle:{slide:{ok:`Mükemmel kayarak müdahale! Tehlike atlatıldı!`,fail:`Müdahale geç kaldı, rakip geçti!`},block:{ok:`Şut bloke edildi! Harika savunma!`,fail:`Blok tutmadı, şut devam etti!`},foul:{ok:`Stratejik faul, hücum durduruldu.`,fail:`Faul, sarı kart ve serbest vuruş!`}},
   };
   const msgSet=msgs[type]?.[optId];
@@ -169,7 +233,8 @@ function InteractiveMoment({moment, myStr, oppStr, onResolve}){
     setTimeout(()=>{setAnimOut(true);setTimeout(()=>onResolve({success,goalScored,goalConceded,optionId:opt.id,player:player.n,momentType:moment.type,msg}),400);},2800);
   };
 
-  const pitchPos={corner:[86,45],freekick:[76,28],counter:[62,50],penalty:[88,50],oneonone:[83,50],tackle:[28,50]};
+  const pitchPos={corner:[86,45],freekick:[76,28],counter:[62,50],penalty:[88,50],oneonone:[83,50],tackle:[28,50],
+    scramble:[87,45],cross:[80,12],through:[62,48],longshot:[71,46]};
   const [px,py]=pitchPos[moment.type]||[70,50];
   const isTackleType=moment.type==="tackle";
   const powerCol=powerFill<30?"#e74c3c":powerFill<45?"#e67e22":powerFill<=80?"#2ecc71":"#e74c3c";
