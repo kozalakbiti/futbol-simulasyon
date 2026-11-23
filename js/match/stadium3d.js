@@ -132,8 +132,12 @@ function buildStadium3D(THREE){
   })();
   const glowGeo=G(new THREE.BufferGeometry());
   glowGeo.setAttribute("position",new THREE.Float32BufferAttribute(glowPts,3));
-  const glowMat=M(new THREE.PointsMaterial({map:glowTex,size:26,sizeAttenuation:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,color:0xfff6d8}));
+  const glowMat=M(new THREE.PointsMaterial({map:glowTex,size:26,sizeAttenuation:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,color:0xfff6d8,fog:false}));
   const glow=new THREE.Points(glowGeo,glowMat); glow.frustumCulled=false; group.add(glow);
+  // Gece atmosferi: projektörlerin geniş, sönük halesi (aynı doku + konumlar; toplamsal, 1 çizim)
+  const haloMat=M(new THREE.PointsMaterial({map:glowTex,size:110,sizeAttenuation:true,transparent:true,opacity:0.32,
+    depthWrite:false,blending:THREE.AdditiveBlending,color:0xffe8b8,fog:false}));
+  const halo=new THREE.Points(glowGeo,haloMat); halo.frustumCulled=false; halo.renderOrder=-5; group.add(halo);
 
   // ── Reklam panoları (LED: doku yavaşça kayar) ──
   const adTex=(()=>{

@@ -10,6 +10,8 @@ const SPEED_CONFIGS={
 // 3D görünümde maç saati yavaş akar (×0.6 gerçekçi tempo × ACTORS3D_SLOW; 2D akış aynı kalır).
 // Tick aralığı = ms / MATCH3D_TEMPO. Görünüm maç sırasında değişirse interval yeniden kurulur.
 const MATCH3D_TEMPO=0.6*(typeof ACTORS3D_SLOW==="number"?ACTORS3D_SLOW:0.55);   // canlı akış temposu (players3d ACTORS3D_SLOW ile aynı oran; Adım 11: %35 hızlı)
+// Kilit an öncesi 3D hücum kurulumu için en uzun bekleme (ms): takım son üçte bire varamazsa an yine açılır
+const MATCH3D_BUILDUP_MAX_MS=9000;
 function matchTickMs(cfg,is3D){ return is3D?Math.round(cfg.ms/MATCH3D_TEMPO):cfg.ms; }
 
 function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup=[],onFinish,clubName="Club Manager: Glory Road",formation="4-4-2"}){
@@ -104,6 +106,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     return fData.map((slot,i)=>({id:i,bx:100-(slot.y||50),by:slot.x||50,role:slot.p||"CM"}));
   })());
   const momentsRef=useRef([]);     // planlanmış anlar
+  const actors3dRef=useRef(null);  // canlı 3D akış denetleyicisi (createMatchActors3D; sahne yeniden kurulunca yenilenir)
+  const buildUpRef=useRef(null);   // {mo,team,t0}: 3D kilit an öncesi hücum kurulumu sürüyor
   const pausedRef=useRef(false);   // interval duraklatıldı mı
   const mountedRef=useRef(true);   // unmount sonrası gecikmeli devam interval başlatmasın
   useEffect(()=>()=>{ mountedRef.current=false; },[]);
@@ -298,10 +302,12 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   // Hız değişince speedRef'i güncelle (interval'i yeniden başlatmak için)
   useEffect(()=>{speedRef.current=speed;},[speed]);
 
+  // 3D odak: 2. yarıda 3D saha 180° dönük (players3d) → 2D koordinat da döndürülür (100−x, 100−y)
+  const setFocus3D=(api,b)=>{ const f=minute>45; api.setFocus(f?100-b[0]:b[0],f?100-b[1]:b[1]); };
   // 3D önizleme: "Takip" kamerası için topun konumunu 3D sahneye ilet
   useEffect(()=>{
     const api=pitch3dApiRef.current;
-    if(api&&!api.isDisposed()) api.setFocus(ballPos[0],ballPos[1]);
+    if(api&&!api.isDisposed()) setFocus3D(api,ballPos);
   },[ballPos]);
 
   // 3D önizleme: kendi takımımızın kısa isim etiketleri (2D sahadaki ile aynı kural)
@@ -309,13 +315,15 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const labels3d=React.useMemo(()=>!is3D?null:playerDots.map((p,i)=>{
     const pl=lineup.length>0?squad[lineup[i]]:squad[i];
     if(!pl||!pl.n) return "";
-    return pl.n.split(".")[1]||pl.n.split(" ")[0]||pl.n;
+    return matchLabelName3D(pl.n);
   }),[is3D,lineup,squad,playerDots.length]);
   // 3D kilit an: sahadaki kadro (takım arkadaşı adları). Koşulsuz hook; yalnız kadro değişince yeniden hesaplanır
   const moment3dMates=React.useMemo(()=>(lineup.length>0?lineup.map(i=>squad[i]):squad.slice(0,11)).filter(Boolean),[lineup,squad]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
-  if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d};
+  // half: 3D'de 2. yarı taraf değişimi (2D yönü değişmez) · myBase/oppBase: diziliş tabanı (3D çapaları)
+  if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d,
+    half:minute>45?2:1,myBase:baseDotsRef.current,oppBase:baseOppDotsRef.current};
   else live3dRef.current=null;
 
   useEffect(()=>{
@@ -340,6 +348,36 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           return;
         }
 
+        // 3D kilit an öncesi HÜCUM KURULUMU: dakika ilerlemez; 3D akış topu kilit anın takımıyla
+        //   son üçte bire taşır (players3d buildUp). Takım oraya varınca ya da en çok
+        //   MATCH3D_BUILDUP_MAX_MS sonra (an asla kaybolmaz) ya da 2D'ye geçilince kilit an açılır.
+        if(buildUpRef.current){
+          if(pausedRef.current) return;
+          const bu=buildUpRef.current, ac=actors3dRef.current;
+          const alive=!!(ac&&ac.isAlive&&ac.isAlive());
+          if(speedRef.current!=="slow"){
+            // Hız "yavaş"tan çıktı: hızlı modlardaki gibi an atlanır (resolved kalır), maç sürer
+            buildUpRef.current=null;
+            if(alive&&ac.buildUp) ac.buildUp(null);
+          } else {
+            // Sahne kare çizmiyorsa (sekme gizli, 3D tuval ekran dışı, duraklatılmış) 3D akış ilerlemez:
+            //   beklemeden kilit an açılır
+            const p3=pitch3dApiRef.current;
+            const notRendering=(typeof document!=="undefined"&&document.hidden)
+              ||!p3||(p3.isDisposed&&p3.isDisposed())||(p3.isRendering&&!p3.isRendering());
+            const ready=!alive||notRendering||viewModeRef.current!=="3d"||(ac.inFinalThird&&ac.inFinalThird(bu.team))
+              ||Date.now()-bu.t0>MATCH3D_BUILDUP_MAX_MS;
+            if(!ready) return;
+            buildUpRef.current=null;
+            if(alive&&ac.buildUp) ac.buildUp(null);
+            bu.mo.view3D=use3DMoment(); // görünüm kilit an başında sabitlenir
+            pausedRef.current=true;
+            clearInterval(ivRef.current);
+            setActiveMoment(bu.mo);
+            return;
+          }
+        }
+
         tick.current+=1;
         const dpt=curCfg.dpt;
         const m=tick.current*dpt;
@@ -351,6 +389,14 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         const nextMoment=momentsRef.current.find(mo=>!mo.resolved&&mo.min<=m&&mo.min>(m-dpt));
         if(nextMoment&&speedRef.current==="slow"){
           nextMoment.resolved=true;
+          const ac=actors3dRef.current;
+          if(use3DMoment()&&ac&&ac.isAlive&&ac.isAlive()&&ac.buildUp){
+            // Savunma anı (tackle): rakip bizim son üçte birimize gelir; diğerleri: biz rakibinkine
+            const team=nextMoment.type==="tackle"?"away":"home";
+            buildUpRef.current={mo:nextMoment,team,t0:Date.now()};
+            ac.buildUp(team,MATCH3D_BUILDUP_MAX_MS/1000+2);
+            return;
+          }
           nextMoment.view3D=use3DMoment(); // görünüm kilit an başında sabitlenir
           pausedRef.current=true;
           clearInterval(ivRef.current);
@@ -895,11 +941,16 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                 paused={showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
                 onReady={api=>{
                   pitch3dApiRef.current=api;
-                  api.setFocus(ballPos[0],ballPos[1]);
+                  setFocus3D(api,ballPos);
                   // Tribün: ev sahibinin taraftarı çoğunlukta (bizim payımız)
                   if(api.crowd) api.crowd.setSupport(fixture.home?0.74:0.3);
                   // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
-                  try{ createMatchActors3D(api,{getSnapshot:()=>live3dRef.current}); }
+                  try{
+                    const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current});
+                    actors3dRef.current=ac;
+                    // Kilit an hücum kurulumu sürerken sahne yeniden kurulduysa kurulum sürsün
+                    const bu=buildUpRef.current; if(bu&&ac&&ac.buildUp) ac.buildUp(bu.team,MATCH3D_BUILDUP_MAX_MS/1000+2);
+                  }
                   catch(e){ console.error("[3D] oyuncular kurulamadı",e); }
                 }}
                 onError={on3dViewError}/>
@@ -1131,7 +1182,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                       fontSize:".3rem",color:"#fff",fontWeight:700,whiteSpace:"nowrap",
                       background:"rgba(0,0,0,.72)",padding:"0px 3px",borderRadius:2,
                       letterSpacing:.3,pointerEvents:"none"}}>
-                      {pl.n.split(".")[1]||pl.n.split(" ")[0]||pl.n}
+                      {matchLabelName3D(pl.n)}
                     </div>}
                   </div>
                 );

@@ -234,7 +234,7 @@ function InteractiveMoment({moment, myStr, oppStr, onResolve}){
   };
 
   const pitchPos={corner:[86,45],freekick:[76,28],counter:[62,50],penalty:[88,50],oneonone:[83,50],tackle:[28,50],
-    scramble:[87,45],cross:[80,12],through:[62,48],longshot:[71,46]};
+    scramble:[87,45],cross:[80,12],through:[62,48],longshot:[76,46]};  // longshot: kaleye ~25 m (3D ile aynı)
   const [px,py]=pitchPos[moment.type]||[70,50];
   const isTackleType=moment.type==="tackle";
   const powerCol=powerFill<30?"#e74c3c":powerFill<45?"#e67e22":powerFill<=80?"#2ecc71":"#e74c3c";

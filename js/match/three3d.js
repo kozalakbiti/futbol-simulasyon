@@ -153,6 +153,26 @@ function worldToPitch3D(wx,wz){
   return {x:(wx/PITCH3D_LEN+0.5)*100, y:(wz/PITCH3D_WID+0.5)*100};
 }
 
+// Saha etiketi için kısa ad: baştaki baş harf(ler) atılır ("C.Undero" → "Undero",
+//   "I.N.Ad" → "Ad", "O.De M.R." → "De M.R."), sondaki tek baş harf de ("Taylor G." → "Taylor"). Ad metninin kendisi
+//   değiştirilmez (kurgusal adlar players.js'te bilerek böyle), yalnız baş harf öneki kalkar.
+//   (Eski kural split(".")[1] birden çok baş harfli adda yalnız ikinci harfi gösteriyordu.)
+function matchLabelName3D(n){
+  const s=String(n==null?"":n).trim();
+  const t=s.replace(/^([A-Za-zÇĞİÖŞÜçğıöşü]{1,2}\.\s*)+/,"").replace(/(\s+[A-Za-zÇĞİÖŞÜ]\.)+$/,"").trim();   // "Taylor G." → "Taylor"
+  return t||s;
+}
+
+// Nokta (px,pz) ile (ax,az)→(bx,bz) doğru parçası arasındaki en kısa yatay mesafe (m). Hızlı top
+//   bir karede metrelerce yol alır: temas denetimi önceki→şimdiki top konumu parçasıyla yapılır
+//   (düşük FPS'te tünelleme olmasın).
+function segPointDist3D(ax,az,bx,bz,px,pz){
+  const dx=bx-ax, dz=bz-az, L2=dx*dx+dz*dz;
+  let t=L2>1e-9?((px-ax)*dx+(pz-az)*dz)/L2:0;
+  t=t<0?0:(t>1?1:t);
+  return Math.hypot(ax+dx*t-px,az+dz*t-pz);
+}
+
 // Parçaları tek indekssiz geometride birleştirir; her parçanın rengi vertex
 // rengine yazılır (tek malzeme + vertexColors → tek çizim çağrısı).
 // parts: [{g: BufferGeometry (yerinde dönüştürülmüş), c: 0xRRGGBB}] — girdi geometrileri dispose edilir.

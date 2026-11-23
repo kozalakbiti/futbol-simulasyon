@@ -29,7 +29,8 @@
 //   getTimeScale()          → aktif zaman ölçeği
 //   screenToWorld(cx,cy,out)→ ekran → zemin düzlemi, DÜNYA {x,z} (out'a yazar) | null
 //   worldToScreen(wx,wy,wz,out) → dünya → ekran (client) {x,y} (out'a yazar) | null (kamera arkası)
-//   setCustomCamera(px,py,pz,lx,ly,lz,snap,low) → camera="custom" iken sabit poz (kilit an).
+//   setCustomCamera(px,py,pz,lx,ly,lz,snap,low,fov) → camera="custom" iken sabit poz (kilit an).
+//                             fov: isteğe bağlı dikey görüş açısı (derece; yoksa PITCH3D_FOV).
 //                             low=true: çim seviyesi vuruş kamerası (dikey ekranda geri çekilme yok,
 //                             en düşük yükseklik PITCH3D_CAM_LOW_Y; yatayda yine saha kutusunda)
 //   renderOnce()            → döngü durmuşken tek kare çiz
@@ -42,6 +43,11 @@
 // bırakılır; gruplara eklenen mesh'ler için ayrıca dispose gerekmez.
 // Kendi eklediğin dinleyicileri addFrameHook'un döndürdüğü fonksiyonla kaldır.
 // ═══════════════════════════════════════════════════════════════
+
+// Temel dikey görüş açısı (derece). Kadraj hesapları (pitch3dCameraPose, kilit an frameFit) bunu varsayar.
+const PITCH3D_FOV=45;
+// Pus (THREE.Fog) mesafeleri (m): kuşbakışında etkisiz (OFF), çim seviyesi vuruş kamerasında yumuşak
+const PITCH3D_FOG_FAR_OFF=5000, PITCH3D_FOG_NEAR_LOW=55, PITCH3D_FOG_FAR_LOW=340;
 
 const PITCH3D_CAMERAS=[
   {id:"top",      icon:"🛰️",label:"Kuşbakışı"},
@@ -96,8 +102,57 @@ function pitch3dCameraPose(mode,f,aspect,st,out){
   return pitch3dSetPose(out,f.x*0.55,34*k,62*k,f.x*0.7,0,f.z*0.2);
 }
 
+// Çim tuvalleri (bir kez üretilir, sahneler arasında paylaşılır; dokular sahneyle dispose edilir)
+const PITCH3D_GRASS_CANVAS={map:null,grain:null};
+// map: 1024×512 biçme deseni (gw×gh m alanı kaplar; bantlar saha çizgilerine hizalı: boyda 14,
+//   ende 10 bant, iki yön damalı) · grain: 256² ince gürültü (aoMap, 0.72–1)
+function pitch3dGrassCanvases(gw,gh){
+  const C=PITCH3D_GRASS_CANVAS;
+  if(C.map||typeof document==="undefined") return C;
+  try{
+    const rnd=(()=>{ let s=24681; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; })();
+    { const W=1024, Hh=512, cv=document.createElement("canvas"); cv.width=W; cv.height=Hh;
+      const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(W,Hh):null;
+      if(img){
+        const px=img.data, D=PITCH3D_DIM, L=D.halfLen, Hw=D.halfWid, sx=PITCH3D_LEN/14, sz=PITCH3D_WID/10;
+        // Orta ölçekli lekeler: kaba ızgara (33×17) değer gürültüsü, çift doğrusal
+        const GX=33, GY=17, lo=new Float32Array(GX*GY); for(let i=0;i<lo.length;i++) lo[i]=rnd();
+        for(let y=0;y<Hh;y++){
+          // Tuval y=0 dokunun üstü (v=1) → PlaneGeometry'de +Y kenarı; flat() sonrası dünya −Z
+          const wz=(y+0.5)/Hh*gh-gh/2, bz=Math.floor((wz+Hw)/sz)&1;
+          const fy=y/Hh*(GY-1), y0=Math.floor(fy), ty=fy-y0, y1=Math.min(GY-1,y0+1);
+          for(let x=0;x<W;x++){
+            const wx=(x+0.5)/W*gw-gw/2, bx=Math.floor((wx+L)/sx)&1;
+            const fx=x/W*(GX-1), x0=Math.floor(fx), tx=fx-x0, x1=Math.min(GX-1,x0+1);
+            const n=(lo[y0*GX+x0]*(1-tx)+lo[y0*GX+x1]*tx)*(1-ty)+(lo[y1*GX+x0]*(1-tx)+lo[y1*GX+x1]*tx)*ty;
+            const out=Math.abs(wx)>L||Math.abs(wz)>Hw;            // çizgi dışı pay: düz, biraz koyu
+            let k=out?0.86:(1+(bx?0.075:-0.075)+(bz?0.035:-0.035));
+            k*=0.93+n*0.12+(rnd()-0.5)*0.05;
+            const j=(y*W+x)*4;
+            px[j]=Math.min(255,44*k); px[j+1]=Math.min(255,124*k); px[j+2]=Math.min(255,50*k); px[j+3]=255;
+          }
+        }
+        ctx.putImageData(img,0,0); C.map=cv;
+      }
+    }
+    { const N=256, cv=document.createElement("canvas"); cv.width=N; cv.height=N;
+      const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(N,N):null;
+      if(img){
+        const px=img.data;
+        for(let i=0;i<N*N;i++){
+          const v=Math.round(255*(0.72+0.28*Math.pow(rnd(),0.7))), j=i*4;
+          px[j]=v; px[j+1]=v; px[j+2]=v; px[j+3]=255;
+        }
+        ctx.putImageData(img,0,0); C.grain=cv;
+      }
+    }
+  }catch(e){ /* tuval yok: düz renk çim */ }
+  return C;
+}
+
 // Sahayı (çim, çizgiler, kaleler, stadyum kenarı) kurar → THREE.Group
-function buildPitch3DMeshes(THREE){
+//   maxAniso: renderer'ın desteklediği en yüksek anizotropi (çim dokusu; en çok 8 kullanılır)
+function buildPitch3DMeshes(THREE,maxAniso){
   const D=PITCH3D_DIM, W=D.lineW, L=D.halfLen, H=D.halfWid;
   const g=new THREE.Group(); g.name="pitch";
   const flat=(geo)=>{geo.rotateX(-Math.PI/2);return geo;};
@@ -106,19 +161,26 @@ function buildPitch3DMeshes(THREE){
   const ground=new THREE.Mesh(flat(new THREE.PlaneGeometry(200,150)),
     new THREE.MeshLambertMaterial({color:0x17241b}));
   ground.position.y=-0.03; g.add(ground);
-  // Çim (çizgi dışı pay)
-  const grassBase=new THREE.Mesh(flat(new THREE.PlaneGeometry(PITCH3D_LEN+10,PITCH3D_WID+8)),
-    new THREE.MeshLambertMaterial({color:0x2a6e2e}));
-  grassBase.position.y=-0.01; g.add(grassBase);
-  // Çim şeritleri
-  const N=14, sw=PITCH3D_LEN/N;
-  const stripeGeo=flat(new THREE.PlaneGeometry(sw,PITCH3D_WID));
-  const stripeA=new THREE.MeshLambertMaterial({color:0x2f7d33});
-  const stripeB=new THREE.MeshLambertMaterial({color:0x3a8f3e});
-  for(let i=0;i<N;i++){
-    const m=new THREE.Mesh(stripeGeo,i%2?stripeA:stripeB);
-    m.position.set(-L+sw*(i+0.5),0,0); g.add(m);
+  // Çim: TEK düzlem (eski 14 şerit mesh'i yerine 1 çizim çağrısı). map = biçme deseni (iki yönde
+  //   damalı açık/koyu bantlar + orta ölçekli leke, saha boyunca tek kopya); aoMap = ince çim
+  //   tanesi (256² gürültü, ~1.4 m'de bir tekrar) — yalnız ortam (hemisfer) ışığını çarparak
+  //   koyulaştırır, ek ışık maliyeti yok. Tuvaller modül düzeyinde bir kez üretilir.
+  const GW2=PITCH3D_LEN+10, GH2=PITCH3D_WID+8;
+  const grassGeo=flat(new THREE.PlaneGeometry(GW2,GH2));
+  grassGeo.setAttribute("uv2",new THREE.BufferAttribute(grassGeo.attributes.uv.array.slice(0),2)); // aoMap uv2 ister
+  const grassMat=new THREE.MeshLambertMaterial({color:0xffffff});
+  const cvs=pitch3dGrassCanvases(GW2,GH2);
+  const aniso=Math.max(1,Math.min(8,Number(maxAniso)||1));
+  if(cvs.map){
+    const t=new THREE.CanvasTexture(cvs.map); t.anisotropy=aniso; grassMat.map=t;   // mipmap: 1024×512 (2'nin kuvveti)
+  } else grassMat.color.setHex(0x2f7d33);
+  if(cvs.grain){
+    const t=new THREE.CanvasTexture(cvs.grain); t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    t.repeat.set(Math.round(GW2/1.4),Math.round(GH2/1.4)); t.anisotropy=aniso;
+    grassMat.aoMap=t; grassMat.aoMapIntensity=1;
   }
+  const grassBase=new THREE.Mesh(grassGeo,grassMat);
+  grassBase.position.y=-0.01; g.add(grassBase);
 
   // Çizgiler (WebGL'de çizgi kalınlığı desteklenmediği için ince düz mesh'ler)
   const lineMat=new THREE.MeshBasicMaterial({color:0xf2f2f2,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
@@ -238,13 +300,34 @@ function createPitch3DScene(THREE,container,opts){
     container.appendChild(canvas);
 
     scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(45,1.6,1,400);
+    const camera=new THREE.PerspectiveCamera(PITCH3D_FOV,1.6,1,400);
 
     scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
     const sun=new THREE.DirectionalLight(0xffffff,0.75);
     sun.position.set(30,80,45); scene.add(sun);
 
-    const groups={pitch:buildPitch3DMeshes(THREE),players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
+    // Akşam/gece stadyum atmosferi: ufuk gradyanlı gök kubbesi (vertex rengi, fog'dan etkilenmez;
+    //   kamera far=400 içinde) + pus (THREE.Fog). Pus her zaman sahnede (program değişimi/takılma
+    //   olmasın); kuşbakışında near/far çok uzak = etkisiz, çim seviyesi vuruş kamerasında yumuşak pus.
+    {
+      const SR=300, sky=new THREE.SphereGeometry(SR,24,12);
+      const pos=sky.attributes.position, col=new Float32Array(pos.count*3);
+      const cTop=new THREE.Color(0x03060f), cMid=new THREE.Color(0x0d1a33), cHor=new THREE.Color(0x3a3352), cGlow=new THREE.Color(0x6a4d5c), tmp=new THREE.Color();
+      for(let i=0;i<pos.count;i++){
+        const h=pos.getY(i)/SR;                       // −1 (alt) … 1 (tepe)
+        if(h<0.02) tmp.copy(cGlow).lerp(cHor,Math.max(0,Math.min(1,(0.02-h)/0.25)));
+        else if(h<0.25) tmp.copy(cGlow).lerp(cMid,(h-0.02)/0.23);
+        else tmp.copy(cMid).lerp(cTop,Math.min(1,(h-0.25)/0.6));
+        col[i*3]=tmp.r; col[i*3+1]=tmp.g; col[i*3+2]=tmp.b;
+      }
+      sky.setAttribute("color",new THREE.BufferAttribute(col,3));
+      const skyMesh=new THREE.Mesh(sky,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));
+      skyMesh.name="sky"; skyMesh.renderOrder=-10; skyMesh.frustumCulled=false;
+      scene.add(skyMesh);
+      scene.fog=new THREE.Fog(0x2a2a44,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
+    }
+    const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1),
+      players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
     // Stadyum (tribün + taraftar + projektör + pano + kulübe); sahne ile birlikte temizlenir
     const stadium=buildStadium3D(THREE);
@@ -257,7 +340,7 @@ function createPitch3DScene(THREE,container,opts){
     const camState={goalSide:1};
     const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
     const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
-    const customCam={on:false,low:false,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
+    const customCam={on:false,low:false,fov:PITCH3D_FOV,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
     let timeScale=1, hookClock=0; // ağır çekim: kancalar ölçekli dt/saat alır
     // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
@@ -291,8 +374,22 @@ function createPitch3DScene(THREE,container,opts){
       } else {
         pitch3dCameraPose(mode,focus,camera.aspect,camState,poseOut);
       }
-      if(first){camPos.copy(tPos);camLook.copy(tLook);first=false;}
-      else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);}
+      // Dikey görüş açısı: özel kamera isterse (vuruş ekranı: dikey ekranda kale ağzı sığsın), yoksa
+      //   temel açı. Konum/bakışla AYNI katsayıyla yumuşar (vuruş ekranından çıkışta zum sıçraması yok);
+      //   ilk karede (snap) doğrudan atlar. Projeksiyon yalnız açı değişince güncellenir.
+      const wantFov=(mode==="custom"&&customCam.on)?customCam.fov:PITCH3D_FOV;
+      let nf=camera.fov; const snapCam=first;
+      if(first){camPos.copy(tPos);camLook.copy(tLook);nf=wantFov;first=false;}
+      else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);nf+=(wantFov-nf)*kc;}
+      if(Math.abs(nf-wantFov)<0.01) nf=wantFov;
+      if(nf!==camera.fov){ camera.fov=nf; camera.updateProjectionMatrix(); }
+      // Pus: yalnız çim seviyesi özel kamerada (vuruş ekranı) yaklaşır; geçişi kamerayla aynı hızda
+      if(scene.fog){
+        const low=mode==="custom"&&customCam.on&&customCam.low;
+        const wn=low?PITCH3D_FOG_NEAR_LOW:PITCH3D_FOG_FAR_OFF, wfr=low?PITCH3D_FOG_FAR_LOW:PITCH3D_FOG_FAR_OFF*2;
+        const kfg=snapCam?1:1-Math.exp(-dt*2.8);
+        scene.fog.near+=(wn-scene.fog.near)*kfg; scene.fog.far+=(wfr-scene.fog.far)*kfg;
+      }
       camera.position.copy(camPos); camera.lookAt(camLook);
       const list=hooks, sdt=dt*timeScale;
       hookClock+=sdt;
@@ -381,8 +478,10 @@ function createPitch3DScene(THREE,container,opts){
       // Yayın/Takip modunda (wx,wz) dünya noktasına sec saniyelik yakın plan
       closeUp:(wx,wz,sec=1.6)=>{closeUp.x=wx;closeUp.z=wz;closeUp.until=clock+sec;},
       // camera="custom" modunda kullanılacak sabit poz (dünya). snap: geçişsiz atla
-      setCustomCamera:(px,py,pz,lx,ly,lz,snap,low)=>{
+      //   fov (isteğe bağlı): dikey görüş açısı (derece, 30–75); verilmezse PITCH3D_FOV
+      setCustomCamera:(px,py,pz,lx,ly,lz,snap,low,fov)=>{
         customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true; customCam.low=!!low;
+        customCam.fov=Number.isFinite(fov)?Math.max(30,Math.min(75,fov)):PITCH3D_FOV;
         if(snap) first=true;
       },
       addFrameHook:(fn)=>{
@@ -422,6 +521,8 @@ function createPitch3DScene(THREE,container,opts){
       setTimeScale:(v)=>{ timeScale=Number.isFinite(v)?Math.max(0.05,Math.min(1,v)):1; },
       getTimeScale:()=>timeScale,
       isDisposed:()=>disposed,
+      // Render döngüsü şu an dönüyor mu (duraklatma / sekme gizli / tuval ekran dışı → false)
+      isRendering:()=>!disposed&&running&&!paused&&!document.hidden&&visibleOnScreen,
     };
     cleanups.push(()=>{hooks=[];});
 
