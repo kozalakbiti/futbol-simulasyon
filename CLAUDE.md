@@ -58,3 +58,9 @@ Grouped by folder. This is **not** the exact load order: `index.html` is the sou
 - Manager mode: `fcym_coach_saves` (slots) and `fcym_save_index` (+ `fcym_save_slot_*`). The save object is built in `buildCoachSaveData` and restored in `loadGameData`, both in `js/app.js`.
 - Player career mode: `fcyildiz_player_saves`, up to 5 slots, kept separate from manager saves. `fcyildiz_career_v6` is a legacy key that `migrateOldSave` (`js/career/saves.js`) migrates.
 - If you change the shape of saved data, bump `SAVE_SCHEMA_VERSION` and handle the old shape in `validateAndMigrateSave` (`js/core/save.js`). Bump `GAME_VERSION` for releases.
+
+## Ajan Calisma ve Token Tasarrufu Kurallari
+- **Tek Ajan Prensibi:** Kullanici ozellikle birden fazla ajan cagirmadikca paralel alt ajan (worktree) baslatma; degisikligi dogrudan ana calisma alaninda tek ajanla uygula.
+- **Hedefli Dosya Okuma:** Tum js/ klasorunu bastan sona tarama. Once js/match/ altindaki ilgili modulu bul, sadece degistirecegin satir araligini (offset / limit) oku.
+- **Three.js Standartlari:** 3D sahne, kamera, isik, materyal ve animasyon islemlerinde .claude/skills/ altindaki Three.js rehberlerini ve yaygin hata kontrollerini uygula.
+- **Kapsam Koruma:** Yalnizca istenen hatayi/ozelligi duzelt; calisan mevcut UI veya oyun dongusu kodlarina dokunma.
