@@ -11,10 +11,12 @@
 //   tepeden 2.5D kuşbakışıdır (tribün sahayı kapatmaz, dokunmatik çizim nettir;
 //   dikey ekranda hücum yönü yukarı). Yalnız şut/orta/duran top vuruşu onaylanınca
 //   kamera çim seviyesine inip topun arkasına geçer (vuruş ekranı, aşağıda 4).
-//   1) SAPAN: topa sahip oyuncuya basılı tutup parmağı/fareyi TERS yöne çek →
-//      önünde YEŞİL koşu oku; bırak = o yöne top sür. Daha geri çek → ok KIRMIZI
-//      şut hedefine döner (ağır çekim; kaleye → şut, kanattan ceza sahasına → orta,
-//      başka yöne → havadan uzun pas). Halkaya geri getirip bırakmak iptal eder.
+//   1) SAPAN (iki ayrı mod): topa sahip oyuncuya basılı tutup parmağı/fareyi TERS yöne
+//      çek → ilk çekişte ok mesafeden bağımsız hep YEŞİL: parmak ekrandayken oyuncu ok
+//      yönüne gerçek zamanlı sürer, kalkınca durur. Oyuncu durduktan sonra İKİNCİ çekiş
+//      (ya da sağ alttaki ŞUT düğmesi) KIRMIZI şut okunu açar (ağır çekim; kaleye → şut,
+//      kanattan ceza sahasına → orta, başka yöne → havadan uzun pas). Kırmızı ok her
+//      bırakılışta vuruş ekranına geçer. Halkaya geri getirip bırakmak iptal eder.
 //      Duran topta (frikik/korner/penaltı) oyuncu kıpırdamaz: çekiş doğrudan vuruştur.
 //   2) PAS / KOŞU YOLU: topsuz takım arkadaşına dokun → doğrudan pas. Takım
 //      arkadaşından boş alana parmakla sürükle → noktalı beyaz koşu rotası; bırakınca
@@ -56,10 +58,15 @@ const MOMENT3D_INTRO_SEC=0.6;      // kamera girişi (gerçek zaman)
 const MOMENT3D_MAX_PASSES=3;       // kilit an başına en fazla pas
 const MOMENT3D_PASS_REFILL=4;      // başarılı pastan sonra eklenen süre (sn, tavan MOMENT3D_TIME_SEC)
 const MOMENT3D_SLOWMO=0.2;         // geri çekerken zaman ölçeği
-// Sapan: çekiş oranı (0–1, ekranın kısa kenarının %34'ü = 1) bu eşiğin altında yeşil
-//   koşu oku (top sür), üstünde kırmızı vuruş oku. Vuruş gücü = 30 + (f−eşik)/(1−eşik)·70
-//   → tatlı bölge (40–80) f≈0.49–0.83, >90 (isabetsiz) f>0.91.
+const MOMENT3D_PASS_SPEED=1.8;     // kilit an paslarının hız çarpanı (uçuş süresi /1.8 → %80 daha hızlı)
+// Sapan (çekiş oranı f: 0–1, ekranın kısa kenarının %34'ü = 1) İKİ AYRI MODDUR:
+//   • SÜRME: topa sahip oyuncuya ilk dokunuşta çekiş ne kadar uzun olursa olsun ok hep YEŞİL;
+//     parmak ekrandayken oyuncu ok yönüne gerçek zamanlı sürer (f, DRIB_F'de doyar: tam hız).
+//   • ŞUT: parmak kalkıp oyuncu durduktan sonra (hız < MOMENT3D_SHOT_STOP_V) ikinci çekiş —
+//     ya da sağ alttaki ŞUT düğmesi — KIRMIZI vuruş oku açar. Güç = f·100 (duran topla aynı)
+//     → tatlı bölge (40–80) f≈0.4–0.8, >90 (isabetsiz) f>0.9.
 const MOMENT3D_DRIB_F=0.4;
+const MOMENT3D_SHOT_STOP_V=1.2;    // m/sn: sürme bitti sayılır (ikinci çekiş = şut oku)
 const MOMENT3D_DRIB_MIN=3, MOMENT3D_DRIB_MAX=12;   // yeşil ok = top sürme mesafesi (m)
 const MOMENT3D_STRIKE_SEC=4;       // vuruş ekranında dokunulmazsa düz vuruş (gerçek zaman, sn)
 const MOMENT3D_SPIN_CURL=0.32;     // vuruş ekranı: topun kenarı → kavis (rad, + = sağa)
@@ -491,6 +498,16 @@ function createMoment3DController(api,cfg){
   // Bekleyen vuruş (vuruş ekranı): yön, güç, tür (shot|cross) ve hedef (kamera için)
   const pend={on:false,dx:1,dz:0,power:0,kind:"shot",tx:0,tz:0,t:0};
   const drib={on:false,x:0,z:0};       // yeşil oktan sonra top sürme hedefi
+  // Sürme / şut modu ayrımı: dribbled = bu oyuncu yeşil okla sürdü ve parmağı kaldırdı;
+  //   shotArmed = ŞUT düğmesine basıldı. Sonraki çekiş: (shotArmed || dribbled && durdu) → kırmızı.
+  const shotSt={dribbled:false,armed:false,ready:false};
+  const resetShotMode=()=>{ shotSt.dribbled=false; shotSt.armed=false; };
+  const isShotReady=()=>{
+    if(isTackle||phase!=="play"||outcome) return false;
+    if(shotSt.armed) return true;
+    if(!shotSt.dribbled) return false;
+    const a=ctlA(); return !!a&&Math.hypot(a.vx,a.vz)<MOMENT3D_SHOT_STOP_V;
+  };
   // Koşu yolu: idx = koşan takım arkadaşı, pts = rota (dünya), i = sıradaki nokta
   const run={idx:-1,pts:[],i:0};
   const draw={on:false,idx:-1,pts:[],len:0};   // çizilmekte olan rota
@@ -506,11 +523,12 @@ function createMoment3DController(api,cfg){
   const hintFor=()=>{
     if(phase==="intro") return "Hazırlan…";
     if(phase==="strike") return pend.kind==="cross"?"Topa dokun: orta = düz · sağdan vur = sola kavis · soldan = sağa · alt = yüksek orta"
+      :pend.kind==="lpass"?"Topa dokun: havadan uzun pas"
       :"Topa dokun: orta = düz · sağdan vur = sola kavis · soldan = sağa · alt = aşırtma · üst = sert";
     if(aim.on){
       if(isTackle) return aim.len>MOMENT3D_SLIDE_LEN?"KIRMIZI — bırak: kayarak müdahale · savunmacıya geri getir: iptal"
         :"Beyaz/yeşil — bırak: ayakta müdahale · uzat: kayarak · savunmacıya geri getir: iptal";
-      if(aim.mode==="drib") return "YEŞİL — basılı tut: o yöne sürer · parmağı kaydır: yön ver · bırak: dur · daha geri çek: şut";
+      if(aim.mode==="drib") return "YEŞİL — basılı tut: o yöne sürer · parmağı kaydır: yön ver · bırak: dur (sonra tekrar çek: şut)";
       return "KIRMIZI — bırak: vuruş ekranı · halkaya geri getir: iptal";
     }
     if(draw.on) return "Koşu yolunu çiz — bırak: takım arkadaşın koşuya başlar";
@@ -518,14 +536,15 @@ function createMoment3DController(api,cfg){
     if(phase==="anim"||phase==="done") return "";
     if(isTackle) return "Savunmacından rakibe ok çiz ve bırak: kısa beyaz/yeşil = ayakta, uzun kırmızı = kayarak · Rakibe dokun: ayakta · Savunmacıda uzun bas: faul";
     if(isPen) return "Topa basılı tut, ters yöne geri çek ve bırak → vuruş ekranı";
-    if(run.idx>=0&&phase==="play") return "Rota üzerindeki boş alana dokun: ara pası · Topa basılı geri çek: sür / vur";
+    if(phase==="play"&&shotSt.ready) return "ŞUT HAZIR — topa basılı geri çek: kırmızı şut oku · Arkadaşa dokun: pas";
+    if(run.idx>=0&&phase==="play") return "Rota üzerindeki boş alana dokun: ara pası · Topa basılı geri çek: sür (sonra tekrar çek: şut)";
     if(phase==="set") return "Arkadaşa dokun: kısa pas · Arkadaştan sürükle: koşu yolu · Topa basılı geri çek: orta / şut";
-    return "Topa basılı geri çek: yeşil = sür, kırmızı = şut · Arkadaşa dokun: pas · Arkadaştan sürükle: koşu yolu";
+    return "Topa basılı geri çek: yeşil = sür · durunca tekrar çek ya da ŞUT: kırmızı = şut · Arkadaşa dokun: pas";
   };
   const hud=()=>{
     const h={phase,hint:flashT>0?flashMsg:hintFor(),passes,maxPasses:MOMENT3D_MAX_PASSES,
-      touchUi,aiming:aim.on,tackle:isTackle,strikeKind:pend.kind};
-    const k=h.phase+"|"+h.hint+"|"+h.passes+"|"+h.touchUi+"|"+h.aiming+"|"+h.strikeKind;
+      touchUi,aiming:aim.on,tackle:isTackle,strikeKind:pend.kind,shotReady:shotSt.ready,shotArmed:shotSt.armed};
+    const k=h.phase+"|"+h.hint+"|"+h.passes+"|"+h.touchUi+"|"+h.aiming+"|"+h.strikeKind+"|"+h.shotReady+"|"+h.shotArmed;
     if(k===hudKey) return;
     hudKey=k;
     try{ cfg.onHud&&cfg.onHud(h); }catch(e){ console.error("[3D kilit an] onHud",e); }
@@ -1039,7 +1058,7 @@ function createMoment3DController(api,cfg){
     }
     if(toMate){ // öngörülü hedef: alıcının hızına göre (iki yineleme)
       for(let k=0;k<2;k++){
-        const T=lofted?clamp(0.75+d*0.03,0.9,2.4):d/12;
+        const T=(lofted?clamp(0.75+d*0.03,0.9,2.4):d/12)/MOMENT3D_PASS_SPEED;
         px=r.x+r.vx*Math.min(T,1.2); pz=r.z+r.vz*Math.min(T,1.2);
         d=Math.hypot(px-B.x,pz-B.z);
       }
@@ -1056,8 +1075,8 @@ function createMoment3DController(api,cfg){
     if(phase==="set") startPlay();
     showDots(B.x,B.z,px,pz,lofted);
     const fromA=ctlA(); fromA.ax=fromA.x; fromA.az=fromA.z; fromA.vx*=0.3; fromA.vz*=0.3;
-    const T=actors.kickTo(px,pz,lofted);
-    passes++; phase="pass"; spin.x=0; spin.y=0;
+    const T=actors.kickTo(px,pz,lofted,MOMENT3D_PASS_SPEED);   // seri, keskin pas (%80 hızlı)
+    passes++; phase="pass"; spin.x=0; spin.y=0; resetShotMode();
     passInfo.r=ri; passInfo.px=px; passInfo.pz=pz; passInfo.T=T; passInfo.t=0; passInfo.cut=cut; passInfo.lofted=lofted;
     passInfo.cutter=-1;
     if(cut){
@@ -1133,14 +1152,18 @@ function createMoment3DController(api,cfg){
     if(!canAct()||phase==="strike"||isTackle) return false;
     const l=Math.hypot(dx,dz); if(!(l>1e-4)) return false;
     dx/=l; dz/=l; power=clamp(Number(power)||0,0,100);
-    const c=classify(B.x,B.z,dx,dz,power);
-    if(c.kind==="lpass"){
-      if(isPen){ flash("Penaltıda kaleye doğru geri çek"); return false; }
-      return passTo(c.lx,c.lz,true);        // uzun pas: vuruş ekranı yok
+    let c=classify(B.x,B.z,dx,dz,power);
+    // Kırmızı ok HER bırakılışta vuruş ekranına geçer (eskiden uzun pas yönünde kuşbakışında
+    //   kalıyordu; pas hakkı bitince/penaltıda hiçbir şey olmuyordu). Uzun pas atılamıyorsa
+    //   (penaltı, pas hakkı bitti) vuruş en yakın direğin içine, kaleye yönlendirilir.
+    if(c.kind==="lpass"&&(isPen||passes>=MOMENT3D_MAX_PASSES)){
+      const gx=Math.max(1,L-B.x), gz=clamp(B.z,-(GW-1.2),GW-1.2)-B.z, gl=Math.hypot(gx,gz)||1;
+      dx=gx/gl; dz=gz/gl;
+      c=classify(B.x,B.z,dx,dz,power);
     }
     pend.on=true; pend.dx=dx; pend.dz=dz; pend.power=power; pend.kind=c.kind; pend.t=0; pend.prev=phase;
     if(c.kind==="shot"){ pend.tx=L; pend.tz=clamp(c.zHit,-GW-2,GW+2); } else { pend.tx=c.lx; pend.tz=c.lz; }
-    drib.on=false; spin.x=0; spin.y=0;
+    drib.on=false; spin.x=0; spin.y=0; resetShotMode();
     const a=ctlA(); a.vx=0; a.vz=0;
     // Top ayak kilidinden çözülür (vuruş anına dek yerinde durur); vurucu KAMERANIN ARKASINA
     // alınır (topun 3.3 m gerisi) → çim seviyesi kamera topun hemen arkasında, görüş açık.
@@ -1164,7 +1187,7 @@ function createMoment3DController(api,cfg){
     if(l<0.2){ x=0; y=0; }
     spin.x=x; spin.y=y;
     pend.on=false; phase=pend.prev==="set"?"set":"play";
-    strikeLow.on=true; strikeLow.cross=pend.kind==="cross";
+    strikeLow.on=true; strikeLow.cross=pend.kind!=="shot"; // orta / uzun pas: top inince kuşbakışı
     { // vurucu topun sol-arkasına (vuruş animasyonu için ≤2.2 m)
       const a=ctlA(); let ux=pend.tx-B.x, uz=pend.tz-B.z; const ul=Math.hypot(ux,uz)||1; ux/=ul; uz/=ul;
       a.x=clamp(B.x-ux*1.0+uz*0.8,-L-2.5,L+2.5); a.z=clamp(B.z-uz*1.0-ux*0.8,-H-2.5,H+2.5); a.vx=0; a.vz=0;
@@ -1395,6 +1418,11 @@ function createMoment3DController(api,cfg){
   const autoAction=()=>{
     if(outcome) return;
     if(phase==="strike"&&pend.on&&confirmStrike(0,0)) return; // vuruş ekranı bekliyorsa düz vur
+    // Süre kırmızı ok çekilirken doldu: nişan boşa gitmesin, vuruş ekranına geç
+    if(aim.on&&aim.mode==="kick"&&!isTackle&&!aim.cancel&&aim.power>3){
+      aim.on=false; hideAim();
+      if(beginStrike(aim.dx,aim.dz,aim.power)) return;
+    }
     aim.on=false; hold.on=false; draw.on=false; drib.on=false;
     const a=ctlA(), name=a.name||pname;
     if(isTackle){
@@ -1608,6 +1636,8 @@ function createMoment3DController(api,cfg){
   const tackleCheck=(dt)=>{
     if(guardT>0){ guardT-=dt; return; } // topu yeni alan oyuncu kısa süre korunur (parlak halka)
     if(phase!=="play"||isTackle||outcome) return;
+    // Kırmızı şut oku çekilirken (ağır çekim) top kapılmaz: bırakış kesin vuruş ekranına gider
+    if(aim.on&&aim.mode==="kick") return;
     const own=actors.getOwner(); if(!own||own.team!=="home") return;
     const c=ctlA(), cs=Math.hypot(c.vx,c.vz);
     for(let i=0;i<away.length;i++){
@@ -1659,9 +1689,14 @@ function createMoment3DController(api,cfg){
     const db=Math.hypot(r.x-B.x,r.z-B.z);
     const tx=db<4&&B.y<1.3?B.x:pi.px, tz=db<4&&B.y<1.3?B.z:pi.pz;
     steer(r,tx,tz,7.5,8,14,dt,0);
+    // Hızlı yerden pas hedef noktaya varınca (alıcı henüz yetişmediyse) top orada yavaşlar:
+    //   keskin pas alıcının önünden kaçıp uzaklaşmasın
+    if(!pi.lofted&&pi.t>=pi.T*0.85&&db>1.3&&actors.getBallVel&&actors.isBallFree&&actors.isBallFree()){
+      const bv=actors.getBallVel(); if(bv){ const k=Math.exp(-5*dt); bv.x*=k; bv.z*=k; }
+    }
     if((db<1.3&&B.y<1.8)||pi.t>pi.T+1.0){
       actors.setOwner("home",r.idx);
-      ctl=pi.r; carried=0; drib.on=false;
+      ctl=pi.r; carried=0; drib.on=false; resetShotMode();   // yeni oyuncu: ilk çekiş yine sürme
       if(run.idx===pi.r) clearRun();   // koşan oyuncu topu aldı: rota biter
       phase="play"; guardT=MOMENT3D_GUARD_SEC;
       timeLeft=Math.min(MOMENT3D_TIME_SEC,timeLeft+MOMENT3D_PASS_REFILL);
@@ -1838,9 +1873,11 @@ function createMoment3DController(api,cfg){
     const r=rectOf();
     const f=clamp(px/(0.34*Math.max(120,r?Math.min(r.width,r.height):300)),0,1);
     aim.f=f;
-    if(phase==="set"){ aim.mode="kick"; aim.power=f*100; }               // duran top: çekiş = vuruş
-    else if(f<MOMENT3D_DRIB_F){ aim.mode="drib"; aim.power=0; }          // yeşil: top sür
-    else { aim.mode="kick"; aim.power=30+(f-MOMENT3D_DRIB_F)/(1-MOMENT3D_DRIB_F)*70; } // kırmızı: vuruş
+    // Mod çekişin başında seçilir (onMove) ve çekiş boyunca DEĞİŞMEZ: yeşil sürme oku ne kadar
+    //   uzun çekilirse çekilsin kırmızıya dönmez; kırmızı şut okunda güç = f·100 (duran topla aynı).
+    if(phase==="set") aim.mode="kick";
+    if(aim.mode==="kick") aim.power=f*100;   // kırmızı: vuruş
+    else aim.power=0;                        // yeşil: top sür (mesafe sınırsız, parmak kalkana dek)
     aim.curl=0; aim.ax=aim.dx; aim.az=aim.dz;
     hud();
   };
@@ -1872,7 +1909,7 @@ function createMoment3DController(api,cfg){
       else standTackle(a.x+aim.dx*aim.len,a.z+aim.dz*aim.len);
       return;
     }
-    if(aim.mode==="drib"){ drib.on=false; hud(); return; }   // parmak kalktı: oyuncu durur, pas/şut bekler
+    if(aim.mode==="drib"){ drib.on=false; shotSt.dribbled=true; hud(); return; } // parmak kalktı: oyuncu durur; durunca sonraki çekiş = şut
     if(aim.power>3) beginStrike(aim.dx,aim.dz,aim.power); else hud();
   };
   // Vuruş ekranı görüşü: kamera (topun 2.4 m gerisi) ile kale arasındaki koridorda, kameraya
@@ -1956,8 +1993,11 @@ function createMoment3DController(api,cfg){
     if(act.moved>12) hold.on=false;
     if(!aim.on&&!draw.on&&act.moved>14){
       if(act.near&&canAim()){
-        aim.on=true; aim.power=0; aim.f=0; aim.len=0; aim.mode=isTackle?"tk":phase==="set"?"kick":"drib";
-        drib.on=false; hud();                   // ağır çekim başlar
+        // Mod burada kesinleşir: ilk çekiş yeşil (sürme); sürdükten sonra oyuncu durunca ya da
+        //   ŞUT düğmesiyle kırmızı (şut). Duran topta çekiş doğrudan vuruştur.
+        const shotNow=phase==="set"||isShotReady();
+        aim.on=true; aim.power=0; aim.f=0; aim.len=0; aim.mode=isTackle?"tk":shotNow?"kick":"drib";
+        drib.on=false; hud();                   // kırmızıda ağır çekim başlar
       } else if(act.mate>=0&&canAim()){
         startDraw(act.mate);                    // takım arkadaşından koşu yolu
       }
@@ -1975,8 +2015,14 @@ function createMoment3DController(api,cfg){
     const dur=nowS()-act.t0, wasHold=hold.on, ht=hold.t;
     hold.on=false;
     if(aim.on){
+      // Bırakış noktası son pointermove'dan farklıysa nişanı oradan güncelle
+      if(!cancelled&&Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)) updateAim(e.clientX,e.clientY);
       aim.on=false; hideAim();
-      if(!cancelled&&!aim.cancel&&!outcome&&canAct()) releaseAim(); else hud();
+      // KIRMIZI şut oku: yakalama kaybı / pointercancel (bazı Android WebView'ler parmak
+      //   kalkarken bunu pointerup'tan önce yollar) de bırakış sayılır → kesin vuruş ekranı
+      const kickRelease=aim.mode==="kick"&&!isTackle&&aim.power>3;
+      if((!cancelled||kickRelease)&&!aim.cancel&&!outcome&&canAct()) releaseAim();
+      else { if(aim.mode==="drib"&&!outcome) shotSt.dribbled=true; hud(); } // sürme bitti (iptal de olsa)
       return;
     }
     if(draw.on){
@@ -2024,6 +2070,7 @@ function createMoment3DController(api,cfg){
       if(api.setTimeScale) api.setTimeScale(timeScale);
     }
     if(flashT>0){ flashT-=rdt; if(flashT<=0) hud(); }
+    { const sr=isShotReady(); if(sr!==shotSt.ready){ shotSt.ready=sr; hud(); } } // sürme bitti, oyuncu durdu → ŞUT HAZIR
     if(dotsT>0){ dotsT-=rdt; dotMat.opacity=0.9*clamp(dotsT/0.4,0,1); if(dotsT<=0) dots.visible=false; }
     if(dt<=0) return;
     realT+=rdt;
@@ -2150,6 +2197,14 @@ function createMoment3DController(api,cfg){
     if(!canAct()||phase!=="play"||isTackle||isPen||!Number.isFinite(wx)||!Number.isFinite(wz)) return false;
     drib.on=true; drib.x=clamp(wx,-L+1,L-1); drib.z=clamp(wz,-H+1,H-1); return true;
   };
+  // Sağ alttaki ŞUT düğmesi: sonraki çekişi kırmızı şut oku yapar (tekrar basınca kapanır)
+  const toggleShotMode=()=>{
+    if(isTackle||outcome||phase!=="play"||aim.on) return false;
+    shotSt.armed=!shotSt.armed;
+    if(shotSt.armed){ drib.on=false; flash("ŞUT modu — topa basılı geri çek: kırmızı şut oku"); }
+    shotSt.ready=isShotReady(); hud();
+    return shotSt.armed;
+  };
   // (bot API'si: strike() öncesi vuruş noktası; arayüz confirmStrike ile seçer)
   const setSpin=(x,y)=>{
     if(aim.on||outcome) return {x:spin.x,y:spin.y}; // nişan sırasında değişmez
@@ -2159,7 +2214,7 @@ function createMoment3DController(api,cfg){
     return {x:sx,y:sy};
   };
   return {passTo,strike,tackleAt,foul,block,forceTimeout,getState,dispose,setSpin,
-    beginStrike,confirmStrike,standTackle,slideTackle,setRun,dribbleTo,
+    beginStrike,confirmStrike,standTackle,slideTackle,setRun,dribbleTo,toggleShotMode,
     evalShot:(bx,bz,ax,az,zHit,curl)=>evalShot(bx,bz,ax,az,zHit,Math.abs(curl||0),wallUp?0.18:1),
     evalCross,classify:(bx,bz,dx,dz,p)=>{ const c=classify(bx,bz,dx,dz,p); return {kind:c.kind,zHit:c.zHit,lx:c.lx,lz:c.lz}; }};
 }
@@ -2321,13 +2376,25 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,onResolve,onFallback
           <div ref={powerRef} style={{position:"absolute",top:36,left:"50%",transform:"translateX(-50%)",zIndex:3,
             pointerEvents:"none",opacity:0,fontSize:".7rem",fontWeight:900,letterSpacing:1,
             fontFamily:"'Barlow Condensed',sans-serif",background:"rgba(0,0,0,.6)",padding:"2px 10px",borderRadius:6}}/>
+          {ready&&!locked&&!hud.tackle&&moment.type!=="penalty"&&hud.phase==="play"&&(
+            // ŞUT modu düğmesi (sağ alt): sonraki çekiş doğrudan kırmızı şut oku
+            <button onClick={(e)=>{ e.stopPropagation(); if(ctrlRef.current&&ctrlRef.current.toggleShotMode) ctrlRef.current.toggleShotMode(); }}
+              title="Şut modu: topa basılı geri çekince kırmızı şut oku açılır"
+              style={{...btnBase,position:"absolute",right:10,bottom:10,zIndex:5,fontSize:".7rem",letterSpacing:1,
+                padding:"9px 14px",fontFamily:"'Barlow Condensed',sans-serif",color:"#fff",touchAction:"manipulation",
+                background:hud.shotReady?"linear-gradient(180deg,#e74c3c,#b03a2e)":"rgba(0,0,0,.55)",
+                border:hud.shotReady?"2px solid #ffb3aa":"2px solid rgba(231,76,60,.8)",
+                boxShadow:hud.shotReady?"0 0 16px rgba(231,76,60,.7)":"none"}}>
+              ⚽ ŞUT{hud.shotArmed?" ✓":""}
+            </button>
+          )}
           {striking&&!locked&&(
             // Vuruş ekranı katmanı: tıklamalar tuvale geçer (pointerEvents none); rehber halka 3D topun üstünde
             <div style={{position:"absolute",inset:0,zIndex:4,pointerEvents:"none"}}>
               <div style={{position:"absolute",top:34,left:"50%",transform:"translateX(-50%)",fontSize:".56rem",fontWeight:900,
                 letterSpacing:1,color:"#fff",background:"rgba(0,0,0,.6)",padding:"3px 10px",borderRadius:6,
                 fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap"}}>
-                {hud.strikeKind==="cross"?"ORTA — TOPA DOKUN":"ŞUT — TOPA DOKUN"}
+                {hud.strikeKind==="cross"?"ORTA — TOPA DOKUN":hud.strikeKind==="lpass"?"UZUN PAS — TOPA DOKUN":"ŞUT — TOPA DOKUN"}
               </div>
               <div ref={sbRef} style={{position:"absolute",left:0,top:0,width:0,height:0,opacity:0,borderRadius:"50%",
                 border:"2px dashed rgba(255,255,255,.75)",boxShadow:"0 0 18px rgba(46,204,113,.45)",transition:"opacity .15s"}}>
@@ -2360,7 +2427,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,onResolve,onFallback
                 ?"Kısa ok (beyaz/yeşil) yakındaki rakibe ayakta müdahale; uzun kırmızı ok kayarak uzanır ama arkadan gelirsen faul olur."
                 :moment.type==="penalty"
                   ?"Kaleci bir tarafa kaymış — açık köşeye çek. Güç 40–80 ideal, 90 üstü isabetsiz; sonra topa dokunarak vuruş şeklini seç."
-                  :"Oyuncuya bas, geri çek: yeşil okla basılıyken sürer (kaydırarak yön ver, bırakınca durur) · uzun çek: kırmızı ok, şut/orta. Arkadaşından koşu yolu çiz, rotaya dokunup ara pası at."}
+                  :"Oyuncuya bas, geri çek: yeşil okla basılıyken sürer (kaydırarak yön ver, bırakınca durur) · oyuncu durunca tekrar çek (ya da sağ alttaki ŞUT): kırmızı ok, şut/orta. Arkadaşından koşu yolu çiz, rotaya dokunup ara pası at."}
             </div>
           )}
           {result&&(

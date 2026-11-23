@@ -15,7 +15,7 @@
 //   goalFx(side,gz,team), ringFx(x,z,color,dur,maxS), shakeGoal(side), getBall()
 //   + topa bağlı oyun: drivePlayer(team,i,wx,wz) (konumu doğrudan sür; hız/yön
 //   hareketten hesaplanır), setOwner(team,i) / setOwner(null), getOwner() → {team,i}|null,
-//   kickTo(wx,wz,lofted) → uçuş süresi (sn), kickBall(vx,vy,vz,curlX,curlZ),
+//   kickTo(wx,wz,lofted,mul?) → uçuş süresi (sn), kickBall(vx,vy,vz,curlX,curlZ),
 //   getBallVel(), isBallFree(), getPlayer(team,i), poseFx(team,i,"slide"|"fall",sec)
 //   ballR (top yarıçapı, m; kilit an fiziği aynı ölçeği kullanır), setPlayerFade(team,i,alpha)
 //   + Adım 6: actionFx(team,i,"kick"|"poke"|"celebrate",{side,power}),
@@ -52,7 +52,12 @@ const ACTORS3D_COLORS={
 // Normal akış (kuşbakışı canlı maç) %45 yavaş: koşu ve top hızları ×0.55, maç saati de
 //   aynı oranda yavaş (overlay.js MATCH3D_TEMPO) → top kaleler arasında pinpon gibi gitmez.
 //   Kilit an (manual) kendi sabitleriyle çalışır, etkilenmez.
-const ACTORS3D_SLOW=0.55;
+// Adım 11: canlı akış %35 hızlandırıldı (0.55 × 1.35 ≈ 0.743); maç saati (MATCH3D_TEMPO),
+//   koşu/top hızları ve senaryo süreleri hep bu tek orandan türediği için birlikte hızlanır.
+const ACTORS3D_SLOW=0.55*1.35;
+// Canlı akış pas seçimi (m): bu mesafeye kadar yerden kısa pas, üstü havadan (ağır cezalı) ve
+//   PASS_MAX'tan uzağa pas yok → oyuncular en yakın uygun arkadaşla kademeli paslaşır.
+const ACTORS3D_PASS_SHORT=22, ACTORS3D_PASS_MAX=32;
 const ACTORS3D_PACE={
   slow:0.6*ACTORS3D_SLOW,     // senaryo/olay süreleri bu oranla uzar
   run:8.4*ACTORS3D_SLOW,      // en yüksek koşu (santra dönüşü vb.)
@@ -350,12 +355,20 @@ function createMatchActors3D(api,opts={}){
     return disc>0?(v0-Math.sqrt(disc))/ROLL_FRIC:v0/ROLL_FRIC;
   };
   // (px,pz) noktasına vuruş → uçuş süresi
-  const kickTo=(px,pz,lofted)=>{
+  //   mul (isteğe bağlı, >1): pas hızı çarpanı → uçuş süresi T/mul (kilit anda seri, keskin pas)
+  const kickTo=(px,pz,lofted,mul)=>{
     if(disposed||!Number.isFinite(px)||!Number.isFinite(pz)) return 0;
     const dx=px-bpos.x, dz=pz-bpos.z, d=Math.hypot(dx,dz);
     if(d<0.3){ kickBall(0,0,0); return 0.1; }
-    const ux=dx/d, uz=dz/d, T=passTime(d,lofted);
+    const k=Number.isFinite(mul)&&mul>1?Math.min(3,mul):1;
+    const ux=dx/d, uz=dz/d, T=passTime(d,lofted)/k;
     if(lofted){ const vh=d/T; kickBall(ux*vh,G_ACC*T/2,uz*vh); landSoft=true; return T; }
+    if(k>1){
+      // Aynı mesafeyi T/mul sürede alan yerden pas: v0 = d/T + a·T/2 (a = ROLL_FRIC)
+      const v0=Math.min(42,d/T+ROLL_FRIC*T/2);
+      kickBall(ux*v0,0,uz*v0);
+      return T;
+    }
     const ve=PASS_VEND*tempo(), v0=Math.min(30,Math.sqrt(ve*ve+2*ROLL_FRIC*d));
     kickBall(ux*v0,0,uz*v0);
     return T;
@@ -437,18 +450,20 @@ function createMatchActors3D(api,opts={}){
     for(let i=0;i<mates.length;i++){
       const m=mates[i]; if(m===o||!m.g.visible) continue;
       const d=Math.hypot(m.pos.x-o.pos.x,m.pos.z-o.pos.z);
-      if(d<5.5||d>50) continue;
+      // KISA PASLAŞMA: en yakın uygun (pas yolu açık) arkadaş tercih edilir; uzun/havadan top
+      //   yalnız kısa seçenek yoksa ve ağır cezayla (rastgele uzun top yok, kademeli ilerleme)
+      if(d<4.5||d>ACTORS3D_PASS_MAX) continue;
       if(m.gk&&(o.pos.x*dir>-12||pressure>5)) continue;    // kaleciye yalnızca kendi yarıda, baskı altında
-      let lofted=d>27;
-      if(!lofted&&laneBlocked(o.team,bpos.x,bpos.z,m.pos.x,m.pos.z,1.8)){ if(d<14) continue; lofted=true; }
-      let sc=d<=20?1.0:d<=28?0.6:0.3;                       // kısa (üçgen) paslar tercih
-      sc+=clamp((m.pos.x-o.pos.x)*dir,-14,24)*0.028;         // ileri pas
+      let lofted=d>ACTORS3D_PASS_SHORT;
+      if(!lofted&&laneBlocked(o.team,bpos.x,bpos.z,m.pos.x,m.pos.z,1.8)){ if(d<16) continue; lofted=true; }
+      let sc=1.35-d*0.04;                                    // yakın arkadaş: en yüksek puan
+      if(lofted) sc-=0.55;                                   // uzun/havadan top: son çare
+      sc+=clamp((m.pos.x-o.pos.x)*dir,-12,14)*0.03;          // kademeli ileri pas (geri pas cezalı)
       if(anc.on) sc-=Math.hypot(m.pos.x-anc.x,m.pos.z-anc.z)*0.03; // 2D top bölgesini izle
-      sc+=Math.min(nearestOppDist(m),9)*0.075;               // boştaki arkadaş
-      if(Math.abs(m.pos.z)>H*0.55){ sc+=0.1; if(sgn(m.pos.z)!==sgn(o.pos.z)&&d>22) sc+=0.3; } // kanat / oyunu çevir
+      sc+=Math.min(nearestOppDist(m),8)*0.07;                // boştaki arkadaş
       if(own.fromT===m.team&&own.fromI===m.idx) sc-=0.2;     // hemen geri pas (verkaç) daha seyrek
       if(m.gk) sc-=0.8;
-      sc+=Math.random()*0.35;
+      sc+=Math.random()*0.18;
       if(sc>bs){ bs=sc; best=m; bestLoft=lofted; }
     }
     // Top sürme: önü (7 m koni) boşsa ve çapa ileride ise cazip
@@ -527,11 +542,33 @@ function createMatchActors3D(api,opts={}){
     const tp=tempo();
     o.ovr=true;
     if(pk.on){ o.ox=o.pos.x; o.oz=o.pos.z; o.cap=1.2; if(clk>=pk.t) execPass(); return; }
-    // Top 2D bölgesinden çok koptu (≥30 m, 1.5 sn): o bölgeye uzun top
-    if(anc.on&&Math.hypot(anc.x-bpos.x,anc.z-bpos.z)>26){ farT+=dt; } else farT=0;
-    if(farT>1.5&&clk-own.since>0.5){
+    // Top 2D bölgesinden koptu (≥26 m, 1.5 sn): o bölgeye KISA pas zinciriyle ilerle — bölgeye
+    //   en çok yaklaştıran, pas yolu açık yakın arkadaşa yerden pas; yoksa o yöne sür.
+    //   Uzun top yalnız bölge çok uzaksa (≥45 m) ve 3.5 sn'de kısa yolla yaklaşılamadıysa.
+    const farD=anc.on?Math.hypot(anc.x-bpos.x,anc.z-bpos.z):0;
+    if(farD>26){ farT+=dt; } else farT=0;
+    if(farT>1.5&&clk-own.since>0.5&&!(farD>=45&&farT>3.5)){
+      const mates=teams[o.team];
+      let bm=null, bg=4;
+      for(let i=0;i<mates.length;i++){
+        const m=mates[i]; if(m===o||!m.g.visible||m.gk) continue;
+        const d=Math.hypot(m.pos.x-o.pos.x,m.pos.z-o.pos.z);
+        if(d<5||d>ACTORS3D_PASS_SHORT) continue;
+        if(laneBlocked(o.team,bpos.x,bpos.z,m.pos.x,m.pos.z,1.6)) continue;
+        const gain=farD-Math.hypot(anc.x-m.pos.x,anc.z-m.pos.z)-d*0.15;
+        if(gain>bg){ bg=gain; bm=m; }
+      }
+      if(bm){ farT=0.9; startPass(o,bm,false); o.ox=o.pos.x; o.oz=o.pos.z; o.cap=1.2; return; }
+      if(!own.dribble){
+        const ux=(anc.x-o.pos.x)/(farD||1), uz=(anc.z-o.pos.z)/(farD||1);
+        own.dribble=true; own.drN++;
+        own.px=clamp(o.pos.x+ux*9,-L+3,L-3); own.pz=clamp(o.pos.z+uz*9,-H+2,H-2);
+        own.decide=clk+(0.9+Math.random()*0.6)/tp;
+      }
+    }
+    if(farT>3.5&&farD>=45&&clk-own.since>0.5){
       farT=0;
-      const q=nearestTo(anc.x,anc.z,o,null,true);
+      const q=nearestTo(anc.x,anc.z,o,o.team,true);
       if(q){
         const tx=clamp(anc.x,-L+2,L-2), tz=clamp(anc.z,-H+2,H-2);
         faceTo(o,tx-o.pos.x,tz-o.pos.z,0.6);

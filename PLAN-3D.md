@@ -301,3 +301,10 @@ Bilinen sınırlamalar:
 - **Kaleci dalışı:** şut anında, tepki süresiyle, topun ya da tahminin tarafına yatay dalış (`diveFx`, hız çarpanlı: tam uzanma topun ekranda vardığı ana denk gelir); barajda kesilen şutta uçmaz. Erişimdeki toplar kurtarılır (Adım 9 modeli).
 - **Normal akış %45 yavaş:** `ACTORS3D_SLOW=0.55` tüm koşu/pas hızlarını (yer pası sürtünmesi ×0.55², havadan pas süresi /0.55) ve 3D maç saatini (`MATCH3D_TEMPO`) ölçekler → 3D maç ~1.8× uzun sürer, olaylar oyunculardan önce gitmez. Kilit an etkilenmez.
 - **Ölçüm:** basılı yeşil ok 0.5 sn'de 2 m sürme, kaydırınca yön 47° döndü, bırakınca 0.01 m; vuruş ekranında kapatan yakın oyuncu 0/120; kaleci 98/120 vuruşta dalış (geri kalanı ortaya: ayakta); frikik ~%16, penaltı ~%65.
+
+### Adım 11 — Sürme/şut ayrımı, seri paslar, kesin vuruş ekranı, hızlı kısa paslı akış ✅
+- **Sürme ve şut ayrı mod:** topa sahip oyuncuda ilk çekiş mesafeden bağımsız hep YEŞİL sürme okudur (parmak ekrandayken gerçek zamanlı sürer, kırmızıya dönmez). Parmak kalkıp oyuncu durunca (`MOMENT3D_SHOT_STOP_V`) ikinci çekiş — ya da sağ alttaki **ŞUT** düğmesi (`toggleShotMode`) — KIRMIZI şut okunu açar; güç = çekiş·100 (duran topla aynı). Pas alan yeni oyuncuda mod sıfırlanır.
+- **Kilit an pasları %80 hızlı:** `MOMENT3D_PASS_SPEED=1.8` → `kickTo(x,z,lofted,mul)` uçuş süresini /1.8 yapar; hedefe varan hızlı yer pası alıcı yetişmediyse orada yavaşlar.
+- **Vuruş ekranı kesin:** kırmızı ok her bırakılışta vuruş ekranına geçer — uzun pas yönü de (vuruş ekranından havadan pas), pas hakkı bitmişse/penaltıda kaleye yönlendirilir; `pointercancel`/`lostpointercapture` da bırakış sayılır; kırmızı nişan sırasında top kapılmaz; süre nişanda dolarsa vuruş ekranı açılır.
+- **Canlı akış %35 hızlı:** `ACTORS3D_SLOW=0.55×1.35` (koşu, top, senaryo ve 3D maç saati birlikte).
+- **Kısa paslaşma:** pas puanı mesafeyle düşer (en yakın uygun arkadaş önde), ≤22 m yerden pas, 22–32 m havadan son çare, >32 m pas yok; oyunu çevirme bonusu kaldırıldı. 2D bölgesinden kopunca uzun top yerine bölgeye yaklaştıran kısa pas/sürme; uzun top yalnız ≥45 m ve 3.5 sn sonra.
