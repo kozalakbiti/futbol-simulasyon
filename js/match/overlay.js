@@ -339,6 +339,11 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     return matchLabelName3D(pl.n);
   }),[is3D,lineup,squad,playerDots.length]);
   // 3D kilit an: sahadaki kadro (takım arkadaşı adları). Koşulsuz hook; yalnız kadro değişince yeniden hesaplanır
+  // 3D/2.5D: takım forma renkleri (veri dosyasındaki birincil/ikincil; yakınsa deplasmana ikinci forma)
+  //   ve stadyum/çim/ışık varyasyonu (ev sahibi gücü + maç hash'i). Maç boyunca sabit.
+  const kit3d=React.useMemo(()=>typeof actors3dKitColors==="function"?actors3dKitColors(clubName,fixture.opp,!!fixture.home):null,[clubName,fixture.opp,fixture.home]);
+  const kitCss3d=React.useMemo(()=>{ if(!kit3d) return null; const c=(h)=>"#"+("000000"+(h>>>0).toString(16)).slice(-6); return {me:c(kit3d.home),opp:c(kit3d.away)}; },[kit3d]);
+  const venue3d=React.useMemo(()=>typeof pitch3dVenue==="function"?pitch3dVenue({homeName:fixture.home?clubName:fixture.opp,homeStr:fixture.home?myStr:fixture.str,comp:fixture.comp,week:fixture.w,opp:fixture.opp}):null,[clubName,fixture.opp,fixture.home,fixture.comp,fixture.w,fixture.str,myStr]);
   const moment3dMates=React.useMemo(()=>(lineup.length>0?lineup.map(i=>squad[i]):squad.slice(0,11)).filter(Boolean),[lineup,squad]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
@@ -776,6 +781,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           moment={activeMoment}
           mates={moment3dMates}
           homeShare={fixture.home?0.74:0.3}
+          kitColors={kit3d} venue={venue3d}
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
@@ -983,7 +989,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                 background:"#0b1220",display:"flex",alignItems:"center",justifyContent:"center",
                 fontSize:".6rem",color:"#9fb3c8"}}>🎮 Kilit an oynanıyor…</div>
             ):(
-              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={view3dH} controlsAt="bottom"
+              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={view3dH} controlsAt="bottom" venue={venue3d}
                 paused={showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
                 onReady={api=>{
                   pitch3dApiRef.current=api;
@@ -993,7 +999,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                   // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
                   try{
                     // onImpact: top olayın anına vardı (ağlar/kaleci/kale çizgisi) → bekleyen metin/skor/ses
-                    const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current,
+                    const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current,colors:kit3d,
                       onImpact:(ev)=>{ if(ev&&ev.id!=null) resolve3d(ev.id); }});
                     actors3dRef.current=ac;
                     // Kilit an hücum kurulumu sürerken sahne yeniden kurulduysa kurulum sürsün
@@ -1004,7 +1010,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                 onError={on3dViewError}/>
             )}
             <Scoreboard3D clubName={clubName} oppName={fixture.opp} myScore={myScore} oppScore={oppScore}
-              minute={minute} half={half3d} goals={goalList}/>
+              minute={minute} half={half3d} goals={goalList} kit={kitCss3d}/>
           </div>
         </div>}
 

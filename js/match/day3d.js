@@ -169,6 +169,25 @@ function day3dStripeEdge(p,sw){
   const f=((p%sw)+sw)%sw, e=Math.min(f,sw-f), t=Math.min(1,e/0.9);
   return t*t*(3-2*t);
 }
+// Biçme deseni (stadyum varyasyonu): pat = "vert" (boyuna şeritler: kale çizgisine paralel bantlar,
+//   varsayılan) | "horiz" (enine şeritler: taç çizgisine paralel) | "check" (kareli / damalı kesim).
+//   Dönüş: −1…1 işaretli bant tonu (kenarlar yumuşak, 0'a iner). nV: boyuna bant sayısı.
+function day3dMowBand(wx,wz,pat,nV){
+  const D=PITCH3D_DIM, L=D.halfLen, Hw=D.halfWid;
+  if(pat==="horiz"){ const sz=PITCH3D_WID/12, b=Math.floor((wz+Hw)/sz)&1; return (b?1:-1)*day3dStripeEdge(wz+Hw,sz); }
+  if(pat==="check"){
+    const sx=PITCH3D_LEN/14, sz=PITCH3D_WID/9, bx=Math.floor((wx+L)/sx)&1, bz=Math.floor((wz+Hw)/sz)&1;
+    return ((bx^bz)?1:-1)*Math.min(day3dStripeEdge(wx+L,sx),day3dStripeEdge(wz+Hw,sz));
+  }
+  const sx=PITCH3D_LEN/(nV||18), bx=Math.floor((wx+L)/sx)&1; return (bx?1:-1)*day3dStripeEdge(wx+L,sx);
+}
+// Desen/ton anahtarlı küçük tuval önbelleği (2048² tuvaller büyük: en çok 2 çeşit tutulur)
+function day3dCacheGet(store,key){ return store.has(key)?store.get(key):undefined; }
+function day3dCachePut(store,key,v){ store.delete(key); store.set(key,v); while(store.size>2) store.delete(store.keys().next().value); return v; }
+// Çim tonu (tint −1…1): + sarımsı/açık yaz çimi, − koyu/mavimsi yeşil
+function day3dGrassTint(tint){ const t=Math.max(-1,Math.min(1,Number(tint)||0)); return {r:1+0.13*t,g:1+0.02*t,b:1-0.16*t}; }
+const DAY3D_GRASS_BY=new Map(), DAY3D_ROUGH_BY=new Map();
+
 // Kale önü yıpranması (0…~0.8): altıpasın içinde kale çizgisinden ~2 m önde en yoğun, kaleci
 //   şeridi (çizgi boyunca) ayrıca aşınmış; n: düşük frekanslı gürültü (0…1), rr: piksel rastgelesi.
 //   Lekeli olsun diye gürültüyle maskelenir. Gündüz ve gece çim tuvalleri birlikte kullanır.
@@ -183,9 +202,11 @@ function day3dGoalWear(wx,wz,n,rr){
   return Math.min(0.8,w*m*0.95);
 }
 
-function day3dGrassCanvas(gw,gh){
-  const C=DAY3D_CANVAS;
-  if(C.grass||typeof document==="undefined") return C.grass;
+function day3dGrassCanvas(gw,gh,pat,tint){
+  const key=(pat||"vert")+"|"+(Number(tint)||0).toFixed(2), hit=day3dCacheGet(DAY3D_GRASS_BY,key);
+  if(hit!==undefined) return hit;
+  if(typeof document==="undefined") return null;
+  const TN=day3dGrassTint(tint);
   try{
     const W=2048, Hh=1024, cv=document.createElement("canvas"); cv.width=W; cv.height=Hh;
     const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(W,Hh):null;
@@ -205,27 +226,27 @@ function day3dGrassCanvas(gw,gh){
         const out=Math.abs(wx)>L+0.3||Math.abs(wz)>Hw+0.3;
         // Yalnız boyuna biçme şeritleri (ende bant YOK). Şerit kenarı ~0.5 m yumuşak geçiş: biçme
         //   yönü değişirken renk keskin çizgiyle değil doğal kayarak döner
-        let k=out?0.84:(1+0.09*(bx?1:-1)*day3dStripeEdge(wx+L,sx));
+        let k=out?0.84:(1+0.09*day3dMowBand(wx,wz,pat,18));
         k*=0.92+n*0.12+(r()-0.5)*0.035;   // dengeli ton: piksel titreşimi düşük (keskin/gürültülü görünmesin)
         const hue=(h-0.5)*0.18+(r()-0.5)*0.025;           // + sarımsı, − mavimsi
         const j=(y*W+x)*4;
-        let cr=(58+hue*70)*k, cg=(134+hue*18)*k, cb=(44-hue*40)*k;
+        let cr=(58+hue*70)*k*TN.r, cg=(134+hue*18)*k*TN.g, cb=(44-hue*40)*k*TN.b;
         // Kale önü / altıpas yıpranması: lekeli toprak + solgun çim karışımı
         const wv=out?0:day3dGoalWear(wx,wz,n,r());
         if(wv>0){ cr+=(112-cr)*wv; cg+=(98-cg)*wv*0.92; cb+=(62-cb)*wv; }
         px[j]=Math.min(255,cr); px[j+1]=Math.min(255,cg); px[j+2]=Math.min(255,cb); px[j+3]=255;
       }
     }
-    ctx.putImageData(img,0,0); C.grass=cv;
-  }catch(e){ C.grass=null; }
-  return C.grass;
+    ctx.putImageData(img,0,0); return day3dCachePut(DAY3D_GRASS_BY,key,cv);
+  }catch(e){ return day3dCachePut(DAY3D_GRASS_BY,key,null); }
 }
 
 // Gündüz çim pürüzlülük tuvali (roughnessMap; G kanalı okunur): çim tuvaliyle aynı gw×gh alan ve
 //   aynı 18 boy şeridi + 10 en bandı. Açık şerit 0.78 (hafif parlak), koyu şerit 0.97 (mat), dama ±.
-function day3dGrassRoughCanvas(gw,gh){
-  const C=DAY3D_CANVAS;
-  if(C.grassRough||typeof document==="undefined") return C.grassRough;
+function day3dGrassRoughCanvas(gw,gh,pat){
+  const key=pat||"vert", hit=day3dCacheGet(DAY3D_ROUGH_BY,key);
+  if(hit!==undefined) return hit;
+  if(typeof document==="undefined") return null;
   try{
     const W=512, Hh=256, cv=document.createElement("canvas"); cv.width=W; cv.height=Hh;
     const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(W,Hh):null;
@@ -236,13 +257,12 @@ function day3dGrassRoughCanvas(gw,gh){
       for(let x=0;x<W;x++){
         const wx=(x+0.5)/W*gw-gw/2, bx=Math.floor((wx+L)/sx)&1;
         const out=Math.abs(wx)>L+0.3||Math.abs(wz)>Hw+0.3;
-        const v=Math.round(255*(out?0.98:(bx?0.8:0.96))), j=(y*W+x)*4;
+        const v=Math.round(255*(out?0.98:(day3dMowBand(wx,wz,pat,18)>=0?0.8:0.96))), j=(y*W+x)*4;
         img.data[j]=v; img.data[j+1]=v; img.data[j+2]=v; img.data[j+3]=255;
       }
     }
-    ctx.putImageData(img,0,0); C.grassRough=cv;
-  }catch(e){ C.grassRough=null; }
-  return C.grassRough;
+    ctx.putImageData(img,0,0); return day3dCachePut(DAY3D_ROUGH_BY,key,cv);
+  }catch(e){ return day3dCachePut(DAY3D_ROUGH_BY,key,null); }
 }
 
 // Çim malzemesine iki ölçekli mikro çim ayrıntısı ekler (onBeforeCompile; Lambert ve Standard).
@@ -293,10 +313,11 @@ function day3dTex(THREE,kind,aniso){
   return t;
 }
 
-function day3dSkyDome(THREE){
+// tint (isteğe bağlı): gök dokusunu çarpan renk (gün batımında turuncu/pembe ufuk)
+function day3dSkyDome(THREE,tint){
   const geo=new THREE.SphereGeometry(300,32,16);
   const tex=day3dTex(THREE,"sky");
-  const mat=new THREE.MeshBasicMaterial({color:tex?0xffffff:DAY3D_SKY_CLEAR,map:tex||null,side:THREE.BackSide,fog:false,depthWrite:false});
+  const mat=new THREE.MeshBasicMaterial({color:tex?(Number.isFinite(tint)?tint:0xffffff):DAY3D_SKY_CLEAR,map:tex||null,side:THREE.BackSide,fog:false,depthWrite:false});
   mat.toneMapped=false;   // gök tuvaldeki renkle aynen görünsün (ACES film tonu kubbeyi soldurmasın)
   const m=new THREE.Mesh(geo,mat);
   m.name="sky"; m.renderOrder=-10; m.frustumCulled=false;
@@ -305,14 +326,19 @@ function day3dSkyDome(THREE){
 
 // Güneş + gök ışığı. Gölge kamerası saha + tribün ön kısmına dar tutulur (±85 × ±68 m).
 //   lowEnd (dokunmatik/küçük ekran): gölge haritası 1024², yoksa 2048².
-function day3dLights(THREE,scene,lowEnd){
+//   mode (pitch3dVenue ışık varyasyonu): "noon" (varsayılan, gün ortası güneş) | "sunset" (ikindi /
+//   gün batımı: alçak, sıcak turuncu güneş, uzun gölge) | "night" (gece: projektör anahtar ışığı tepeden,
+//   serin beyaz; gök dolgusu koyu lacivert)
+function day3dLights(THREE,scene,lowEnd,mode){
   // Adım 17: sıcak güneş (≈4500 K sarımsı) + serin gök dolgusu, toprak tonlu yer yansıması →
   //   gölge tarafı mavimsi, güneş tarafı sıcak (düz "plastik" aydınlatma yerine renk kontrastı)
   //   Gök/çim yansıması: üstten mavi gök dolgusu, alttan çimden sekmiş yeşilimsi ışık
-  const hemi=new THREE.HemisphereLight(0xbcd8f5,0x4e6a34,0.55);
+  const M=mode==="sunset"||mode==="night"?mode:"noon";
+  const hemi=M==="night"?new THREE.HemisphereLight(0x5a6c96,0x1e2a1c,0.5)
+    :M==="sunset"?new THREE.HemisphereLight(0xf2c4a0,0x4a4a2c,0.5):new THREE.HemisphereLight(0xbcd8f5,0x4e6a34,0.55);
   scene.add(hemi);
-  const sun=new THREE.DirectionalLight(0xffe0b0,1.3);
-  const d=DAY3D_SUN_DIR;
+  const sun=M==="night"?new THREE.DirectionalLight(0xeef2ff,1.15):M==="sunset"?new THREE.DirectionalLight(0xff9a4a,1.35):new THREE.DirectionalLight(0xffe0b0,1.3);
+  const d=M==="night"?[0.12,0.95,0.28]:M==="sunset"?[-0.78,0.3,0.55]:DAY3D_SUN_DIR;
   sun.position.set(d[0]*160,d[1]*160,d[2]*160);
   sun.target.position.set(0,0,0);
   sun.castShadow=true;
@@ -327,29 +353,54 @@ function day3dLights(THREE,scene,lowEnd){
   return {sun,hemi};
 }
 
-// Stilize ağaç: gövde + iki koni (düşük poligon, vertex rengi) → InstancedMesh.
-//   pts: [[x,z,ölçek],...]. instanceColor ile hafif ton farkı.
+// Stilize ağaçlar (düşük poligon, vertex rengi; InstancedMesh): GÖVDESİ GÖRÜNEN iki tür.
+//   ÇAM: kahverengi silindirik gövde (alt ~2.4 m açık) + dört katmanlı koyu yeşil koni
+//   MEŞE: kalın gövde + iki yan dal + yüzeyli (faceted) yaprak kümeleri — gövde ve dallar görünür
+//   pts: [[x,z,ölçek],...]; her üçüncü nokta meşe. Dönen: çam InstancedMesh; meşeler çocuk
+//   InstancedMesh (userData.oak) → aynı sahnede birlikte çizilir/temizlenir. instanceColor: ton farkı.
 function day3dTrees(THREE,pts){
   if(!pts||!pts.length) return null;
-  const parts=[];
-  const trunk=new THREE.CylinderGeometry(0.22,0.32,2.6,5); trunk.translate(0,1.3,0); parts.push({g:trunk,c:0x6b4a2f});
-  const c1=new THREE.ConeGeometry(2.7,5.2,7); c1.translate(0,4.6,0); parts.push({g:c1,c:0x2f7a3a});
-  const c2=new THREE.ConeGeometry(2.0,4.2,7); c2.translate(0,7.4,0); parts.push({g:c2,c:0x3d9147});
-  const c3=new THREE.ConeGeometry(1.2,3.0,6); c3.translate(0,9.7,0); parts.push({g:c3,c:0x4aa152});
-  const geo=mergeGeos3D(THREE,parts);
-  const mat=new THREE.MeshLambertMaterial({vertexColors:true});
-  const im=new THREE.InstancedMesh(geo,mat,pts.length);
-  im.name="trees"; im.frustumCulled=false;
+  const pinePts=[], oakPts=[];
+  pts.forEach((p,i)=>(i%3===2?oakPts:pinePts).push(p));
+  const trunkC=0x6b4a2f, trunkD=0x553a24;
+  const pine=()=>{
+    const parts=[];
+    const tr=new THREE.CylinderGeometry(0.2,0.34,3.6,7); tr.translate(0,1.8,0); parts.push({g:tr,c:trunkC});
+    const fl=new THREE.CylinderGeometry(0.34,0.5,0.35,7); fl.translate(0,0.17,0); parts.push({g:fl,c:trunkD});   // kök genişlemesi
+    [[2.7,3.0,3.9,0x23502b],[2.15,2.7,5.55,0x2a5c32],[1.6,2.4,7.0,0x316839],[1.0,2.1,8.3,0x3b7542]].forEach(([r,h,y,c])=>{
+      const k=new THREE.ConeGeometry(r,h,9); k.translate(0,y,0); parts.push({g:k,c});
+    });
+    return mergeGeos3D(THREE,parts);
+  };
+  const oak=()=>{
+    const parts=[];
+    const tr=new THREE.CylinderGeometry(0.28,0.46,3.8,8); tr.translate(0,1.9,0); parts.push({g:tr,c:trunkD});
+    [[-1,0.7],[1,-0.6]].forEach(([sx,sz])=>{   // yan dallar (eğik silindir)
+      const br=new THREE.CylinderGeometry(0.09,0.15,2.0,6); br.rotateZ(-sx*0.75); br.rotateY(sz); br.translate(sx*0.7,3.6,sz*0.3); parts.push({g:br,c:trunkC});
+    });
+    [[0,5.4,0,2.0,0x3f7a35],[-1.4,4.7,0.5,1.5,0x4a8a3c],[1.3,4.8,-0.4,1.55,0x376f30],[0.2,4.6,1.3,1.35,0x447f37],[0.1,6.5,-0.2,1.3,0x4f9040]].forEach(([x,y,z,r,c])=>{
+      const k=new THREE.IcosahedronGeometry(r,0); k.translate(x,y,z); parts.push({g:k,c});
+    });
+    return mergeGeos3D(THREE,parts);
+  };
   const r=day3dRand(8642);
   const m=new THREE.Matrix4(), q=new THREE.Quaternion(), p=new THREE.Vector3(), s=new THREE.Vector3(), up=new THREE.Vector3(0,1,0), col=new THREE.Color();
-  for(let i=0;i<pts.length;i++){
-    const [x,z,k]=pts[i], sc=Number.isFinite(k)?k:1;
-    q.setFromAxisAngle(up,r()*Math.PI*2);
-    p.set(x,0,z); s.set(sc*(0.9+r()*0.2),sc,sc*(0.9+r()*0.2));
-    m.compose(p,q,s); im.setMatrixAt(i,m);
-    col.setRGB(0.85+r()*0.2,0.9+r()*0.15,0.82+r()*0.18); im.setColorAt(i,col);
-  }
-  im.instanceMatrix.needsUpdate=true;
-  if(im.instanceColor) im.instanceColor.needsUpdate=true;
+  const inst=(geo,list,name)=>{
+    const mat=new THREE.MeshLambertMaterial({vertexColors:true});
+    const im=new THREE.InstancedMesh(geo,mat,Math.max(1,list.length));
+    im.name=name; im.frustumCulled=false; im.count=list.length;
+    for(let i=0;i<list.length;i++){
+      const [x,z,k]=list[i], sc=Number.isFinite(k)?k:1;
+      q.setFromAxisAngle(up,r()*Math.PI*2);
+      p.set(x,0,z); s.set(sc*(0.9+r()*0.2),sc*(0.92+r()*0.16),sc*(0.9+r()*0.2));
+      m.compose(p,q,s); im.setMatrixAt(i,m);
+      col.setRGB(0.86+r()*0.18,0.88+r()*0.16,0.84+r()*0.16); im.setColorAt(i,col);
+    }
+    im.instanceMatrix.needsUpdate=true;
+    if(im.instanceColor) im.instanceColor.needsUpdate=true;
+    return im;
+  };
+  const im=inst(pine(),pinePts,"trees");
+  if(oakPts.length){ const o=inst(oak(),oakPts,"treesOak"); im.add(o); im.userData.oak=o; }
   return im;
 }

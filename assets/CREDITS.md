@@ -8,7 +8,7 @@ Bir model yüklenemezse oyun o parça için prosedürel modeli kullanır.
 | `ball.glb` | Simple soccer football | Smirnoff Alexander | CC-BY 3.0 | https://poly.pizza/m/57u6P7Sr7K0 | Top yarıçapına ölçeklendi, merkezlendi |
 | `goal.glb` | Soccer goal | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/7t4hmicGHV4 | Yalnız direkler ve üst direk kullanılıyor; düzeltilip ölçeklendi, direkler inceltildi, kırmızı şeritler beyaza çevrildi |
 | `stadium.glb` | Low Poly Sports Stands | Cole Brenner | CC-BY 3.0 | https://poly.pizza/m/26j2bQ3zuUL | Ölçeklendi; gündüz sahnesinde dört köşeye yerleştirildi |
-| `tree.glb` | Tree | Quaternius | CC0 (kamu malı) | https://poly.pizza/m/1BkD9JnKrE | Ölçeklendi, örneklenerek çoğaltıldı |
+| `tree.glb` | Tree | Quaternius | CC0 (kamu malı) | https://poly.pizza/m/1BkD9JnKrE | Şu an kullanılmıyor (prosedürel gövdeli çam/meşe ağaçları tercih edildi) |
 | `player.glb` | Man (iskeletli, low-poly) | Quaternius | CC0 (kamu malı) | https://poly.pizza/m/HMnuH5geEG | Rig boyuna ölçeklendi; forma/şort/tozluk/ten/saç malzemeleri takım ve kaleci renkleriyle yeniden boyanıyor; hazır animasyonlar yerine kemikler oyunun eklemli rigiyle sürülüyor; IK ayak kemikleri baldıra bağlandı |
 
 CC-BY 3.0 lisansı (https://creativecommons.org/licenses/by/3.0/) atıf ister. Oyun yayımlanırken bu

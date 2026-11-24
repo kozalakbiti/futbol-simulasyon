@@ -106,9 +106,13 @@ function pitch3dCameraPose(mode,f,aspect,st,out){
 const PITCH3D_GRASS_CANVAS={map:null,grain:null};
 // map: 1024×512 biçme deseni (gw×gh m alanı kaplar; bantlar saha çizgilerine hizalı: boyda 14,
 //   ende 10 bant, iki yön damalı) · grain: 256² ince gürültü (aoMap, 0.72–1)
-function pitch3dGrassCanvases(gw,gh){
-  const C=PITCH3D_GRASS_CANVAS;
-  if(C.map||typeof document==="undefined") return C;
+//   pat/tint: biçme deseni ve çim tonu (pitch3dVenue); map desen+ton başına önbellekli, grain ortak
+const PITCH3D_GRASS_BY=new Map();
+function pitch3dGrassCanvases(gw,gh,pat,tint){
+  const key=(pat||"vert")+"|"+(Number(tint)||0).toFixed(2);
+  if(PITCH3D_GRASS_BY.has(key)) return PITCH3D_GRASS_BY.get(key);
+  if(typeof document==="undefined") return PITCH3D_GRASS_CANVAS;
+  const C={map:null,grain:PITCH3D_GRASS_CANVAS.grain}, TN=day3dGrassTint(tint);
   try{
     const rnd=(()=>{ let s=24681; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; })();
     { const W=1024, Hh=512, cv=document.createElement("canvas"); cv.width=W; cv.height=Hh;
@@ -127,10 +131,10 @@ function pitch3dGrassCanvases(gw,gh){
             const n=(lo[y0*GX+x0]*(1-tx)+lo[y0*GX+x1]*tx)*(1-ty)+(lo[y1*GX+x0]*(1-tx)+lo[y1*GX+x1]*tx)*ty;
             const out=Math.abs(wx)>L||Math.abs(wz)>Hw;            // çizgi dışı pay: düz, biraz koyu
             // Yalnız boyuna biçme şeritleri (ende bant kaldırıldı: iki yönlü dama büyük kareler gibi görünüyordu)
-            let k=out?0.86:(1+0.075*(bx?1:-1)*day3dStripeEdge(wx+L,sx));   // yumuşak şerit kenarı
+            let k=out?0.86:(1+0.075*day3dMowBand(wx,wz,pat,14));   // yumuşak şerit kenarı (desen: pitch3dVenue)
             k*=0.93+n*0.1+(rnd()-0.5)*0.03;
             const j=(y*W+x)*4;
-            let cr=44*k, cg=124*k, cb=50*k;
+            let cr=44*k*TN.r, cg=124*k*TN.g, cb=50*k*TN.b;
             const wv=out?0:day3dGoalWear(wx,wz,n,rnd());                    // kale önü yıpranması
             if(wv>0){ cr+=(96-cr)*wv; cg+=(86-cg)*wv*0.92; cb+=(56-cb)*wv; }
             px[j]=Math.min(255,cr); px[j+1]=Math.min(255,cg); px[j+2]=Math.min(255,cb); px[j+3]=255;
@@ -139,7 +143,7 @@ function pitch3dGrassCanvases(gw,gh){
         ctx.putImageData(img,0,0); C.map=cv;
       }
     }
-    { const N=256, cv=document.createElement("canvas"); cv.width=N; cv.height=N;
+    if(!C.grain){ const N=256, cv=document.createElement("canvas"); cv.width=N; cv.height=N;
       const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(N,N):null;
       if(img){
         const px=img.data;
@@ -147,10 +151,12 @@ function pitch3dGrassCanvases(gw,gh){
           const v=Math.round(255*(0.72+0.28*Math.pow(rnd(),0.7))), j=i*4;
           px[j]=v; px[j+1]=v; px[j+2]=v; px[j+3]=255;
         }
-        ctx.putImageData(img,0,0); C.grain=cv;
+        ctx.putImageData(img,0,0); C.grain=cv; PITCH3D_GRASS_CANVAS.grain=cv;
       }
     }
   }catch(e){ /* tuval yok: düz renk çim */ }
+  PITCH3D_GRASS_BY.delete(key); PITCH3D_GRASS_BY.set(key,C);
+  while(PITCH3D_GRASS_BY.size>2) PITCH3D_GRASS_BY.delete(PITCH3D_GRASS_BY.keys().next().value);
   return C;
 }
 
@@ -158,7 +164,8 @@ function pitch3dGrassCanvases(gw,gh){
 //   maxAniso: renderer'ın desteklediği en yüksek anizotropi (çim dokusu; en çok 8 kullanılır)
 //   day (isteğe bağlı): gündüz — Phong çim + yaprak kabartması (bumpMap), gölge alan çim/çizgi,
 //   parlak direkler + arka destek çubukları/ipler, alphaMap örgülü file (day3d.js tuvalleri)
-function buildPitch3DMeshes(THREE,maxAniso,day){
+function buildPitch3DMeshes(THREE,maxAniso,day,venue){
+  const VN=venue||{}, gPat=VN.grass||"vert", gTint=Number(VN.tint)||0;   // biçme deseni + çim tonu
   const D=PITCH3D_DIM, W=D.lineW, L=D.halfLen, H=D.halfWid;
   const g=new THREE.Group(); g.name="pitch";
   const flat=(geo)=>{geo.rotateX(-Math.PI/2);return geo;};
@@ -185,15 +192,15 @@ function buildPitch3DMeshes(THREE,maxAniso,day){
   //     kameraya yakın — topun çevresinde — görünüyor, uzakta mipmap'le düzleşiyordu.)
   //   • anizotropi: renderer'ın en yükseği (en çok 16)
   const grassMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:day?1:0.97,metalness:0});
-  const cvs=pitch3dGrassCanvases(GW2,GH2);
+  const cvs=pitch3dGrassCanvases(GW2,GH2,gPat,gTint);
   const aniso=Math.max(1,Math.min(16,Number(maxAniso)||1));
-  const dayGrass=day?day3dGrassCanvas(GW2,GH2):null;
+  const dayGrass=day?day3dGrassCanvas(GW2,GH2,gPat,gTint):null;
   if(dayGrass){
     const t=new THREE.CanvasTexture(dayGrass); t.anisotropy=aniso; grassMat.map=t;   // 2048×1024: yakında ~5 cm/texel
   } else if(cvs.map){
     const t=new THREE.CanvasTexture(cvs.map); t.anisotropy=aniso; grassMat.map=t;   // mipmap: 1024×512 (2'nin kuvveti)
   } else grassMat.color.setHex(0x2f7d33);
-  const rc=day3dGrassRoughCanvas(GW2,GH2);
+  const rc=day3dGrassRoughCanvas(GW2,GH2,gPat);
   // (pürüzlülük tuvali gündüz çiminin şeritlerine hizalı → yalnız gündüz)
   if(day&&rc&&grassMat.map){ const rt=new THREE.CanvasTexture(rc); rt.anisotropy=aniso; grassMat.roughnessMap=rt; }
   const detT=grassMat.map?day3dTex(THREE,"grassDetail",aniso):null;
@@ -372,6 +379,53 @@ function buildPitch3DMeshes(THREE,maxAniso,day){
 // Sahneyi kurar, render döngüsünü başlatır → {api, destroy, setPaused, setInteractive}
 // Kurulum yarıda hata fırlatırsa o ana kadar eklenen her şey geri alınır
 // (dinleyiciler, sahne, WebGL bağlamı, canvas) ve hata yeniden fırlatılır.
+// ── Stadyum / çim / ışık varyasyonu ──
+// pitch3dVenue({homeName,homeStr,comp,week,opp}) → {size,grass,tint,light}
+//   size  : ev sahibi gücü/ligi → "small" (alt lig: açık küçük tribün + bol ağaç) | "mid" (orta ölçek:
+//           tek katlı çatılı) | "big" (büyük kulüp: çift katlı, köşeleri kapalı dev stadyum)
+//   grass : ev sahibinin kendi biçme deseni (ad hash'i) → "vert" | "horiz" | "check"; tint: −1…1 çim tonu
+//   light : maç hash'i (ev + rakip + hafta) → "noon" | "sunset" | "night"
+//   Aynı maç her açılışta aynı görünür (canlı akış ve kilit an aynı stadyumu paylaşır).
+function pitch3dHash(str){ let h=2166136261; str=String(str||""); for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h>>>0; }
+function pitch3dVenue(o){
+  o=o||{};
+  const str=Number(o.homeStr), comp=String(o.comp||"");
+  let size=!Number.isFinite(str)?"mid":str>=79?"big":str>=69?"mid":"small";
+  if(comp==="TFF1"&&size==="big") size="mid";
+  if(comp==="HAZ") size=size==="big"?"mid":"small";            // hazırlık maçı: küçük tesis
+  const hh=pitch3dHash("v|"+(o.homeName||"")), mh=pitch3dHash("m|"+(o.homeName||"")+"|"+(o.opp||"")+"|"+(o.week!=null?o.week:"")+"|"+comp);
+  const grass=["vert","horiz","check"][hh%3];
+  const tint=[-0.8,-0.35,0,0.35,0.8][(hh>>>4)%5];
+  const lr=(mh%1000)/1000, light=lr<0.4?"noon":lr<0.7?"sunset":"night";
+  return {size,grass,tint,light};
+}
+// Kurulumda kullanılan biçim: venue yoksa eski görünüm (gündüz: büyük İngiliz tribünleri + öğle güneşi,
+//   gece: projektörlü canlı akış sahnesi) aynen korunur.
+function pitch3dVenueNorm(v,day){
+  const ok=(x,arr,def)=>arr.indexOf(x)>=0?x:def;
+  if(!v||typeof v!=="object") return {size:"classic",grass:"vert",tint:0,light:day?"noon":"night",custom:false};
+  return {size:ok(v.size,["small","mid","big"],"classic"),grass:ok(v.grass,["vert","horiz","check"],"vert"),
+    tint:Math.max(-1,Math.min(1,Number(v.tint)||0)),light:ok(v.light,["noon","sunset","night"],day?"noon":"night"),custom:true};
+}
+// Gece gök kubbesi (ufuk gradyanı, vertex rengi; fog'dan etkilenmez)
+function pitch3dNightSky(THREE){
+  const SR=300, sky=new THREE.SphereGeometry(SR,24,12);
+  const pos=sky.attributes.position, col=new Float32Array(pos.count*3);
+  const cTop=new THREE.Color(0x03060f), cMid=new THREE.Color(0x0d1a33), cHor=new THREE.Color(0x3a3352), cGlow=new THREE.Color(0x6a4d5c), tmp=new THREE.Color();
+  for(let i=0;i<pos.count;i++){
+    const h=pos.getY(i)/SR;                       // −1 (alt) … 1 (tepe)
+    if(h<0.02) tmp.copy(cGlow).lerp(cHor,Math.max(0,Math.min(1,(0.02-h)/0.25)));
+    else if(h<0.25) tmp.copy(cGlow).lerp(cMid,(h-0.02)/0.23);
+    else tmp.copy(cMid).lerp(cTop,Math.min(1,(h-0.25)/0.6));
+    col[i*3]=tmp.r; col[i*3+1]=tmp.g; col[i*3+2]=tmp.b;
+  }
+  sky.setAttribute("color",new THREE.BufferAttribute(col,3));
+  const skyMesh=new THREE.Mesh(sky,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));
+  skyMesh.name="sky"; skyMesh.renderOrder=-10; skyMesh.frustumCulled=false;
+  return skyMesh;
+}
+const PITCH3D_SUNSET_SKY=0xffb48c, PITCH3D_SUNSET_FOG=0xe6b08c, PITCH3D_NIGHT_FOG_DAY=0x161a2a;
+
 function createPitch3DScene(THREE,container,opts){
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const renderer=new THREE.WebGLRenderer({antialias:dpr<1.5,alpha:false,powerPreference:"high-performance"});
@@ -395,7 +449,8 @@ function createPitch3DScene(THREE,container,opts){
   try{
     renderer.setPixelRatio(dpr);
     const day=!!opts.day;          // gündüz sahnesi (kilit an): gök, güneş + gölge, İngiliz tribünleri (day3d.js)
-    renderer.setClearColor(day?DAY3D_SKY_CLEAR:0x0b1220,1);
+    const VEN=pitch3dVenueNorm(opts.venue,day), LT=VEN.light;   // stadyum / çim / ışık varyasyonu
+    renderer.setClearColor(LT==="night"?(day?0x05070d:0x0b1220):LT==="sunset"?0xe7a676:DAY3D_SKY_CLEAR,1);
     if(day){
       // Yumuşak gölgeler: yalnız güneş gölge yapar (tek ışık); harita boyutu cihaza göre (day3dLights)
       renderer.shadowMap.enabled=true;
@@ -403,7 +458,7 @@ function createPitch3DScene(THREE,container,opts){
       // Film tonu (ACES): parlak güneşte beyazlar patlamaz, renkler doygun ve canlı kalır.
       //   Pozlama, ACES'in orta tonları koyulaştırmasını dengeler (DAY3D_EXPOSURE, day3d.js)
       renderer.toneMapping=THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure=DAY3D_EXPOSURE;
+      renderer.toneMappingExposure=LT==="sunset"?DAY3D_EXPOSURE*0.94:LT==="night"?DAY3D_EXPOSURE*0.88:DAY3D_EXPOSURE;
     }
     // Dokunma: 3D tuval parmak hareketlerini her zaman yutar (mobilde sayfa kaymasın)
     canvas.style.cssText="display:block;width:100%;height:100%;touch-action:none;";
@@ -415,7 +470,15 @@ function createPitch3DScene(THREE,container,opts){
     if(day){
       let lowEnd=false;
       try{ lowEnd=!!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches)||Math.min(window.innerWidth||0,window.innerHeight||0)<500; }catch(e){}
-      day3dLights(THREE,scene,lowEnd);
+      day3dLights(THREE,scene,lowEnd,LT);
+    } else if(LT==="noon"){        // canlı akış, gün ortası: parlak gök dolgusu + güneş
+      scene.add(new THREE.HemisphereLight(0xeaf4ff,0x2c3a22,1.05));
+      const sun=new THREE.DirectionalLight(0xfff1d8,0.95);
+      sun.position.set(-40,90,50); scene.add(sun);
+    } else if(LT==="sunset"){      // canlı akış, gün batımı: sıcak turuncu alçak güneş
+      scene.add(new THREE.HemisphereLight(0xffd2ae,0x3a2c1c,0.8));
+      const sun=new THREE.DirectionalLight(0xffa860,1.0);
+      sun.position.set(-90,38,55); scene.add(sun);
     } else {
       scene.add(new THREE.HemisphereLight(0xe6f0ff,0x1c2a1c,0.85));
       const sun=new THREE.DirectionalLight(0xffffff,0.75);
@@ -425,32 +488,19 @@ function createPitch3DScene(THREE,container,opts){
     // Akşam/gece stadyum atmosferi: ufuk gradyanlı gök kubbesi (vertex rengi, fog'dan etkilenmez;
     //   kamera far=400 içinde) + pus (THREE.Fog). Pus her zaman sahnede (program değişimi/takılma
     //   olmasın); kuşbakışında near/far çok uzak = etkisiz, çim seviyesi vuruş kamerasında yumuşak pus.
-    if(day){
-      // Gündüz: mavi gök + bulut kubbesi; pus gökyüzünün ufuk rengiyle aynı (uzak tribün/ağaç hafif puslu)
-      scene.add(day3dSkyDome(THREE));
-      scene.fog=new THREE.Fog(DAY3D_FOG,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
+    if(LT==="night"){
+      scene.add(pitch3dNightSky(THREE));
+      scene.fog=new THREE.Fog(day?PITCH3D_NIGHT_FOG_DAY:0x2a2a44,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
     } else {
-      const SR=300, sky=new THREE.SphereGeometry(SR,24,12);
-      const pos=sky.attributes.position, col=new Float32Array(pos.count*3);
-      const cTop=new THREE.Color(0x03060f), cMid=new THREE.Color(0x0d1a33), cHor=new THREE.Color(0x3a3352), cGlow=new THREE.Color(0x6a4d5c), tmp=new THREE.Color();
-      for(let i=0;i<pos.count;i++){
-        const h=pos.getY(i)/SR;                       // −1 (alt) … 1 (tepe)
-        if(h<0.02) tmp.copy(cGlow).lerp(cHor,Math.max(0,Math.min(1,(0.02-h)/0.25)));
-        else if(h<0.25) tmp.copy(cGlow).lerp(cMid,(h-0.02)/0.23);
-        else tmp.copy(cMid).lerp(cTop,Math.min(1,(h-0.25)/0.6));
-        col[i*3]=tmp.r; col[i*3+1]=tmp.g; col[i*3+2]=tmp.b;
-      }
-      sky.setAttribute("color",new THREE.BufferAttribute(col,3));
-      const skyMesh=new THREE.Mesh(sky,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));
-      skyMesh.name="sky"; skyMesh.renderOrder=-10; skyMesh.frustumCulled=false;
-      scene.add(skyMesh);
-      scene.fog=new THREE.Fog(0x2a2a44,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
+      // Gündüz: mavi gök + bulut kubbesi (gün batımında turuncu çarpan); pus gökyüzünün ufuk rengiyle aynı
+      scene.add(day3dSkyDome(THREE,LT==="sunset"?PITCH3D_SUNSET_SKY:undefined));
+      scene.fog=new THREE.Fog(LT==="sunset"?PITCH3D_SUNSET_FOG:DAY3D_FOG,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
     }
-    const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1,day),
+    const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1,day,VEN),
       players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
     // Stadyum (tribün + taraftar + projektör + pano + kulübe); sahne ile birlikte temizlenir
-    const stadium=buildStadium3D(THREE,{day,isAlive:()=>!disposed,
+    const stadium=buildStadium3D(THREE,{day,size:VEN.size,flood:LT==="night",isAlive:()=>!disposed,
       onAsset:()=>{ if(!disposed) renderOnce(); }});   // hazır model geldi: duraklatılmış sahneyi yenile
     groups.pitch.add(stadium.group);
 
@@ -684,8 +734,10 @@ function createPitch3DScene(THREE,container,opts){
 // paused: true iken render döngüsü durur (son kare ekranda kalır)
 // interactive: (eski) — Adım 7'den beri tuval her zaman dokunma hareketlerini yutar (touch-action:none)
 // day: gündüz sahnesi (yalnız kurulumda okunur; kilit an kullanır)
-function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top",day=false}){
+function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=true,paused=false,interactive=false,controlsAt="top",day=false,venue=null}){
   const mountRef=useRef(null);
+  const venueRef=useRef(venue);   // stadyum/çim/ışık varyasyonu (yalnız kurulumda okunur)
+  venueRef.current=venue;
   const instRef=useRef(null);
   const [innerCam,setInnerCam]=useState("broadcast");
   const camMode=camera||innerCam;
@@ -721,6 +773,7 @@ function Pitch3D({camera,onCameraChange,onReady,onError,height=220,showControls=
           paused:pausedRef.current,
           interactive:interactiveRef.current,
           day:!!day,
+          venue:venueRef.current||null,
           onContextLost:()=>fail("3D grafik bağlamı kaybedildi. Bölümü kapatıp yeniden açmayı dene."),
           // destroy'u render çağrısının dışında yap (döngü zaten durdu)
           onRenderError:(err)=>setTimeout(()=>fail("3D çizimde bir hata oluştu; 3D görünüm kapatıldı. 2D saha çalışmaya devam ediyor.",err),0),

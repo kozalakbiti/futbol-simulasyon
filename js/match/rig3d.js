@@ -43,9 +43,10 @@ function createRigKit3D(THREE,COL){
   // Forma / şort / tozluk belirgin ayrışır: tozluk formanın koyu tonu + üstte açık şerit,
   //   şort belinde ince koyu bel bandı (uzaktan da üç renk bölgesi okunur)
   const kitCol={
-    home:{shirt:COL.home,shorts:COL.homeShorts,socks:0x123a7a,band:0xf2f2f2,belt:0x1a5fc4},
+    // Takım renkleri (actors3dKitColors) tozluk/bel/şerit de verir; yoksa eski sabit tonlar
+    home:{shirt:COL.home,shorts:COL.homeShorts,socks:COL.homeSocks!=null?COL.homeSocks:0x123a7a,band:COL.homeBand!=null?COL.homeBand:0xf2f2f2,belt:COL.homeBelt!=null?COL.homeBelt:0x1a5fc4},
     homeGK:{shirt:COL.homeGK,shorts:0x222222,socks:0x8a5a00,band:0xf2f2f2,belt:0x111111,gloves:0xf4f4f4},
-    away:{shirt:COL.away,shorts:COL.awayShorts,socks:0x7a1414,band:0xf2f2f2,belt:0x000000},
+    away:{shirt:COL.away,shorts:COL.awayShorts,socks:COL.awaySocks!=null?COL.awaySocks:0x7a1414,band:COL.awayBand!=null?COL.awayBand:0xf2f2f2,belt:COL.awayBelt!=null?COL.awayBelt:0x000000},
     awayGK:{shirt:COL.awayGK,shorts:0x222222,socks:0x4b2a85,band:0xf2f2f2,belt:0x111111,gloves:0xf4f4f4},
   };
   const cache={};

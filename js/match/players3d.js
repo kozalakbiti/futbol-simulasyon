@@ -48,6 +48,64 @@ const ACTORS3D_COLORS={
   away:0xd93a3a, awayGK:0xa36bff, awayShorts:0x1b1b24,   // rakip
   skin:0xe0b48c, ball:0xffffff, yellowCard:"#ffd21f", redCard:"#e0262b",
 };
+// Takım forma renkleri (3D + 2.5D): TEAM_BADGE (theme.js) birincil (bg) = forma, ikincil (tx) = şort /
+//   tozluk şeridi. "home" = bizim takım, "away" = rakip (3D tarafları). İki forma çok yakınsa GERÇEK
+//   deplasman takımı (myHome false → biz) kontrast ikinci formaya geçer: önce ikincil renk forma olur,
+//   o da yakınsa beyaz/koyu lacivertten uzak olanı. Kaleciler iki formadan da uzak bir renk alır.
+//   Dönen nesne ACTORS3D_COLORS ile aynı anahtarlar (+ homeSocks/awaySocks/homeBelt/awayBelt/…Band).
+function actors3dHex(v,def){
+  if(typeof v==="number"&&Number.isFinite(v)) return v;
+  const s=String(v||"").trim().replace(/^#/,"");
+  if(/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s,16);
+  if(/^[0-9a-fA-F]{3}$/.test(s)) return parseInt(s.split("").map(c=>c+c).join(""),16);
+  return def;
+}
+function actors3dColDist(a,b){   // algısal ağırlıklı RGB uzaklığı (0 … ~765)
+  const r1=a>>16&255, g1=a>>8&255, b1=a&255, r2=b>>16&255, g2=b>>8&255, b2=b&255;
+  const rm=(r1+r2)/2, dr=r1-r2, dg=g1-g2, db=b1-b2;
+  return Math.sqrt((2+rm/256)*dr*dr+4*dg*dg+(2+(255-rm)/256)*db*db);
+}
+function actors3dShade(c,k){
+  const f=(v)=>Math.max(0,Math.min(255,Math.round(v*k)));
+  return (f(c>>16&255)<<16)|(f(c>>8&255)<<8)|f(c&255);
+}
+const ACTORS3D_KIT_CLASH=150;   // bu uzaklığın altında iki forma "çok yakın" sayılır
+function actors3dKitColors(myName,oppName,myHome){
+  const D=ACTORS3D_COLORS, out=Object.assign({},D);
+  try{
+    const badge=(n)=>typeof getTeamBadge==="function"&&n?getTeamBadge(n):null;
+    const kitOf=(n,defShirt,defShorts)=>{ const b=badge(n);
+      return {p:actors3dHex(b&&b.bg,defShirt),s:actors3dHex(b&&b.tx,defShorts)}; };
+    const me=kitOf(myName,D.home,D.homeShorts), op=kitOf(oppName,D.away,D.awayShorts);
+    // Forma = birincil, şort = ikincil (aynıysa koyu/açık ton)
+    const mk=(k)=>({shirt:k.p,shorts:actors3dColDist(k.p,k.s)<60?(actors3dColDist(k.p,0xffffff)>250?0xf2f2f2:0x1b1b24):k.s});
+    let h=mk(me), a=mk(op);
+    if(actors3dColDist(h.shirt,a.shirt)<ACTORS3D_KIT_CLASH){
+      // Deplasman takımı ikinci forma: ikincil renk forma, birincil şort
+      const awayKit=myHome?op:me, homeShirt=myHome?h.shirt:a.shirt;
+      let alt={shirt:awayKit.s,shorts:awayKit.p};
+      if(actors3dColDist(alt.shirt,homeShirt)<ACTORS3D_KIT_CLASH){
+        const w=0xf4f4f4, n=0x14203a;
+        const sh=actors3dColDist(w,homeShirt)>=actors3dColDist(n,homeShirt)?w:n;
+        alt={shirt:sh,shorts:sh===w?awayKit.p:0xf2f2f2};
+        if(actors3dColDist(alt.shorts,alt.shirt)<60) alt.shorts=sh===w?0x14203a:0xf2f2f2;
+      }
+      if(myHome) a=alt; else h=alt;
+    }
+    out.home=h.shirt; out.homeShorts=h.shorts; out.away=a.shirt; out.awayShorts=a.shorts;
+    // Tozluk: forma renginin koyu tonu; bel bandı: şortun koyu tonu; tozluk şeridi: şort rengi
+    out.homeSocks=actors3dShade(h.shirt,0.55); out.awaySocks=actors3dShade(a.shirt,0.55);
+    out.homeBelt=actors3dShade(h.shorts,0.6);  out.awayBelt=actors3dShade(a.shorts,0.6);
+    out.homeBand=h.shorts; out.awayBand=a.shorts;
+    // Kaleci: iki saha formasından (ve birbirinden) en uzak aday
+    const GKS=[0xffb020,0xa36bff,0x22d3a6,0xff5fa2,0x9be22d,0x2d2d2d,0x00b4ff];
+    const pickGk=(avoid)=>{ let best=GKS[0], bd=-1;
+      GKS.forEach(c=>{ const d=Math.min(...avoid.map(x=>actors3dColDist(c,x))); if(d>bd){ bd=d; best=c; } }); return best; };
+    out.homeGK=pickGk([out.home,out.away]);
+    out.awayGK=pickGk([out.home,out.away,out.homeGK]);
+  }catch(e){ return Object.assign({},D); }
+  return out;
+}
 // Normal akış tempo sabitleri (m/sn, m/sn²). Önceki sürüm: koşu 14, sürme 8–9.5,
 // sürtünme 3.2, pas varış hızı 6 → hepsi ~%40 düşürüldü.
 // Normal akış (kuşbakışı canlı maç) %45 yavaş: koşu ve top hızları ×0.55, maç saati de
@@ -115,10 +173,11 @@ function createMatchActors3D(api,opts={}){
     goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;},
     drivePlayer(){},setOwner(){},getOwner(){return null;},kickTo(){return 0;},kickBall(){},
     getBallVel(){return null;},isBallFree(){return false;},getPlayer(){return null;},poseFx(){},
-    actionFx(){},diveFx(){},faceToward(){},setPlayerFade(){},setPlayerHidden(){},setBallIdleFx(){},ballR:0.2};
+    actionFx(){},diveFx(){},faceToward(){},setPlayerFade(){},setPlayerHidden(){},setBallIdleFx(){},setBallIdleOffset(){},ballR:0.2};
   if(!api||!api.THREE||api.isDisposed()) return noop;
   const THREE=api.THREE, D=PITCH3D_DIM, L=D.halfLen, H=D.halfWid, GW=D.goalWidth/2;
-  const COL=ACTORS3D_COLORS, PACE=ACTORS3D_PACE, BR=0.2; // top yarıçapı (m): gerçek boy oyunculara oranlı (gerçek ~0.11; okunurluk için ~1.8×). Kilit an fiziği de bunu kullanır (ballR)
+  // opts.colors: takım forma renkleri (actors3dKitColors); yoksa varsayılan mavi/kırmızı
+  const COL=opts.colors&&typeof opts.colors==="object"?Object.assign({},ACTORS3D_COLORS,opts.colors):ACTORS3D_COLORS, PACE=ACTORS3D_PACE, BR=0.2; // top yarıçapı (m): gerçek boy oyunculara oranlı (gerçek ~0.11; okunurluk için ~1.8×). Kilit an fiziği de bunu kullanır (ballR)
   const flat=(geo)=>{geo.rotateX(-Math.PI/2);return geo;};
   const owned={geos:[],mats:[],texs:[]}; // denetleyiciye ait paylaşılan kaynaklar
   const G=(g)=>{owned.geos.push(g);return g;};
@@ -310,7 +369,10 @@ function createMatchActors3D(api,opts={}){
     const n=String(p.gk?1:clamp(Number(p.num)||2,2,99));
     ctx.fillStyle=col; ctx.strokeStyle="#ffffff"; ctx.lineWidth=3;
     ctx.beginPath(); ctx.arc(64,104,19,0,Math.PI*2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle="#ffffff"; ctx.font="bold 24px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    // Numara: açık formada koyu, koyu formada beyaz (beyaz / sarı formalarda da okunur)
+    { const c0=p.gk?(home?COL.homeGK:COL.awayGK):(home?COL.home:COL.away), lum=(0.299*(c0>>16&255)+0.587*(c0>>8&255)+0.114*(c0&255))/255;
+      ctx.fillStyle=lum>0.62?"#141821":"#ffffff"; }
+    ctx.font="bold 24px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.fillText(n,64,105,32);
     tex.needsUpdate=true;
   };
@@ -565,7 +627,7 @@ function createMatchActors3D(api,opts={}){
   ballRoot.add(trail);
   let trailK=0;   // iz yoğunluğu 0–1 (yumuşak açılıp kapanır)
   let hookRdt=0;   // son karenin gerçek süresi (sn; ağır çekimden bağımsız; hook günceller)
-  const ballIdle={spin:0,bob:0,t:0};   // vuruş ekranı canlı top (setBallIdleFx)
+  const ballIdle={spin:0,bob:0,t:0,ox:0,oy:0,oz:0};   // vuruş ekranı canlı top (setBallIdleFx)
   const bpos=new THREE.Vector3(0,0,0);         // y = yerden yükseklik (top merkezi BR+y)
   const fl={on:false,script:false,sx:0,sy:0,sz:0,ex:0,ey:0,ez:0,h:0,dur:1,t:0,fn:null};
   const legs=[];                                // senaryo kuyruğu (olay başına doldurulur)
@@ -604,14 +666,16 @@ function createMatchActors3D(api,opts={}){
   let btLast=-1, btEma=PACE.tick, btSeq=0, flSeq=-1;
   let landSoft=false, landStop=false; // havadan pas: inişte yumuşak (kısa yuvarlanma) / santra: inişte dur
 
-  const startFlight=(ex,ez,ey,h,dur,fn,script)=>{
+  // raw: kilit an şutunun fizik örnekleri (çok kısa bacaklar) → 0.05 sn taban uygulanmaz,
+  //   kare süresini aşan zaman sonraki bacağa devreder (updateBall); şut gerçek sürede oynar.
+  const startFlight=(ex,ez,ey,h,dur,fn,script,raw)=>{
     fl.sx=bpos.x; fl.sy=bpos.y; fl.sz=bpos.z;
-    fl.ex=ex; fl.ey=ey; fl.ez=ez; fl.h=h; fl.dur=Math.max(0.05,dur); fl.t=0;
-    fl.fn=fn||null; fl.script=!!script; fl.on=true;
+    fl.ex=ex; fl.ey=ey; fl.ez=ez; fl.h=h; fl.dur=raw?Math.max(0.001,dur):Math.max(0.05,dur); fl.t=0;
+    fl.fn=fn||null; fl.script=!!script; fl.raw=!!raw; fl.on=true;
   };
   const nextLeg=()=>{
     const l=legs.shift();
-    if(l) startFlight(l.x,l.z,l.y,l.h,l.dur,l.fn,true);
+    if(l) startFlight(l.x,l.z,l.y,l.h,l.dur,l.fn,true,l.raw);
   };
   const busy=()=>clk<lockUntil||legs.length>0||(fl.on&&fl.script);
   const onBallTarget=(x,y)=>{
@@ -1228,7 +1292,7 @@ function createMatchActors3D(api,opts={}){
     lockUntil=clk+lockSec;
     gkPend.on=false;                 // önceki olayın bekleyen kaleci dalışı yeni senaryoda oynamasın
   };
-  const leg=(x,z,y,h,dur,fn)=>legs.push({x,z,y,h,dur,fn:fn||null});
+  const leg=(x,z,y,h,dur,fn,raw)=>legs.push({x,z,y,h,dur,fn:fn||null,raw:!!raw});
   // Olay noktasına ilk bacak; fn: bacak bitince (vuruş anı).
   //   Eskiden top, yanında kimse olmasa da 0.5–1 sn'de yayla olay noktasına uçuyordu (boşlukta yön
   //   değiştirme). Şimdi: topu ayağındaki/yanındaki oyuncu vuruş animasyonuyla PAS verir (kısa
@@ -1620,7 +1684,7 @@ function createMatchActors3D(api,opts={}){
     for(let i=0;i<list.length;i++){
       const l=list[i];
       if(!l||!Number.isFinite(l.x)||!Number.isFinite(l.z)) continue;
-      leg(l.x,l.z,Number.isFinite(l.y)?l.y:0,Number.isFinite(l.h)?l.h:0,Number.isFinite(l.dur)?l.dur:0.4,l.fn);
+      leg(l.x,l.z,Number.isFinite(l.y)?l.y:0,Number.isFinite(l.h)?l.h:0,Number.isFinite(l.dur)?l.dur:0.4,l.fn,l.raw===true);
     }
   };
   const goalFx=(s,gz,team)=>{
@@ -1639,6 +1703,10 @@ function createMatchActors3D(api,opts={}){
   const getBall=()=>bpos; // salt okunur
   // Vuruş ekranı canlı topu (yalnız görsel; bpos/fizik değişmez): spin = kendi ekseninde dönüş (rad/sn),
   //   bob = yerinde hafif sekme (m). Gerçek zamanla işler (ağır çekimden bağımsız). (0,0) → kapalı.
+  // Vuruş ekranı canlı top konum ofseti (m, yalnız görsel; bpos/fizik değişmez). (0,0,0) → kapalı.
+  const setBallIdleOffset=(x,y,z)=>{
+    ballIdle.ox=Number.isFinite(x)?x:0; ballIdle.oy=Number.isFinite(y)?Math.max(0,y):0; ballIdle.oz=Number.isFinite(z)?z:0;
+  };
   const setBallIdleFx=(spin,bob)=>{
     ballIdle.spin=Number.isFinite(spin)?spin:0; ballIdle.bob=Number.isFinite(bob)?Math.max(0,Math.min(0.15,bob)):0;
     if(!ballIdle.spin&&!ballIdle.bob) ballIdle.t=0;
@@ -1817,6 +1885,17 @@ function createMatchActors3D(api,opts={}){
     const o=fl.on||legs.length?null:ownerP();
     if(fl.on){
       fl.t+=dt;
+      // Ham (raw) bacaklar: bu karede biten kısa bacaklar hemen tüketilir, artan süre devreder
+      while(fl.on&&fl.raw&&fl.t>=fl.dur&&legs.length&&legs[0].raw){
+        const over=fl.t-fl.dur, fn=fl.fn; fl.fn=null; fl.on=false;
+        bpos.set(fl.ex,Math.max(0,fl.ey),fl.ez);
+        if(fn){ try{fn();}catch(e){console.error("[3D] efekt hatası",e);} }
+        if(fl.on) break;                 // efekt yeni uçuş başlattı
+        if(!(legs.length&&legs[0].raw)) break;
+        nextLeg(); fl.t=over;
+      }
+    }
+    if(fl.on){
       const u=Math.min(1,fl.t/fl.dur);
       bpos.x=fl.sx+(fl.ex-fl.sx)*u;
       bpos.z=fl.sz+(fl.ez-fl.sz)*u;
@@ -1847,8 +1926,9 @@ function createMatchActors3D(api,opts={}){
       if(dt>0){ bvel.x=(bpos.x-px)/dt; bvel.z=(bpos.z-pz)/dt; bvel.y=0; }
     } else if(freeBall) integrateBall(dt);
     { const hiCam=!!(api.camera&&api.camera.position&&api.camera.position.y>14);
-      // Kuşbakışında top okunurluk için 1.6× (yükseldikçe biraz daha: yükseklik hissi); alçak kamerada gerçek ölçek
-      const sc=hiCam?1.6+Math.min(1.1,Math.max(0,bpos.y)*0.14):1;
+      // Kuşbakışında top okunurluk için 1.15× (eski 1.6×'ten ~%28 küçük: oyunculara oranlı; yükseldikçe
+      //   biraz daha: yükseklik hissi); alçak kamerada gerçek ölçek
+      const sc=hiCam?1.15+Math.min(0.8,Math.max(0,bpos.y)*0.1):1;
       ball.scale.set(sc,sc,sc); ball.position.set(bpos.x,BR*sc+bpos.y,bpos.z);
       // Dönme: yer değiştirmeyle orantılı (yuvarlanma; görünen yarıçapla)
       ball.rotation.z-=(bpos.x-px)/(BR*sc);
@@ -1857,14 +1937,16 @@ function createMatchActors3D(api,opts={}){
         ballIdle.t+=hookRdt;
         ball.rotation.y+=ballIdle.spin*hookRdt; ball.rotation.x+=ballIdle.spin*0.35*hookRdt;   // yerinde dönüş
         ball.position.y+=ballIdle.bob*Math.abs(Math.sin(ballIdle.t*5.2));                     // hafif sekme
-      } }
-    ballShadow.position.set(bpos.x,0.035,bpos.z);
+      }
+      // Vuruş ekranı canlı top ofseti (setBallIdleOffset; yalnız görsel): sekme + yatay salınım
+      if(ballIdle.ox||ballIdle.oy||ballIdle.oz){ ball.position.x+=ballIdle.ox; ball.position.y+=ballIdle.oy; ball.position.z+=ballIdle.oz; } }
+    ballShadow.position.set(bpos.x+ballIdle.ox,0.035,bpos.z+ballIdle.oz);
     // Yumuşak temas gölgesi: top yükseldikçe KÜÇÜLÜR ve silikleşir (yerde ~0.94 m çap, 4 m'de ~yarısı)
-    const ss=0.55*(BR/0.42)*(api.camera&&api.camera.position&&api.camera.position.y>14?1.6:1)/(1+Math.max(0,bpos.y)*0.25);   // top boyuyla orantılı
+    const ss=0.55*(BR/0.42)*(api.camera&&api.camera.position&&api.camera.position.y>14?1.6:1)/(1+Math.max(0,bpos.y+ballIdle.oy)*0.25);   // top boyuyla orantılı
     ballShadow.scale.set(ss,1,ss);
-    mats.ballShadow.opacity=0.45/(1+Math.max(0,bpos.y)*0.45);
-    { const cg=clamp(1-bpos.y/0.8,0,1);                           // yerde 1, 0.8 m'de 0
-      ballContact.visible=cg>0.02; ballContact.position.set(bpos.x,0.04,bpos.z);
+    mats.ballShadow.opacity=0.45/(1+Math.max(0,bpos.y+ballIdle.oy)*0.45);
+    { const cg=clamp(1-(bpos.y+ballIdle.oy)/0.8,0,1);                           // yerde 1, 0.8 m'de 0
+      ballContact.visible=cg>0.02; ballContact.position.set(bpos.x+ballIdle.ox,0.04,bpos.z+ballIdle.oz);
       const cs=0.26+0.1*(1-cg); ballContact.scale.set(cs,1,cs); ballContactMat.opacity=0.75*cg; }
     updateTrail(dt,px,pz);
   };
@@ -1955,6 +2037,6 @@ function createMatchActors3D(api,opts={}){
   return {update,triggerEvent,resetKickoff,dispose,
     movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall,
     drivePlayer,setOwner,getOwner,kickTo,kickBall,getBallVel:()=>bvel,isBallFree:()=>freeBall,
-    getPlayer,poseFx,actionFx,diveFx,faceToward,setPlayerFade,setPlayerHidden,setBallIdleFx,passTime,ballR:BR,
+    getPlayer,poseFx,actionFx,diveFx,faceToward,setPlayerFade,setPlayerHidden,setBallIdleFx,setBallIdleOffset,passTime,ballR:BR,
     buildUp,inFinalThird,isAlive:()=>!disposed,kickTime};
 }

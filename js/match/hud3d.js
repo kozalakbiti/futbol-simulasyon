@@ -27,7 +27,9 @@ function setMatchViewPref(v){
 const SCOREBOARD3D_KIT={me:"#2485ff",opp:"#d93a3a"};
 
 // props: clubName, oppName, myScore, oppScore, minute, half (metin), goals [{min,team:"me"|"opp",name}]
-function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",goals=[]}){
+function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",goals=[],kit=null}){
+  // kit: {me,opp} CSS renkleri (takım formaları); yoksa varsayılan mavi/kırmızı
+  const KIT=kit&&kit.me&&kit.opp?kit:SCOREBOARD3D_KIT;
   const myB=getTeamBadge(clubName), opB=getTeamBadge(oppName);
   // Gol vurgusu: skor artınca kısa süre yanıp sön + takım renginde parıltı.
   // İlk değer referans alınır → 3D maç ortasında açılınca eski goller için vurgu olmaz.
@@ -43,7 +45,7 @@ function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",go
     return()=>clearTimeout(t);
   },[myScore,oppScore]);
 
-  const glow=hl?SCOREBOARD3D_KIT[hl.side]:null;
+  const glow=hl?KIT[hl.side]:null;
   const shortName=(n)=>{ const s=String(n||"").trim(); if(!s) return ""; const parts=s.split(/[\s.]+/).filter(Boolean); return parts[parts.length-1]||s; };
   const mine=goals.filter(g=>g.team==="me").slice(-3);
   const theirs=goals.filter(g=>g.team!=="me").slice(-3);
@@ -61,14 +63,14 @@ function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",go
     <span key={hl&&hl.side===side?hl.k:side} style={{minWidth:14,textAlign:"center",fontSize:".9rem",
       fontWeight:900,color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",lineHeight:1,
       animation:hl&&hl.side===side?"sb3dBlink .32s steps(2,start) 5":"none",
-      textShadow:hl&&hl.side===side?`0 0 10px ${SCOREBOARD3D_KIT[side]}`:"none"}}>{v}</span>
+      textShadow:hl&&hl.side===side?`0 0 10px ${KIT[side]}`:"none"}}>{v}</span>
   );
   const scorerLine=(list,side)=>{
     if(!list.length) return null;
     return(
       <div style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%",overflow:"hidden",
         whiteSpace:"nowrap",textOverflow:"ellipsis",fontSize:".36rem",color:"rgba(255,255,255,.82)",
-        background:"rgba(4,10,20,.55)",borderLeft:`2px solid ${SCOREBOARD3D_KIT[side]}`,
+        background:"rgba(4,10,20,.55)",borderLeft:`2px solid ${KIT[side]}`,
         borderRadius:"0 4px 4px 0",padding:"1px 5px"}}>
         <span style={{flexShrink:0}}>⚽</span>
         <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>
@@ -87,7 +89,7 @@ function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",go
         transition:"box-shadow .25s, border-color .25s",maxWidth:"100%"}}>
         {/* Takımlar + skor */}
         <div style={{display:"flex",alignItems:"center",gap:4,padding:"3px 6px",minWidth:0}}>
-          {badge(myB,SCOREBOARD3D_KIT.me)}
+          {badge(myB,KIT.me)}
           <span style={{fontSize:".44rem",fontWeight:800,color:"#dbe8ff",letterSpacing:.6}}>{abbr(myB,clubName)}</span>
           <span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"1px 5px",borderRadius:4,
             background:"rgba(255,255,255,.08)"}}>
@@ -96,7 +98,7 @@ function Scoreboard3D({clubName,oppName,myScore=0,oppScore=0,minute=0,half="",go
             {scoreBox(oppScore,"opp")}
           </span>
           <span style={{fontSize:".44rem",fontWeight:800,color:"#ffdada",letterSpacing:.6}}>{abbr(opB,oppName)}</span>
-          {badge(opB,SCOREBOARD3D_KIT.opp)}
+          {badge(opB,KIT.opp)}
         </div>
         {/* Dakika + devre */}
         <div style={{display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",
