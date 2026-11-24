@@ -23,7 +23,7 @@
 
 const RIG3D_HIP=1.48;          // kalça ekseni (yerden, m; oyuncu ~3.2 m: uzaktan okunsun; bacak+krampon 1.48 m)
 const RIG3D_RIG_H=3.19;        // rig boyu (krampon tabanı → saç tepesi); gerçek boy ölçeği buna göre
-const RIG3D_ACT_DUR={kick:0.5,poke:0.55,dive:1.5,slide:0.9,fall:1.3,celebrate:2.2};
+const RIG3D_ACT_DUR={throw:1.2,kick:0.5,poke:0.55,dive:1.5,slide:0.9,fall:1.3,celebrate:2.2};
 // Dalış animasyonunun en çok hızlanma katı (players3d diveTo ve moment3d dalış zamanlaması ortak)
 //   ve tam uzanma anı (dalış süresinin kesri: animateRig3D "dive" 0.12–0.45 arası uçuş)
 const RIG3D_DIVE_K_MAX=6, RIG3D_DIVE_REACH_U=0.45;
@@ -280,6 +280,13 @@ function animateRig3D(rig,dt,speed){
       const k=Math.min(1,u*3.5), out=u>0.8?1-(u-0.8)/0.2:1, e=k*out;
       B.position.y-=1.0*e; B.rotation.z=1.35*e; B.rotation.x=0.2*e;
       rig.armL.rotation.set(-1.2*e,0,0.8*e); rig.armR.rotation.set(-0.8*e,0,-0.4*e);
+      break;
+    }
+    case "throw":{
+      // Taç: top başın üstünde, sonra öne savurma
+      const k=u<0.45?u/0.45*0.25:0.25-(u-0.45)/0.55*1.9;
+      rig.armL.rotation.set(-2.9+Math.max(0,-k),0,0.2); rig.armR.rotation.set(-2.9+Math.max(0,-k),0,-0.2);
+      B.rotation.x+=-k*0.25;
       break;
     }
     case "celebrate":{

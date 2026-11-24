@@ -230,6 +230,17 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
       setFlash({text:`😨 GOL YEDİK! ${res.msg}`,col:C.red2,big:true,min:0});
       setTimeout(()=>setFlash(null),3500);
       setLog(l=>[...l,{min:0,text:`😨 [MÜDAHALE] Gol yedik — ${res.msg}`,col:C.red2,big:true}]);
+    } else if(res.optionId==="offside"){
+      setLog(l=>[...l,{min:momentMin,text:`🚩 OFSAYT! ${res.player} — ${fixture.opp} serbest vuruş kullanacak`,col:"#f1c40f"}]);
+      // 3D canlı akış: aynı noktadan rakip serbest vuruşu
+      if(res.zone){
+        setBallPos(res.zone);
+        setTimeout(()=>{ if(!mountedRef.current) return;
+          const eid=++ballEvIdRef.current;
+          events3dQueueRef.current=[...events3dQueueRef.current.slice(-29),{id:eid,x:res.zone[0],y:res.zone[1],type:"offside",team:"me",spot:true}];
+          if(live3dRef.current) live3dRef.current.events=events3dQueueRef.current;
+        },900);
+      }
     } else {
       setLog(l=>[...l,{min:0,text:`🎮 [MÜDAHALE] ${res.msg}`,col:res.success?C.grn2:"#e67e22"}]);
     }

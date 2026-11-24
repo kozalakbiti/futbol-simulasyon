@@ -175,6 +175,8 @@ function buildPitch3DMeshes(THREE,maxAniso,day,venue){
     new THREE.MeshLambertMaterial({color:0x17241b}));
   ground.position.y=-0.03; g.add(ground);
   if(day){ ground.material.color.setHex(0x2c4a2a); ground.receiveShadow=true; }
+  else if(VN.light==="noon") ground.material.color.setHex(0x2d4b24);       // çevre peyzajıyla aynı ton
+  else if(VN.light==="sunset") ground.material.color.setHex(0x323c20);
   // Çim: TEK düzlem (eski 14 şerit mesh'i yerine 1 çizim çağrısı). map = biçme deseni (iki yönde
   //   damalı açık/koyu bantlar + orta ölçekli leke, saha boyunca tek kopya); aoMap = ince çim
   //   tanesi (256² gürültü, ~1.4 m'de bir tekrar) — yalnız ortam (hemisfer) ışığını çarparak
@@ -465,7 +467,7 @@ function createPitch3DScene(THREE,container,opts){
     container.appendChild(canvas);
 
     scene=new THREE.Scene();
-    const camera=new THREE.PerspectiveCamera(PITCH3D_FOV,1.6,1,400);
+    const camera=new THREE.PerspectiveCamera(PITCH3D_FOV,1.6,1,800);   // dikey yayında kamera geri çekilir: karşı ufuk (≈410 m) kırpılmasın
 
     if(day){
       let lowEnd=false;
@@ -496,6 +498,8 @@ function createPitch3DScene(THREE,container,opts){
       scene.add(day3dSkyDome(THREE,LT==="sunset"?PITCH3D_SUNSET_SKY:undefined));
       scene.fog=new THREE.Fog(LT==="sunset"?PITCH3D_SUNSET_FOG:DAY3D_FOG,PITCH3D_FOG_FAR_OFF,PITCH3D_FOG_FAR_OFF*2);
     }
+    // Çevre peyzajı (landscape3d.js): stadyum dışı zemin, duvar, binalar, ağaçlar, tepeler → ufukta boşluk yok
+    scene.add(buildLandscape3D(THREE,LT));
     const groups={pitch:buildPitch3DMeshes(THREE,renderer.capabilities&&renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1,day,VEN),
       players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});

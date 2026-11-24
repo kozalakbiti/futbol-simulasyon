@@ -353,54 +353,73 @@ function day3dLights(THREE,scene,lowEnd,mode){
   return {sun,hemi};
 }
 
-// Stilize ağaçlar (düşük poligon, vertex rengi; InstancedMesh): GÖVDESİ GÖRÜNEN iki tür.
-//   ÇAM: kahverengi silindirik gövde (alt ~2.4 m açık) + dört katmanlı koyu yeşil koni
-//   MEŞE: kalın gövde + iki yan dal + yüzeyli (faceted) yaprak kümeleri — gövde ve dallar görünür
-//   pts: [[x,z,ölçek],...]; her üçüncü nokta meşe. Dönen: çam InstancedMesh; meşeler çocuk
-//   InstancedMesh (userData.oak) → aynı sahnede birlikte çizilir/temizlenir. instanceColor: ton farkı.
-function day3dTrees(THREE,pts){
+// Ağaçlar (InstancedMesh, vertex rengi): gövde + dallar + çok parçalı düzensiz yaprak tacı.
+//   İki tür: geniş taçlı ÇINAR ve ince uzun KAVAK (koni yok). Yaprak küreleri gürültüyle bozulur; alt/iç
+//   kısım koyu, üst kısım açık (vertex rengiyle pişmiş gölge). pts: [[x,z,ölçek],...]; her üçüncü nokta kavak.
+//   Dönen: çınar InstancedMesh; kavaklar çocuk InstancedMesh (userData.oak). tint: gece/gün batımı çarpanı.
+function day3dTrees(THREE,pts,tint){
   if(!pts||!pts.length) return null;
-  const pinePts=[], oakPts=[];
-  pts.forEach((p,i)=>(i%3===2?oakPts:pinePts).push(p));
-  const trunkC=0x6b4a2f, trunkD=0x553a24;
-  const pine=()=>{
-    const parts=[];
-    const tr=new THREE.CylinderGeometry(0.2,0.34,3.6,7); tr.translate(0,1.8,0); parts.push({g:tr,c:trunkC});
-    const fl=new THREE.CylinderGeometry(0.34,0.5,0.35,7); fl.translate(0,0.17,0); parts.push({g:fl,c:trunkD});   // kök genişlemesi
-    [[2.7,3.0,3.9,0x23502b],[2.15,2.7,5.55,0x2a5c32],[1.6,2.4,7.0,0x316839],[1.0,2.1,8.3,0x3b7542]].forEach(([r,h,y,c])=>{
-      const k=new THREE.ConeGeometry(r,h,9); k.translate(0,y,0); parts.push({g:k,c});
-    });
-    return mergeGeos3D(THREE,parts);
+  const broadPts=[], tallPts=[];
+  pts.forEach((p,i)=>(i%3===2?tallPts:broadPts).push(p));
+  const r=day3dRand(8642), trunkC=0x6b4f38, trunkD=0x503a28;
+  const tube=(x0,y0,z0,x1,y1,z1,ra,rb,c,parts)=>{
+    const a=new THREE.Vector3(x0,y0,z0), b=new THREE.Vector3(x1,y1,z1), dir=b.clone().sub(a), len=dir.length();
+    const g=new THREE.CylinderGeometry(rb,ra,len,6,1,true); g.translate(0,len/2,0);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize())));
+    g.translate(x0,y0,z0); parts.push({g,c});
   };
-  const oak=()=>{
-    const parts=[];
-    const tr=new THREE.CylinderGeometry(0.28,0.46,3.8,8); tr.translate(0,1.9,0); parts.push({g:tr,c:trunkD});
-    [[-1,0.7],[1,-0.6]].forEach(([sx,sz])=>{   // yan dallar (eğik silindir)
-      const br=new THREE.CylinderGeometry(0.09,0.15,2.0,6); br.rotateZ(-sx*0.75); br.rotateY(sz); br.translate(sx*0.7,3.6,sz*0.3); parts.push({g:br,c:trunkC});
-    });
-    [[0,5.4,0,2.0,0x3f7a35],[-1.4,4.7,0.5,1.5,0x4a8a3c],[1.3,4.8,-0.4,1.55,0x376f30],[0.2,4.6,1.3,1.35,0x447f37],[0.1,6.5,-0.2,1.3,0x4f9040]].forEach(([x,y,z,r,c])=>{
-      const k=new THREE.IcosahedronGeometry(r,0); k.translate(x,y,z); parts.push({g:k,c});
-    });
-    return mergeGeos3D(THREE,parts);
+  const leaf=(x,y,z,rx,ry,c,parts)=>{
+    const g=new THREE.IcosahedronGeometry(1,1), p=g.attributes.position, s1=r()*9, s2=r()*9;
+    for(let i=0;i<p.count;i++){                              // aynı konumdaki köşeler aynı kayar (çatlak olmaz)
+      const a=p.getX(i), b=p.getY(i), d=p.getZ(i), k=1+0.16*Math.sin(a*4.1+s1)*Math.cos(d*3.7+s2)+0.12*Math.sin(b*5.3+s2);
+      p.setXYZ(i,a*k*rx,b*k*ry,d*k*rx);
+    }
+    g.rotateY(r()*6); g.translate(x,y,z); parts.push({g,c});   // küre normalleri kalır: yumuşak yaprak
   };
-  const r=day3dRand(8642);
+  const shade=(g,y0,y1)=>{
+    const p=g.attributes.position, c=g.attributes.color, n=g.attributes.normal;
+    for(let i=0;i<p.count;i++){
+      if(p.getY(i)<y0) continue;
+      const k=0.62+0.42*Math.max(0,Math.min(1,(p.getY(i)-y0)/(y1-y0)))+0.1*n.getY(i);
+      c.setXYZ(i,c.getX(i)*k,c.getY(i)*k,c.getZ(i)*k*0.96);
+    }
+    return g;
+  };
+  const broad=()=>{
+    const P=[];
+    tube(0,0,0,0.08,2.6,0.04,0.42,0.27,trunkD,P); tube(0,0,0,0,0.35,0,0.62,0.42,trunkD,P);
+    for(let i=0;i<5;i++){ const a=i/5*6.283+0.4; tube(0.08,2.3+i*0.12,0.04,Math.cos(a)*1.5,4.0+(i%2)*0.5,Math.sin(a)*1.5,0.17,0.07,trunkC,P); }
+    const G=[0x4d7d34,0x558739,0x44722f,0x5e913f,0x3e6a2d];
+    leaf(0,5.0,0,1.9,1.6,G[2],P);
+    for(let i=0;i<6;i++){ const a=i/6*6.283; leaf(Math.cos(a)*1.7,4.5+(i%2)*0.55,Math.sin(a)*1.7,1.15+(i%3)*0.16,0.98,G[i%5],P); }
+    for(let i=0;i<3;i++){ const a=i/3*6.283+0.7; leaf(Math.cos(a)*0.85,6.15+i*0.2,Math.sin(a)*0.85,1.15,0.95,G[(i+1)%5],P); }
+    return shade(mergeGeos3D(THREE,P),3.2,7.2);
+  };
+  const tall=()=>{
+    const P=[];
+    tube(0,0,0,0,3.2,0,0.3,0.18,trunkC,P);
+    const G=[0x46763a,0x4f8040,0x3d6a34];
+    [[0,2.7,0,0.95,1.1],[0.35,3.7,0.2,1.05,1.2],[-0.3,4.5,-0.2,1.1,1.25],[0.2,5.5,-0.25,1.0,1.25],[-0.1,6.6,0.2,0.85,1.2],[0.05,7.6,0,0.62,1.15],[0,8.6,0,0.36,0.9]]
+      .forEach(([x,y,z,a,b],i)=>leaf(x,y,z,a,b,G[i%3],P));
+    return shade(mergeGeos3D(THREE,P),1.8,9);
+  };
   const m=new THREE.Matrix4(), q=new THREE.Quaternion(), p=new THREE.Vector3(), s=new THREE.Vector3(), up=new THREE.Vector3(0,1,0), col=new THREE.Color();
   const inst=(geo,list,name)=>{
-    const mat=new THREE.MeshLambertMaterial({vertexColors:true});
+    const mat=new THREE.MeshLambertMaterial({vertexColors:true,color:Number.isFinite(tint)?tint:0xffffff});
     const im=new THREE.InstancedMesh(geo,mat,Math.max(1,list.length));
     im.name=name; im.frustumCulled=false; im.count=list.length;
     for(let i=0;i<list.length;i++){
       const [x,z,k]=list[i], sc=Number.isFinite(k)?k:1;
       q.setFromAxisAngle(up,r()*Math.PI*2);
-      p.set(x,0,z); s.set(sc*(0.9+r()*0.2),sc*(0.92+r()*0.16),sc*(0.9+r()*0.2));
+      p.set(x,0,z); s.set(sc*(0.9+r()*0.22),sc*(0.88+r()*0.24),sc*(0.9+r()*0.22));
       m.compose(p,q,s); im.setMatrixAt(i,m);
-      col.setRGB(0.86+r()*0.18,0.88+r()*0.16,0.84+r()*0.16); im.setColorAt(i,col);
+      const v=0.84+r()*0.2; col.setRGB(v*(0.94+r()*0.16),v,v*(0.88+r()*0.1)); im.setColorAt(i,col);
     }
     im.instanceMatrix.needsUpdate=true;
     if(im.instanceColor) im.instanceColor.needsUpdate=true;
     return im;
   };
-  const im=inst(pine(),pinePts,"trees");
-  if(oakPts.length){ const o=inst(oak(),oakPts,"treesOak"); im.add(o); im.userData.oak=o; }
+  const im=inst(broad(),broadPts,"trees");
+  if(tallPts.length){ const o=inst(tall(),tallPts,"treesOak"); im.add(o); im.userData.oak=o; }
   return im;
 }
