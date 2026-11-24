@@ -56,7 +56,7 @@ const ACTORS3D_COLORS={
 // Adım 11: canlı akış %35 hızlandırıldı (0.55 × 1.35 ≈ 0.743); maç saati (MATCH3D_TEMPO),
 //   koşu/top hızları ve senaryo süreleri hep bu tek orandan türediği için birlikte hızlanır.
 const ACTORS3D_SLOW=0.55*1.35;
-const ACTORS3D_SHOT_FAST=1.45;   // canlı akış şut uçuşu ek hız çarpanı (NSM referansı: +%45; kilit an MOMENT3D_SHOT_FAST ile aynı)
+const ACTORS3D_SHOT_FAST=2.9;    // canlı akış şut uçuşu ek hız çarpanı (sert, akıcı şut; kilit an MOMENT3D_SHOT_FAST ile aynı)
 // Canlı akış pas seçimi (m): bu mesafeye kadar yerden kısa pas, üstü havadan (ağır cezalı) ve
 //   PASS_MAX'tan uzağa pas yok → oyuncular en yakın uygun arkadaşla kademeli paslaşır.
 const ACTORS3D_PASS_SHORT=22, ACTORS3D_PASS_MAX=32;
@@ -115,7 +115,7 @@ function createMatchActors3D(api,opts={}){
     goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;},
     drivePlayer(){},setOwner(){},getOwner(){return null;},kickTo(){return 0;},kickBall(){},
     getBallVel(){return null;},isBallFree(){return false;},getPlayer(){return null;},poseFx(){},
-    actionFx(){},diveFx(){},faceToward(){},setPlayerFade(){},setPlayerHidden(){},ballR:0.2};
+    actionFx(){},diveFx(){},faceToward(){},setPlayerFade(){},setPlayerHidden(){},setBallIdleFx(){},ballR:0.2};
   if(!api||!api.THREE||api.isDisposed()) return noop;
   const THREE=api.THREE, D=PITCH3D_DIM, L=D.halfLen, H=D.halfWid, GW=D.goalWidth/2;
   const COL=ACTORS3D_COLORS, PACE=ACTORS3D_PACE, BR=0.2; // top yarıçapı (m): gerçek boy oyunculara oranlı (gerçek ~0.11; okunurluk için ~1.8×). Kilit an fiziği de bunu kullanır (ballR)
@@ -564,6 +564,8 @@ function createMatchActors3D(api,opts={}){
   const trail=new THREE.Points(trailGeo,trailMat); trail.frustumCulled=false; trail.visible=false; trail.renderOrder=3;
   ballRoot.add(trail);
   let trailK=0;   // iz yoğunluğu 0–1 (yumuşak açılıp kapanır)
+  let hookRdt=0;   // son karenin gerçek süresi (sn; ağır çekimden bağımsız; hook günceller)
+  const ballIdle={spin:0,bob:0,t:0};   // vuruş ekranı canlı top (setBallIdleFx)
   const bpos=new THREE.Vector3(0,0,0);         // y = yerden yükseklik (top merkezi BR+y)
   const fl={on:false,script:false,sx:0,sy:0,sz:0,ex:0,ey:0,ez:0,h:0,dur:1,t:0,fn:null};
   const legs=[];                                // senaryo kuyruğu (olay başına doldurulur)
@@ -1082,7 +1084,7 @@ function createMatchActors3D(api,opts={}){
   };
   // Senaryo bitti / normal akış: sahiplik ve takım davranışı (her kare, hareketten ÖNCE)
   const autoPossess=(dt)=>{
-    if(gkPend.on&&clk>=gkPend.t){ gkPend.on=false; diveTo(gkPend.p,gkPend.x,gkPend.z,gkPend.h,gkPend.spd); } // gecikmeli kaleci dalışı
+    if(gkPend.on&&clk>=gkPend.t){ gkPend.on=false; diveTo(gkPend.p,gkPend.x,gkPend.z,gkPend.h,gkPend.spd,gkPend.t0); } // gecikmeli kaleci dalışı
     if(anc.on&&bt.on){ const k=1-Math.exp(-dt/0.7); anc.x+=(bt.x-anc.x)*k; anc.z+=(bt.z-anc.z)*k; }
     if(busy()){
       own.team=null; freeBall=false; rcv.team=null; postScript=true; pk.on=false;
@@ -1291,14 +1293,20 @@ function createMatchActors3D(api,opts={}){
   // Kaleci TEPKİ GECİKMESİ (canlı akış): şut anında değil; top ACTORS3D_GK_SEE m yol alıp yönü
   //   belli olunca + refleks süresi geçince uçar (en geç uçuşun %70'inde). flight: topun kaleye
   //   varış süresi (sn), dist: şut mesafesi (m). Dalış hızı, tam uzanma varışa denk gelecek şekilde.
-  const gkPend={on:false,t:0,p:null,x:0,z:0,h:0,spd:1};
+  const gkPend={on:false,t:0,p:null,x:0,z:0,h:0,spd:1,t0:0};
   const diveLater=(p,wx,wz,h,flight,dist)=>{
     if(!p) return;
     const fl=Math.max(0.15,Number(flight)||0.5), d=Math.max(4,Number(dist)||16);
     const see=fl*clamp(ACTORS3D_GK_SEE/d,0.08,0.6);
-    const delay=Math.min(fl*0.7,ACTORS3D_GK_REFLEX+Math.random()*0.08+see);
+    // Tam uzanma (dalışın RIG3D_DIVE_REACH_U'su) topun varışına denk gelsin: gecikme en hızlı uzanmanın
+    //   yetişeceği kadarla sınırlı; dalış hızı kalan süreden (en çok RIG3D_DIVE_K_MAX×); o da yetmezse
+    //   animasyon ileriden başlar (t0) → hızlı şutta da kaleci topla aynı anda uzanır
+    const reachD=RIG3D_DIVE_REACH_U*RIG3D_ACT_DUR.dive;
+    const delay=Math.min(fl*0.7,ACTORS3D_GK_REFLEX+Math.random()*0.08+see,Math.max(0,fl-reachD/RIG3D_DIVE_K_MAX));
+    const rem=Math.max(0.01,fl-delay);
     gkPend.on=true; gkPend.t=clk+delay; gkPend.p=p; gkPend.x=wx; gkPend.z=wz; gkPend.h=h;
-    gkPend.spd=clamp(0.45*RIG3D_ACT_DUR.dive/Math.max(0.1,fl-delay),1,3);
+    gkPend.spd=clamp(reachD/rem,1,RIG3D_DIVE_K_MAX);
+    gkPend.t0=Math.max(0,RIG3D_DIVE_REACH_U-rem*gkPend.spd/RIG3D_ACT_DUR.dive);
   };
 
   // ── Efektler ──
@@ -1629,6 +1637,12 @@ function createMatchActors3D(api,opts={}){
   const ringFx=(x,z,color,dur,maxS)=>{ if(!disposed) spawnRing(x,0.06,z,color,dur||0.8,maxS||4); };
   const shakeGoal=(s)=>{ if(!disposed) shakeNet(s); };
   const getBall=()=>bpos; // salt okunur
+  // Vuruş ekranı canlı topu (yalnız görsel; bpos/fizik değişmez): spin = kendi ekseninde dönüş (rad/sn),
+  //   bob = yerinde hafif sekme (m). Gerçek zamanla işler (ağır çekimden bağımsız). (0,0) → kapalı.
+  const setBallIdleFx=(spin,bob)=>{
+    ballIdle.spin=Number.isFinite(spin)?spin:0; ballIdle.bob=Number.isFinite(bob)?Math.max(0,Math.min(0.15,bob)):0;
+    if(!ballIdle.spin&&!ballIdle.bob) ballIdle.t=0;
+  };
 
   const resetKickoff=()=>{
     if(disposed) return;
@@ -1838,7 +1852,12 @@ function createMatchActors3D(api,opts={}){
       ball.scale.set(sc,sc,sc); ball.position.set(bpos.x,BR*sc+bpos.y,bpos.z);
       // Dönme: yer değiştirmeyle orantılı (yuvarlanma; görünen yarıçapla)
       ball.rotation.z-=(bpos.x-px)/(BR*sc);
-      ball.rotation.x+=(bpos.z-pz)/(BR*sc); }
+      ball.rotation.x+=(bpos.z-pz)/(BR*sc);
+      if(ballIdle.spin||ballIdle.bob){
+        ballIdle.t+=hookRdt;
+        ball.rotation.y+=ballIdle.spin*hookRdt; ball.rotation.x+=ballIdle.spin*0.35*hookRdt;   // yerinde dönüş
+        ball.position.y+=ballIdle.bob*Math.abs(Math.sin(ballIdle.t*5.2));                     // hafif sekme
+      } }
     ballShadow.position.set(bpos.x,0.035,bpos.z);
     // Yumuşak temas gölgesi: top yükseldikçe KÜÇÜLÜR ve silikleşir (yerde ~0.94 m çap, 4 m'de ~yarısı)
     const ss=0.55*(BR/0.42)*(api.camera&&api.camera.position&&api.camera.position.y>14?1.6:1)/(1+Math.max(0,bpos.y)*0.25);   // top boyuyla orantılı
@@ -1889,6 +1908,7 @@ function createMatchActors3D(api,opts={}){
   let hookMs=0;   // son karenin duvar saati (ms): uzun boşluk = sekme arka planda kalmış
   const hook=(dt,t,rdt)=>{
     if(disposed) return;
+    hookRdt=Number.isFinite(rdt)?Math.min(0.1,rdt):dt;
     clk=t;
     const nowMs=evNowMs(), gapMs=hookMs>0?nowMs-hookMs:0; hookMs=nowMs;
     if(opts.getSnapshot) update(opts.getSnapshot());
@@ -1935,6 +1955,6 @@ function createMatchActors3D(api,opts={}){
   return {update,triggerEvent,resetKickoff,dispose,
     movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall,
     drivePlayer,setOwner,getOwner,kickTo,kickBall,getBallVel:()=>bvel,isBallFree:()=>freeBall,
-    getPlayer,poseFx,actionFx,diveFx,faceToward,setPlayerFade,setPlayerHidden,passTime,ballR:BR,
+    getPlayer,poseFx,actionFx,diveFx,faceToward,setPlayerFade,setPlayerHidden,setBallIdleFx,passTime,ballR:BR,
     buildUp,inFinalThird,isAlive:()=>!disposed,kickTime};
 }

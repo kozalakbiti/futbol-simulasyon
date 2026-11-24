@@ -96,7 +96,7 @@ const MOMENT3D_ORBIT_EL0=Math.atan2(1,0.2), MOMENT3D_ORBIT_EL_MIN=25*Math.PI/180
 const MOMENT3D_ARCADE_SHOT=2.2, MOMENT3D_DIVE_K_MAX=RIG3D_DIVE_K_MAX;   // (rig3d.js daha önce yüklenir)
 // Adım 16: şut 2.5D'de ok gibi sert gitsin → ekrandaki şut oynatması ayrıca ×2.2 (sonuç fiziği aynı)
 const MOMENT3D_SHOT_HARD=2.2;
-const MOMENT3D_SHOT_FAST=1.45;     // şut topu oynatma hızı ek çarpanı (NSM referansı: +%45)
+const MOMENT3D_SHOT_FAST=2.9;      // şut topu oynatma hızı ek çarpanı (2.5D kuşbakışı şut: sert, akıcı)
 // Adım 17: vuruş ekranında topun
 //   çevresindeki çim yaprağı sayısı ve yarıçapı (m)
 const MOMENT3D_TUFT_N=420, MOMENT3D_TUFT_R=1.7;
@@ -1134,7 +1134,7 @@ function createMoment3DController(api,cfg){
   // Adım 16: ×MOMENT3D_SHOT_HARD (2.2) daha sert; kaleci kayma hızları da aynı katla (SHOT_GK_K)
   // MOMENT3D_SHOT_FAST: şut oynatması ek %45 hızlı (sert, tok vuruş). Kaleci tepki/dalış zamanlaması
   //   SHOT_PLAY_K'dan türetildiği için birlikte ölçeklenir (dalış yine topun varışına denk gelir).
-  const SHOT_PLAY_K=1.6*MOMENT3D_ARCADE_SHOT*MOMENT3D_SHOT_HARD*MOMENT3D_SHOT_FAST, SHOT_GK_K=MOMENT3D_ARCADE_SHOT*MOMENT3D_SHOT_HARD;
+  const SHOT_PLAY_K=1.6*MOMENT3D_ARCADE_SHOT*MOMENT3D_SHOT_HARD*MOMENT3D_SHOT_FAST, SHOT_GK_K=MOMENT3D_ARCADE_SHOT*MOMENT3D_SHOT_HARD*MOMENT3D_SHOT_FAST;   // kaleci yer değiştirmesi de top hızıyla senkron
   const toLegs=(smp,ev,onEnd,k=1)=>{
     const evs=ev.slice().sort((a,b)=>a.t-b.t), legs=[];
     let ei=0;
@@ -1481,47 +1481,17 @@ function createMoment3DController(api,cfg){
   const strikeLow={on:false,cross:false};    // vuruştan sonra da alçak kamera (şutta)
   let strikeSnap=false;                      // vuruş ekranının ilk karesi: kamera geçişsiz atlar
   //   force=true (ŞUT düğmesi): tür her zaman şut (classify forceShot), confirmStrike'a taşınır
-  // ── HAREKETLİ TOP (NSM tarzı, yalnız akan oyun): vuruş ekranına geçince top yerine çakılı kalmaz;
-  //   oyuncunun gidiş yönünde (ya da pozisyon tipine göre: orta/ara pası/karambol) yerde yavaşça
-  //   yuvarlanır ya da hafifçe seker → kullanıcı hareketli topa zamanlama yaparak vurur (havadaki
-  //   topa vuruş o yükseklikten çıkar). Duran topta (frikik, penaltı, korner) top sabit.
-  //   GERÇEK zamanla ilerler (vuruş ekranındaki ×0.05 ağır çekimden bağımsız), hız üstel söner.
-  const sroll={on:false,vx:0,vz:0,hop:0,ph:0,per:0.5,prevT:0};
-  const startStrikeRoll=(pvx,pvz)=>{
-    sroll.on=false;
-    if(setPiece||isPen||pend.prev!=="play") return;
-    let ux=0, uz=0;
-    const ps=Math.hypot(pvx,pvz);
-    if(type==="cross"&&passes===0){ ux=0.35; uz=-sgn(B.z||1); }                   // kanattan gelen orta: içe doğru
-    else if(ps>0.6){ ux=pvx; uz=pvz; }                                              // sürüş yönü
-    else if(realT-lastDrib.t<1.5){ ux=lastDrib.dx; uz=lastDrib.dz; }
-    else if(passes>0&&Number.isFinite(passInfo.bx0)){ ux=B.x-passInfo.bx0; uz=B.z-passInfo.bz0; }   // pas geliş yönü
-    else { ux=1; uz=(Math.random()-0.5)*0.6; }
-    const ul=Math.hypot(ux,uz); if(!(ul>1e-4)) return;
-    const sp=type==="cross"?1.5:type==="scramble"?0.9:type==="counter"||type==="oneonone"?1.3:clamp(0.8+ps*0.12,0.8,1.5);
-    sroll.vx=ux/ul*sp; sroll.vz=uz/ul*sp;
-    sroll.hop=type==="cross"?0.34:type==="scramble"?0.28:0.05;                    // sekme yüksekliği (m)
-    sroll.ph=0; sroll.per=Math.max(0.16,2*Math.sqrt(2*sroll.hop/9.81)); sroll.prevT=0; sroll.on=true;
+  // ── CANLI TOP (NSM tarzı, yalnız akan oyun): vuruş ekranında top YERİNDE kalır (kamera önünde sabit
+  //   derinlik → parmak hedefi, vuruş halkası ve yön çizgisi topun merkezinde sabit); yalnız GÖRSEL
+  //   olarak kendi ekseninde döner ve hafifçe seker (zamanlama hissi). Topun fizik konumu (B) değişmez.
+  //   Duran topta (frikik, penaltı, korner) tamamen hareketsiz. Gerçek zamanla işler (players3d).
+  const startStrikeRoll=()=>{
+    if(!actors.setBallIdleFx) return;
+    if(setPiece||isPen||pend.prev!=="play"){ actors.setBallIdleFx(0,0); return; }
+    const bounce=type==="cross"||type==="scramble";                         // orta / karambol: biraz daha canlı
+    actors.setBallIdleFx(bounce?3.2:2.2,bounce?0.05:0.025);                   // dönüş (rad/sn), sekme (m)
   };
-  const stepStrikeRoll=(rdt)=>{
-    if(!sroll.on||rdt<=0) return;
-    const k=Math.exp(-0.32*rdt);
-    sroll.vx*=k; sroll.vz*=k;
-    let nx=B.x+sroll.vx*rdt, nz=B.z+sroll.vz*rdt;
-    if(nx>L-4){ nx=L-4; sroll.vx=0; }                                                // kaleye yuvarlanıp girmez
-    if(Math.abs(nz)>H-1){ nz=clamp(nz,-(H-1),H-1); sroll.vz=0; }
-    let y=0;
-    if(sroll.hop>0.02){
-      sroll.ph+=rdt/sroll.per;
-      if(sroll.ph>=1){ sroll.ph-=1; sroll.hop*=0.55; sroll.per=Math.max(0.16,2*Math.sqrt(2*sroll.hop/9.81)); }
-      y=sroll.hop*4*sroll.ph*(1-sroll.ph);
-    }
-    actors.setBall(nx,nz,y);
-    if(Math.hypot(sroll.vx,sroll.vz)<0.05&&sroll.hop<=0.02) sroll.on=false;
-    // Önizleme yolu hareketli topla (10 Hz; son dokunulan vuruş noktasıyla)
-    sroll.prevT+=rdt;
-    if(sroll.prevT>0.1){ sroll.prevT=0; try{ updatePreview(prevSpot.x,prevSpot.y); }catch(_){} }
-  };
+  const stopStrikeRoll=()=>{ if(actors.setBallIdleFx) actors.setBallIdleFx(0,0); };
   const beginStrike=(dx,dz,power,force)=>{
     if(!canAct()||phase==="strike"||isTackle) return false;
     const l=Math.hypot(dx,dz); if(!(l>1e-4)) return false;
@@ -1538,7 +1508,7 @@ function createMoment3DController(api,cfg){
     pend.on=true; pend.dx=dx; pend.dz=dz; pend.power=power; pend.kind=c.kind; pend.t=0; pend.prev=phase; pend.force=force===true?true:force==="cross"?"cross":false;
     if(c.kind==="shot"){ pend.tx=L; pend.tz=clamp(c.zHit,-GW-2,GW+2); } else { pend.tx=c.lx; pend.tz=c.lz; }
     drib.on=false; spin.x=0; spin.y=0; passMode=false; aim.on=false; draw.on=false;
-    const a=ctlA(), pvx=a.vx, pvz=a.vz; a.vx=0; a.vz=0;
+    const a=ctlA(); a.vx=0; a.vz=0;
     // Top ayak kilidinden çözülür (vuruş anına dek yerinde durur); vurucu KAMERANIN ARKASINA
     // alınır (topun 3.3 m gerisi) → çim seviyesi kamera topun hemen arkasında, görüş açık.
     // Vuruş onaylanınca (confirmStrike) vurucu topun sol-arkasına adım atar ve vurur.
@@ -1552,7 +1522,7 @@ function createMoment3DController(api,cfg){
     if(gk&&actors.faceToward) actors.faceToward("away",gk.idx,B.x,B.z,0.5); // kaleci ilk karede topa dönük
     strikeSnap=true;                         // kuşbakışından geçişsiz (kesin) çim seviyesine
     phase="strike"; camPan.pan=false; hud();
-    startStrikeRoll(pvx,pvz);                 // akan oyunda top yuvarlanır/seker (duran topta sabit)
+    startStrikeRoll();                       // akan oyunda top yerinde döner/hafif seker (duran topta sabit)
     try{ updatePreview(0,0); }catch(_){}     // dokunmadan önce düz (kavissiz) yol görünür
     return true;
   };
@@ -1563,7 +1533,7 @@ function createMoment3DController(api,cfg){
     if(l>1){ x/=l; y/=l; }
     if(l<0.2){ x=0; y=0; }
     spin.x=x; spin.y=y;
-    sroll.on=false;                          // vuruş: top şu anki yerinden (ve yüksekliğinden) çıkar
+    stopStrikeRoll();
     pend.on=false; phase=pend.prev==="set"?"set":"play";
     try{ hidePreview(); }catch(_){}   // (kurulum sırasında henüz tanımsız olabilir)
     // Adım 15: vuruş tetiklendiği karede 3D kamera kapanır → uçuş, falso, kaleci, sonuç 2.5D'de
@@ -2343,7 +2313,7 @@ function createMoment3DController(api,cfg){
   // Vuruş ekranındaki İPTAL: vuruş yapılmadan 2.5D sahaya dön (top yine ayakta)
   const cancelStrike=()=>{
     if(phase!=="strike"||!pend.on||outcome) return false;
-    sroll.on=false; if(B.y>0) actors.setBall(B.x,B.z,0);     // hareketli top durur, yere iner
+    stopStrikeRoll();
     pend.on=false; phase=pend.prev==="set"?"set":"play";
     try{ hidePreview(); }catch(_){}   // (kurulum sırasında henüz tanımsız olabilir)
     forceShot=false; forceCross=false; spin.x=0; spin.y=0; strikeLow.on=false;
@@ -2504,9 +2474,10 @@ function createMoment3DController(api,cfg){
     if(!lv){ prevPts.visible=false; ribGeo.setDrawRange(0,0); return; }
     S.x=x0; S.y=y0; S.z=z0; S.vx=lv.vx; S.vy=lv.vy; S.vz=lv.vz; S.side=side;
     const ux=(c.kind==="cross"?(c.lx-x0):(L-x0)), uz=(c.kind==="cross"?(c.lz-z0):(c.zHit-z0)), ul=Math.hypot(ux,uz)||1;
-    // Örnekler yol boyunca MOMENT3D_PREVIEW_STEP m'de bir; şerit topun ~0.55 m önünden başlar
-    let t=0, n=0, lx=x0, ly=y0, lz=z0, started=false, hitWall=false;
+    // Örnekler yol boyunca MOMENT3D_PREVIEW_STEP m'de bir; şerit HER ZAMAN topun tam merkezinden başlar
+    let t=0, n=0, lx=x0, ly=y0, lz=z0, started=true, hitWall=false;
     const push=()=>{ if(n>=PREV_N) return; const j=n*3; ribC[j]=S.x; ribC[j+1]=S.y+BALL_R; ribC[j+2]=S.z; n++; lx=S.x; ly=S.y; lz=S.z; };
+    push();                                         // ilk nokta: top merkezi (x0, y0+BALL_R, z0)
     while(t<3&&n<PREV_N){
       stepBall(S,SIM_DT); t+=SIM_DT;
       const prog=((S.x-x0)*ux+(S.z-z0)*uz)/ul;
@@ -2716,7 +2687,6 @@ function createMoment3DController(api,cfg){
       // Vuruş ekranı: simülasyon durur; süre dolarsa düz vuruş. Topa basılı tutup kaydırırken
       //   (önizleme) süre DURUR — arayüzdeki geri sayım çubuğu da (strikeHold) duraklar.
       if(!sdrag.on) pend.t+=rdt;
-      if(!outcome) stepStrikeRoll(rdt);         // hareketli top (akan oyun)
       if(pend.t>=MOMENT3D_STRIKE_SEC&&!outcome) confirmStrike(0,0);
     }
     if(phase!=="strike") simStep(dt,rdt);
