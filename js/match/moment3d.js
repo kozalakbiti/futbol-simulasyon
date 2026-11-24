@@ -107,6 +107,13 @@ const MOMENT3D_DRIB_F=0.4;
 const MOMENT3D_DRIB_MIN=3, MOMENT3D_DRIB_MAX=12;   // yeşil ok = top sürme mesafesi (m)
 const MOMENT3D_STRIKE_SEC=4;       // vuruş ekranında dokunulmazsa düz vuruş (gerçek zaman, sn)
 const MOMENT3D_SPIN_CURL=0.32;     // vuruş ekranı: topun kenarı → kavis (rad, + = sağa)
+// NSM tarzı dinamik hedef: vuruş noktası yalnız kavisi değil NİHAİ HEDEFİ de değiştirir. Topun sağına
+//   vuruş hedefi sola (soluna vuruş sağa) kaydırır, top açılı çıkıp kavisle oraya döner. Kayma 16 m
+//   şutta MOMENT3D_SPIN_AIM m, mesafeyle orantılı (0.45×…1.6×). Alt/üst (yükselme/sertlik) shotLaunch'ta.
+const MOMENT3D_SPIN_AIM=1.7;
+// Doğal sapma (şut reytingi): 1σ yanal ≈ (100−şut)/100 × MOMENT3D_SHOT_DEV_Z m, dikey × _Y m.
+//   85 şutta ~0.1 m (fark edilmez), 55 şutta ~0.3 m — vuruş organik, sürpriz ama kontrol oyuncuda.
+const MOMENT3D_SHOT_DEV_Z=0.65, MOMENT3D_SHOT_DEV_Y=0.3;
 // Vuruş ekranı kamerası: topun gerisi / yüksekliği (m, top→hedef ekseninde, yanal kayma yok) ve
 //   topun ekrandaki dikey yeri (NDC: −1 alt kenar, 0 merkez) → top alt ortada tam görünür
 // Kilit an HUD'u: yarı saydam "cam" katmanlar (backdrop-filter + -webkit- öneki). Bulanıklaştırma
@@ -419,6 +426,7 @@ function createMoment3DController(api,cfg){
   const oppStr=clamp(num(cfg.oppStr,70),40,99);
   const drb=num(P.spd,60)*0.6+num(P.ovr,65)*0.4;              // dribling yeterliliği
   const defSk=num(P.def,60)*0.6+num(P.ovr,65)*0.4;
+  const shotSk=clamp(num(P.sht,num(P.att,num(P.ovr,65))),30,99);   // şut reytingi (doğal sapma)
   // Hızlar (m/sn): top sürerken oyuncumuz savunmacılardan biraz yavaş; savunmacıların
   // dönüş hızı sınırlı olduğu için ani yön değiştirme onları geçer.
   const VMAX_BALL=clamp(4.9+(drb-50)*0.04,4.6,6.4);
@@ -433,7 +441,10 @@ function createMoment3DController(api,cfg){
     const w=wp(p100);
     const a={team,idx:snapList.length,x:w.x,z:w.z,vx:0,vz:0,ax:w.x,az:w.z,kind,name:name||"",
       cool:0,mark:-1,ovr:false,ox:0,oz:0,osp:0,rw:{x:0,z:0,w:1}};
-    snapList.push({id:snapList.length,x:p100[0],y:p100[1],role});
+    // Baraj oyuncuları gerçek insan boyunda (h, m: kale yüksekliğinin ~%74.5'i ≈ 1.82 m; players3d ölçekler)
+    const sn={id:snapList.length,x:p100[0],y:p100[1],role};
+    if(kind==="wall") sn.h=PITCH3D_DIM.goalHeight*0.745;
+    snapList.push(sn);
     list.push(a); return a;
   };
   // Takım arkadaşı adları (mates prop'u: tackle'da savunmacılar, diğerlerinde hücumcular önce)
@@ -1062,6 +1073,13 @@ function createMoment3DController(api,cfg){
     const speed=(13+clamp(power,0,100)*0.19)*(1-0.4*lift)*(1+0.08*top);
     return {ty:Math.max(0.05,ty),speed,top:spin.y};
   };
+  // Dinamik nihai hedef (kale çizgisi z): vuruş noktası yanal ofseti (spin.x) hedefi ters yöne kaydırır
+  const aimShift=(x0,z0,zHit)=>{
+    const d=Math.hypot(L-x0,zHit-z0);
+    return zHit-spin.x*MOMENT3D_SPIN_AIM*clamp(d/16,0.45,1.6);
+  };
+  // Yaklaşık normal dağılımlı sapma (−1…1 üç örneğin ortalaması ×√3 değil: hafif, kuyruksuz)
+  const devN=()=>(Math.random()+Math.random()+Math.random()-1.5)/0.5;
   const fxEvent=(e)=>{
     if(e.type==="block") actors.ringFx(e.x,e.z,0xe74c3c,0.7,4);
     else if(e.type==="post"){ actors.shakeGoal(1); actors.ringFx(e.x,e.z,0xffffff,0.6,3); }
@@ -1191,6 +1209,11 @@ function createMoment3DController(api,cfg){
       if(gk){
         override(gk,gk.x,gk.z,0); gk.vx=0; gk.vz=0;
         {
+          // Şut anı: kaleci yerinde donmaz; tepki süresince tahmin ettiği köşeye yan adımla kayar
+          //   (doğru okuduysa topun hedef z'sine, aldandıysa öbür yana; en çok 0.7 m), sonra dalar
+          { const sv=ev.some(e=>e.type==="save"), czp=Number.isFinite(plan.cz)?plan.cz:clamp(o.tz,-GW,GW);
+            const dzp=czp-gkz, sdp=sgn(dzp||(Math.random()-0.5)), dir=(sv||plan.correct)?sdp:-sdp;
+            if(kind!=="block") override(gk,gk.x,gkz+dir*Math.min(0.7,Math.max(0.35,Math.abs(dzp)*0.3)),4.5*SHOT_GK_K); }
           // Kaleci şut anında (tepki süresiyle) yatay dalışla uçar: doğru okursa topun / tahmin
           //   noktasının tarafına (erişim içindeyse kurtarır), ters köşeye aldanırsa öbür yana.
           //   Top kaleciye ulaşmadan sekse bile (plan.t yok) hedef noktaya doğru uçar.
@@ -1425,8 +1448,10 @@ function createMoment3DController(api,cfg){
       return true;
     }
     // Şut: aşırı güç (>90, kırmızı) isabetsiz → sapma (zardan önce, kaliteye yansır)
-    let zHit=c.zHit;
+    let zHit=aimShift(B.x,B.z,c.zHit);
     if(power>90) zHit+=(Math.random()*2-1)*(power-88)*0.35;
+    const devK=(100-shotSk)/100*(isPen?0.6:1);
+    zHit+=devN()*devK*MOMENT3D_SHOT_DEV_Z;
     const ev=evalShot(B.x,B.z,ax,az,zHit,Math.abs(curl),wallUp?0.18:1); // parmak bükmesi; kenar vuruşu evalShot içinde (spin.x)
     let key=passes>0?"pass_shot":"shot";
     if(isPen) key=power>80?"power":"shot"; // güçlü vuruş seçeneği yalnız yeşil bölgenin üstünde (tatlı bölge avantajı olmasın)
@@ -1435,6 +1460,7 @@ function createMoment3DController(api,cfg){
     // Sonuç FİZİKTEN: baraj/oyuncu kapsülü → block, direk → post, kaleci erişimi → save,
     // çerçeve dışı → wide; yalnız kalecinin yetişemediği yerden çizgiyi geçen top gol
     const ln=shotLaunch(power);
+    ln.ty=Math.max(0.05,ln.ty+devN()*devK*MOMENT3D_SHOT_DEV_Y);
     const sh=physShot({x:B.x,z:B.z,y:B.y,tz:zHit,ty:ln.ty,speed:ln.speed,side,top:ln.top,success:rl.success});
     const actName=key==="power"||key==="carry"?"shot":key;
     emit(mk(sh.goal,actName,sh.kind,name,power,ev.q,rl.chance,sh.goal,false));
@@ -2238,7 +2264,9 @@ function createMoment3DController(api,cfg){
       else standTackle(a.x+aim.dx*aim.len,a.z+aim.dz*aim.len);
       return;
     }
-    if(aim.mode==="drib"){ drib.on=false; hud(); return; } // parmak kalktı: oyuncu durur
+    // Parmak kalktı: oyuncu durur ve ZAMAN DONAR (bullet-time) — rakipler, top ve süre yeni
+    //   hamleye (tekrar sürme / pas / şut) dek sabit; hook koşulu hamle başlayınca çözer
+    if(aim.mode==="drib"){ drib.on=false; freezeTime(true); hud(); return; }
     if(aim.power>3) beginStrike(aim.dx,aim.dz,aim.power); else hud();
   };
   // SADE VURUŞ EKRANI (New Star tarzı): vurucu dahil tüm saha oyuncuları gizlenir; ekranda yalnız
@@ -2411,7 +2439,7 @@ function createMoment3DController(api,cfg){
     if(c&&c.kind==="shot"){
       const ln=shotLaunch(pend.power);
       x0=Math.min(B.x,L-1.2);
-      lv=solveLaunch(x0,z0,y0,L,c.zHit,ln.ty,ln.speed,side,ln.top);
+      lv=solveLaunch(x0,z0,y0,L,aimShift(x0,z0,c.zHit),ln.ty,ln.speed,side,ln.top);   // dinamik hedef (sapmasız)
       S.top=ln.top; endX=L+0.6;
     } else if(c&&c.kind==="cross"){
       const d=Math.hypot(c.lx-x0,c.lz-z0)||1, T=clamp(d/19,0.8,2.2);
@@ -2560,6 +2588,8 @@ function createMoment3DController(api,cfg){
       //   kalkarken bunu pointerup'tan önce yollar) de bırakış sayılır → kesin vuruş ekranı
       const kickRelease=aim.mode==="kick"&&!isTackle&&aim.power>3;
       if((!cancelled||kickRelease)&&!aim.cancel&&!outcome&&canAct()) releaseAim();
+      // Top sürme: iptal/yakalama kaybıyla kalkan parmak da bırakış → oyuncu durur, zaman donar
+      else if(aim.mode==="drib"&&!isTackle&&!outcome){ drib.on=false; freezeTime(true); hud(); }
       else hud();
       return;
     }

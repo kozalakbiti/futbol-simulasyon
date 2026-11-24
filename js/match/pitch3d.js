@@ -126,10 +126,14 @@ function pitch3dGrassCanvases(gw,gh){
             const fx=x/W*(GX-1), x0=Math.floor(fx), tx=fx-x0, x1=Math.min(GX-1,x0+1);
             const n=(lo[y0*GX+x0]*(1-tx)+lo[y0*GX+x1]*tx)*(1-ty)+(lo[y1*GX+x0]*(1-tx)+lo[y1*GX+x1]*tx)*ty;
             const out=Math.abs(wx)>L||Math.abs(wz)>Hw;            // çizgi dışı pay: düz, biraz koyu
-            let k=out?0.86:(1+(bx?0.075:-0.075)+(bz?0.035:-0.035));
+            // Yalnız boyuna biçme şeritleri (ende bant kaldırıldı: iki yönlü dama büyük kareler gibi görünüyordu)
+            let k=out?0.86:(1+0.075*(bx?1:-1)*day3dStripeEdge(wx+L,sx));   // yumuşak şerit kenarı
             k*=0.93+n*0.12+(rnd()-0.5)*0.05;
             const j=(y*W+x)*4;
-            px[j]=Math.min(255,44*k); px[j+1]=Math.min(255,124*k); px[j+2]=Math.min(255,50*k); px[j+3]=255;
+            let cr=44*k, cg=124*k, cb=50*k;
+            const wv=out?0:day3dGoalWear(wx,wz,n,rnd());                    // kale önü yıpranması
+            if(wv>0){ cr+=(96-cr)*wv; cg+=(86-cg)*wv*0.92; cb+=(56-cb)*wv; }
+            px[j]=Math.min(255,cr); px[j+1]=Math.min(255,cg); px[j+2]=Math.min(255,cb); px[j+3]=255;
           }
         }
         ctx.putImageData(img,0,0); C.map=cv;
@@ -171,36 +175,42 @@ function buildPitch3DMeshes(THREE,maxAniso,day){
   const GW2=PITCH3D_LEN+10, GH2=PITCH3D_WID+8;
   const grassGeo=flat(new THREE.PlaneGeometry(GW2,GH2));
   grassGeo.setAttribute("uv2",new THREE.BufferAttribute(grassGeo.attributes.uv.array.slice(0),2)); // aoMap uv2 ister
-  // Gündüz: Phong (r128 Lambert bumpMap desteklemez) — düşük parlaklık, yakında yaprak kabartması
-  // Adım 17: gündüz çimi MeshStandardMaterial (yüksek pürüzlülük, metal yok): Phong'un plastik parlama
-  //   lekesi yok; r128 doğrusal ışık modunda Lambert ile aynı parlaklık ölçeği (palet bozulmaz)
-  const grassMat=day?new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.94,metalness:0})
-    :new THREE.MeshLambertMaterial({color:0xffffff});
+  // Çim (gündüz + gece): MeshStandardMaterial (yüksek pürüzlülük, metal yok; r128 doğrusal ışık
+  //   modunda Lambert ile aynı parlaklık ölçeği → palet bozulmaz). Katmanlar:
+  //   • map: biçme şeritleri (yalnız boyuna) + orta ölçek leke, sahaya tek kopya
+  //   • roughnessMap: şerit başına pürüzlülük (bir şerit hafif parlak, komşusu mat; map ile hizalı)
+  //   • mikro çim kılı: dikişsiz kıl dokusu iki ölçekte, uzaklığa göre karışır (day3dGrassDetail) +
+  //     aynı doku bumpMap olarak ince ölçekte (~0.55 m) → kuşbakışında ve vuruş kamerasında tüm saha
+  //     boyunca homojen, kare tekrar izi olmayan çim. (Eski ince taneli aoMap kaldırıldı: yalnız
+  //     kameraya yakın — topun çevresinde — görünüyor, uzakta mipmap'le düzleşiyordu.)
+  //   • anizotropi: renderer'ın en yükseği (en çok 16)
+  const grassMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:day?1:0.97,metalness:0});
   const cvs=pitch3dGrassCanvases(GW2,GH2);
-  const aniso=Math.max(1,Math.min(8,Number(maxAniso)||1));
+  const aniso=Math.max(1,Math.min(16,Number(maxAniso)||1));
   const dayGrass=day?day3dGrassCanvas(GW2,GH2):null;
   if(dayGrass){
     const t=new THREE.CanvasTexture(dayGrass); t.anisotropy=aniso; grassMat.map=t;   // 2048×1024: yakında ~5 cm/texel
   } else if(cvs.map){
     const t=new THREE.CanvasTexture(cvs.map); t.anisotropy=aniso; grassMat.map=t;   // mipmap: 1024×512 (2'nin kuvveti)
   } else grassMat.color.setHex(0x2f7d33);
-  if(cvs.grain){
-    const t=new THREE.CanvasTexture(cvs.grain); t.wrapS=t.wrapT=THREE.RepeatWrapping;
-    t.repeat.set(Math.round(GW2/1.4),Math.round(GH2/1.4)); t.anisotropy=aniso;
-    grassMat.aoMap=t; grassMat.aoMapIntensity=1;
-  }
-  if(day){
-    // Yaprak kabartması: 256² dikey çizgili gürültü, ~0.9 m'de bir tekrar (uzakta mipmap → düz)
-    const bt=day3dTex(THREE,"grassBump",aniso);
-    if(bt){ bt.repeat.set(Math.round(GW2/0.9),Math.round(GH2/0.9)); grassMat.bumpMap=bt; grassMat.bumpScale=0.35; }
+  const rc=day3dGrassRoughCanvas(GW2,GH2);
+  // (pürüzlülük tuvali gündüz çiminin şeritlerine hizalı → yalnız gündüz)
+  if(day&&rc&&grassMat.map){ const rt=new THREE.CanvasTexture(rc); rt.anisotropy=aniso; grassMat.roughnessMap=rt; }
+  const detT=grassMat.map?day3dTex(THREE,"grassDetail",aniso):null;
+  if(detT){
+    // bumpMap: r128'de tüm haritalar map'in uv dönüşümünü paylaşır (bumpMap.repeat yok sayılır);
+    //   ince tekrar gölgelendiricide (day3dGrassDetail: bump uv = vUv × ince ölçek)
+    const bt=day3dTex(THREE,"grassDetail",aniso);
+    if(bt){ grassMat.bumpMap=bt; grassMat.bumpScale=day?0.95:0.6; }   // belirgin kıl kabartması (alçak açıda düz görünmesin)
+    day3dGrassDetail(THREE,grassMat,detT,GW2,GH2,day?0.26:0.28);
   }
   const grassBase=new THREE.Mesh(grassGeo,grassMat);
-  grassBase.position.y=-0.01; g.add(grassBase);
+  grassBase.position.y=-0.01; grassBase.name="grass"; g.add(grassBase);
   if(day) grassBase.receiveShadow=true;
 
   // Çizgiler (WebGL'de çizgi kalınlığı desteklenmediği için ince düz mesh'ler)
   // Gündüz: net beyaz, ışık/gölge alan çizgi (tribün çatısının gölgesinde de doğal görünür)
-  const lineMat=day?new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x3a3a3a,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})
+  const lineMat=day?new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x5a5a5a,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2})
     :new THREE.MeshBasicMaterial({color:0xf2f2f2,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   const LY=0.02;
   const segX=(x1,x2,z)=>{ // X boyunca
@@ -390,6 +400,10 @@ function createPitch3DScene(THREE,container,opts){
       // Yumuşak gölgeler: yalnız güneş gölge yapar (tek ışık); harita boyutu cihaza göre (day3dLights)
       renderer.shadowMap.enabled=true;
       renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+      // Film tonu (ACES): parlak güneşte beyazlar patlamaz, renkler doygun ve canlı kalır.
+      //   Pozlama, ACES'in orta tonları koyulaştırmasını dengeler (DAY3D_EXPOSURE, day3d.js)
+      renderer.toneMapping=THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure=DAY3D_EXPOSURE;
     }
     // Dokunma: 3D tuval parmak hareketlerini her zaman yutar (mobilde sayfa kaymasın)
     canvas.style.cssText="display:block;width:100%;height:100%;touch-action:none;";
@@ -436,7 +450,8 @@ function createPitch3DScene(THREE,container,opts){
       players:new THREE.Group(),ball:new THREE.Group(),fx:new THREE.Group()};
     Object.keys(groups).forEach(k=>{groups[k].name=k;scene.add(groups[k]);});
     // Stadyum (tribün + taraftar + projektör + pano + kulübe); sahne ile birlikte temizlenir
-    const stadium=buildStadium3D(THREE,{day});
+    const stadium=buildStadium3D(THREE,{day,isAlive:()=>!disposed,
+      onAsset:()=>{ if(!disposed) renderOnce(); }});   // hazır model geldi: duraklatılmış sahneyi yenile
     groups.pitch.add(stadium.group);
 
     // Odak + kamera durumu
@@ -631,6 +646,13 @@ function createPitch3DScene(THREE,container,opts){
       isRendering:()=>!disposed&&running&&!paused&&!document.hidden&&visibleOnScreen,
     };
     cleanups.push(()=>{hooks=[];});
+
+    // Hazır kale modeli (assets/models/goal.glb, assets3d.js): direk + üst direk. Gelmezse (ağ yok,
+    //   dosya bozuk) prosedürel kale olduğu gibi kalır; sahne kapandıysa model hemen serbest bırakılır.
+    if(typeof assets3dApplyGoals==="function"){
+      assets3dApplyGoals(THREE,groups.pitch,PITCH3D_DIM,()=>!disposed)
+        .then(ok=>{ if(ok&&!disposed) renderOnce(); }).catch(()=>{});
+    }
 
     resize();
     start();

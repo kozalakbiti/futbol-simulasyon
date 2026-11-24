@@ -60,6 +60,8 @@ const MIME = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".mp3": "audio/mpeg",
+  ".glb": "model/gltf-binary",
+  ".gltf": "model/gltf+json",
   ".ogg": "audio/ogg",
   ".wav": "audio/wav",
   ".woff": "font/woff",

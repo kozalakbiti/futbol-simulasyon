@@ -13,6 +13,11 @@ const MATCH3D_TEMPO=0.6*(typeof ACTORS3D_SLOW==="number"?ACTORS3D_SLOW:0.55);   
 // Kilit an öncesi 3D hücum kurulumu için en uzun bekleme (ms): takım son üçte bire varamazsa an yine açılır
 const MATCH3D_BUILDUP_MAX_MS=9000;
 function matchTickMs(cfg,is3D){ return is3D?Math.round(cfg.ms/MATCH3D_TEMPO):cfg.ms; }
+// 3D (2.5D) olay senkronu: bu tiplerde akış metni, flash, skor ve gol sesi topun 3D animasyonu
+//   olayın anına varınca (players3d onImpact) gösterilir. SYNC3D_MAX_MS: animasyon hiç bitmezse
+//   (sahne kapandı, kilit an açıldı, senaryo kesildi) en geç bu sürede yine gösterilir.
+const SYNC3D_TYPES={goal:1,miss:1,header:1,save:1,keeper:1,chance:1,crossbar:1};
+const SYNC3D_MAX_MS=6000;
 
 function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup=[],onFinish,clubName="Club Manager: Glory Road",formation="4-4-2"}){
   const [minute,setMinute]=useState(0);
@@ -111,6 +116,22 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const pausedRef=useRef(false);   // interval duraklatıldı mı
   const mountedRef=useRef(true);   // unmount sonrası gecikmeli devam interval başlatmasın
   useEffect(()=>()=>{ mountedRef.current=false; },[]);
+  // Bekleyen 3D olay sunumları: id → {fn, timer} (SYNC3D_TYPES; yalnız ref'ler kullanılır → interval
+  //   kapanışında da güncel)
+  const pending3dRef=useRef(new Map());
+  const sync3dOn=()=>viewModeRef.current==="3d"&&!!actors3dRef.current&&!!pitch3dApiRef.current&&
+    !(pitch3dApiRef.current.isDisposed&&pitch3dApiRef.current.isDisposed());
+  const resolve3d=(id)=>{
+    const m=pending3dRef.current, it=m.get(id); if(!it) return;
+    m.delete(id); clearTimeout(it.timer);
+    try{ it.fn(); }catch(e){ console.error("[3D] olay sunumu hatası",e); }
+  };
+  const defer3d=(id,fn)=>{
+    const timer=setTimeout(()=>resolve3d(id),SYNC3D_MAX_MS);
+    pending3dRef.current.set(id,{fn,timer});
+  };
+  const flush3d=()=>{ Array.from(pending3dRef.current.keys()).forEach(resolve3d); };
+  useEffect(()=>()=>{ pending3dRef.current.forEach(it=>clearTimeout(it.timer)); pending3dRef.current.clear(); },[]);
   const lineupRef=useRef(lineup);  // lineup — Babel 500KB koruması
   useEffect(()=>{lineupRef.current=lineup;},[lineup]);
   const result=useRef(null);
@@ -540,6 +561,12 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         const eventsNow=queue.current.filter(e=>e.min<=m&&e.min>(m-dpt));
         eventsNow.forEach(e=>{
           const entry=evToLog(e,fixture.opp);
+          let eid=0;                                   // saha animasyonu kimliği (zone'lu olaylarda)
+          // SUNUM: skor, gol listesi, gol sesi, akış metni ve flash. 3D görünümde topun animasyonu
+          //   olayın "an"ına (ağlara girdiği / kaleciye ulaştığı / kale çizgisini geçtiği kare)
+          //   varınca çalışır (players3d onImpact → resolve3d); 2D'de ya da 3D yoksa hemen.
+          const present=()=>{
+          if(!mountedRef.current) return;
           if(e.type==="goal"){
             if(e.team==="me") setMyScore(s=>s+1);
             else setOppScore(s=>s+1);
@@ -548,6 +575,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             setTimeout(()=>{ playWhistle(false); setTimeout(()=>playCrowd(true),180); },0);
             // ── GOL SONRASI RESET: oyuncular mevkilerine dönsün ──
             setTimeout(()=>{
+              if(!mountedRef.current) return;
               setPlayerDots(prev=>prev.map(p=>{
                 const base=baseDotsRef.current.find(b=>b.id===p.id);
                 if(!base) return p;
@@ -561,6 +589,12 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
               setBallPos([50,50]);
             }, 1800);
           }
+          setLog(l=>[...l,{min:e.min,...entry}]);
+          if(entry.big){
+            setFlash({...entry,min:e.min});
+            setTimeout(()=>{ if(mountedRef.current) setFlash(null); },curCfg.flash);
+          }
+          };
           if(["foul","yellow","yellow2red","red","handball","penalty_won"].includes(e.type)){
             setTimeout(()=>playFoulWhistle(),0);
           }
@@ -568,7 +602,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           if(e.zone) setBallPos(e.zone);
           // ── CANLI SAHA ANİMASYONU: event'e göre saha efekti ──
           if(e.zone){
-            const eid=++ballEvIdRef.current;
+            eid=++ballEvIdRef.current;
             const evType=e.type; // goal,miss,save,yellow,red,sub,corner,foul,chance,counter...
             const evTeam=e.team||"me";
             setBallEvents(prev=>[...prev,{id:eid,x:e.zone[0],y:e.zone[1],type:evType,team:evTeam}]);
@@ -650,19 +684,30 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             });
             setTimeout(()=>setPlayerDots(prev=>prev.map(p=>({...p,pulse:false}))),1400);
           }
-          setLog(l=>[...l,{min:e.min,...entry}]);
-          if(entry.big){
-            setFlash({...entry,min:e.min});
-            setTimeout(()=>setFlash(null),curCfg.flash);
-          }
+          if(eid&&SYNC3D_TYPES[e.type]&&sync3dOn()) defer3d(eid,present);
+          else present();
         });
 
         if(m>=90){
           clearInterval(ivRef.current);
           setMinute(90);
-          setPhase("result");
-          // Maç sonu: sentezlenmiş 3 düdük (uzun-kısa-kısa)
-          setTimeout(()=>playFinalWhistle(),120);
+          const finishMatch=()=>{
+            if(!mountedRef.current) return;
+            setPhase("result");
+            // Maç sonu: sentezlenmiş 3 düdük (uzun-kısa-kısa)
+            setTimeout(()=>playFinalWhistle(),120);
+          };
+          // Son dakika olayı 3D'de hâlâ oynuyorsa (ör. 90. dk golü) önce top ağlara girsin,
+          //   skor/metin gelsin; sonra maç sonu (en çok SYNC3D_MAX_MS)
+          if(pending3dRef.current.size){
+            const t0=Date.now();
+            const wait=()=>{
+              if(!mountedRef.current) return;
+              if(!pending3dRef.current.size||Date.now()-t0>SYNC3D_MAX_MS){ flush3d(); finishMatch(); }
+              else setTimeout(wait,150);
+            };
+            wait();
+          } else finishMatch();
         }
         else setMinute(m);
       },tickMs);
@@ -691,7 +736,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const pickView=(next)=>{
     if(next==="3d"&&!webgl3dOk){ setView3dNotice("Cihazın 3D desteklemiyor; maç 2D görünümde devam ediyor."); return; }
     if(next===viewModeRef.current) return;
-    if(next!=="3d") pitch3dApiRef.current=null;
+    if(next!=="3d"){ pitch3dApiRef.current=null; flush3d(); }   // 3D animasyonu beklenmez: bekleyen metin/skor hemen
     setViewMode(next);
     setMatchViewPref(next);
     setView3dNotice("");
@@ -709,6 +754,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   // Three yüklenemedi / Pitch3D hata verdi → bu maç için 2D (tercih kalıcı olarak değişmez)
   const on3dViewError=()=>{
     pitch3dApiRef.current=null;
+    flush3d();
     if(viewModeRef.current!=="3d") return;
     setViewMode("2d");
     setView3dNotice("3D görünüm açılamadı; maç 2D görünümde devam ediyor.");
@@ -946,7 +992,9 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                   if(api.crowd) api.crowd.setSupport(fixture.home?0.74:0.3);
                   // 22 oyuncu + top + olay efektleri; sahne silinirken kendini temizler
                   try{
-                    const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current});
+                    // onImpact: top olayın anına vardı (ağlar/kaleci/kale çizgisi) → bekleyen metin/skor/ses
+                    const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current,
+                      onImpact:(ev)=>{ if(ev&&ev.id!=null) resolve3d(ev.id); }});
                     actors3dRef.current=ac;
                     // Kilit an hücum kurulumu sürerken sahne yeniden kurulduysa kurulum sürsün
                     const bu=buildUpRef.current; if(bu&&ac&&ac.buildUp) ac.buildUp(bu.team,MATCH3D_BUILDUP_MAX_MS/1000+2);

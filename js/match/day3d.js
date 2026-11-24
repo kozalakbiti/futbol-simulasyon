@@ -16,10 +16,14 @@
 // Yükleme sırası: yalnız fonksiyon/sabit tanımlar; çalışma anında pitch3d.js/stadium3d.js çağırır.
 // ═══════════════════════════════════════════════════════════════
 
-const DAY3D_CANVAS={sky:null,roof:null,net:null,grassBump:null,wear:null,grass:null};
+const DAY3D_CANVAS={sky:null,roof:null,net:null,grassBump:null,wear:null,grass:null,grassRough:null,crowd:null,ao:null,grassDetail:null};
 // Güneş yönü (dünya; sahanın sol-arka üstü → gölgeler sağ-öne düşer) ve gökyüzü/pus renkleri
 const DAY3D_SUN_DIR=[-0.48,0.66,0.58];   // Adım 17: daha alçak güneş → tribün/çatı gölgesi sahaya uzanır
-const DAY3D_SKY_CLEAR=0x9fb6cc, DAY3D_FOG=0xd2d3cc;
+// Canlı mavi gök: pus rengi gök kubbesinin ufuk rengiyle aynı (uzak tribün/ağaç ufka yumuşakça karışır)
+const DAY3D_SKY_CLEAR=0x8fc3ec, DAY3D_FOG=0xcfe4f2;
+// ACES film tonu pozlaması (pitch3d.js gündüz renderer'ı). ACES orta tonları koyulaştırır; 1.25
+//   sahne paletini (doğrusal çıktıya göre ayarlı) yaklaşık aynı parlaklıkta, daha doygun gösterir.
+const DAY3D_EXPOSURE=1.25;
 
 // Tekrarlanabilir rastgele (her açılışta aynı gök/ağaç düzeni)
 function day3dRand(seed){ let s=seed>>>0||1; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
@@ -34,9 +38,9 @@ function day3dCanvas(kind){
       const W=1024, H=512, cv=document.createElement("canvas"); cv.width=W; cv.height=H;
       const g=cv.getContext("2d"); if(!g) return null;
       const gr=g.createLinearGradient(0,0,0,H);
-      // Adım 17: yumuşak, hafif puslu çelik mavisi; ufukta açık gri-mavi
-      gr.addColorStop(0,"#5d86b4"); gr.addColorStop(0.3,"#86a7c9"); gr.addColorStop(0.46,"#c3cfd6");
-      gr.addColorStop(0.5,"#ddd8cc"); gr.addColorStop(1,"#a7b0b2");   // ufukta sıcak, hafif altın pus
+      // Canlı yaz göğü: tepede derin mavi → ufukta açık, hafif beyazlaşan mavi (NSM tarzı parlak gök)
+      gr.addColorStop(0,"#1f6fd1"); gr.addColorStop(0.22,"#3d8fe3"); gr.addColorStop(0.38,"#74b4ef");
+      gr.addColorStop(0.47,"#b5d9f5"); gr.addColorStop(0.5,"#d4e8f5"); gr.addColorStop(1,"#a9c4d6");
       g.fillStyle=gr; g.fillRect(0,0,W,H);
       const r=day3dRand(97531);
       const puff=(x,y,rad,a)=>{
@@ -49,10 +53,12 @@ function day3dCanvas(kind){
           g.fillStyle=p; g.beginPath(); g.arc(0,0,rad,0,Math.PI*2); g.fill(); g.restore();
         }
       };
-      for(let c=0;c<22;c++){
-        const cx=r()*W, cy=H*(0.2+r()*0.25), sz=18+r()*34*(0.6+(cy/H-0.2)*2.4);
-        const n=5+Math.floor(r()*7);
-        for(let k=0;k<n;k++) puff(cx+(r()-0.5)*sz*3.2,cy+(r()-0.5)*sz*0.35,sz*(0.6+r()*0.8),0.18+r()*0.25);
+      // Yumuşak beyaz kümülüsler: her bulut önce geniş, soluk bir taban, sonra parlak üst kabarcıklar
+      for(let c=0;c<24;c++){
+        const cx=r()*W, cy=H*(0.18+r()*0.27), sz=18+r()*34*(0.6+(cy/H-0.2)*2.4);
+        const n=6+Math.floor(r()*7);
+        puff(cx,cy+sz*0.12,sz*2.2,0.16);
+        for(let k=0;k<n;k++) puff(cx+(r()-0.5)*sz*3.2,cy+(r()-0.5)*sz*0.35-sz*0.1,sz*(0.6+r()*0.8),0.3+r()*0.35);
       }
       C.sky=cv;
     } else if(kind==="roof"){
@@ -103,6 +109,56 @@ function day3dCanvas(kind){
         }
       }
       g.putImageData(img,0,0); C.grassBump=cv;
+    } else if(kind==="grassDetail"){
+      // Dikişsiz mikro çim kılı dokusu (256²): orta gri taban üzerinde ~3600 kısa, hafif eğik
+      //   açık/koyu yaprak çizgisi; kenarlardan taşan çizgiler karşı kenarda devam eder (tekrar
+      //   izi yok). Hem renk ayrıntısı (pitch3d çim gölgelendiricisi) hem bumpMap olarak kullanılır.
+      const N=256, cv=document.createElement("canvas"); cv.width=N; cv.height=N;
+      const g=cv.getContext("2d"); if(!g) return null;
+      const r=day3dRand(778899);
+      g.fillStyle="#808080"; g.fillRect(0,0,N,N);
+      // Taban: piksel gürültüsü (kıllar arası koyu boşluk / toprak) → yakın planda düz gri değil
+      { const im=g.getImageData(0,0,N,N), d=im.data;
+        for(let j=0;j<d.length;j+=4){ const v=Math.round(128+(r()-0.55)*70); d[j]=d[j+1]=d[j+2]=v; }
+        g.putImageData(im,0,0); }
+      g.lineCap="round";
+      for(let i=0;i<5200;i++){
+        const x=r()*N, y=r()*N, len=3+r()*8, a=-Math.PI/2+(r()-0.5)*0.9;
+        const v=r()<0.5?Math.round(165+r()*85):Math.round(15+r()*65);   // yüksek kontrast: açık kıl / koyu gölge
+        g.strokeStyle="rgba("+v+","+v+","+v+","+(0.45+r()*0.5)+")"; g.lineWidth=0.7+r()*1.1;
+        const dx=Math.cos(a)*len, dy=Math.sin(a)*len;
+        for(const ox of [-N,0,N]) for(const oy of [-N,0,N]){
+          if(x+ox+len<0||x+ox-len>N||y+oy+len<0||y+oy-len>N) continue;
+          g.beginPath(); g.moveTo(x+ox,y+oy); g.lineTo(x+ox+dx,y+oy+dy); g.stroke();
+        }
+      }
+      C.grassDetail=cv;
+    } else if(kind==="crowd"){
+      // Tribün seyirci dokusu (dikişsiz, yatayda tekrar): 16 sıra × 32 koltuk; renkli tişört + ten
+      //   rengi baş lekeleri, aralarda koyu boşluk. Basamak alınlarına sıra sıra uygulanır
+      //   (stadium3d.js; AO orada vertex rengiyle). 3D taraftarların ARKASINDA kalır.
+      const W=256, H=128, cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+      const g=cv.getContext("2d"); if(!g) return null;
+      const r=day3dRand(55221);
+      g.fillStyle="#3d434b"; g.fillRect(0,0,W,H);
+      const shirts=["#2563eb","#1d4ed8","#f8fafc","#dc2626","#b91c1c","#facc15","#f8fafc","#3b82f6","#ef4444","#111827"];
+      const skins=["#e0b48c","#d9a77f","#c8946a","#8d5a3b","#f0c9a2"];
+      const cw=8, ch=8;
+      for(let y=0;y<H;y+=ch) for(let x=0;x<W;x+=cw){
+        if(r()<0.1) continue;                                   // boş koltuk
+        const ox=x+(r()-0.5)*1.6, oy=y+(r()-0.5)*1.2;
+        g.fillStyle=shirts[Math.floor(r()*shirts.length)]; g.fillRect(ox+1.5,oy+3.6,5,4.4);
+        g.fillStyle=skins[Math.floor(r()*skins.length)]; g.beginPath(); g.arc(ox+4,oy+2.4,1.7,0,Math.PI*2); g.fill();
+      }
+      C.crowd=cv;
+    } else if(kind==="ao"){
+      // Fake AO alfa gradyanı (alphaMap: beyaz = opak): v=1 (arka duvar) koyu → v=0 (ön saçak) saydam
+      const cv=document.createElement("canvas"); cv.width=4; cv.height=64;
+      const g=cv.getContext("2d"); if(!g) return null;
+      const gr=g.createLinearGradient(0,64,0,0);   // tuval y=64 → uv v=0
+      gr.addColorStop(0,"#000"); gr.addColorStop(0.35,"#3a3a3a"); gr.addColorStop(0.8,"#c8c8c8"); gr.addColorStop(1,"#fff");
+      g.fillStyle=gr; g.fillRect(0,0,4,64);
+      C.ao=cv;
     }
   }catch(e){ C[kind]=null; }
   return C[kind];
@@ -111,6 +167,26 @@ function day3dCanvas(kind){
 // Gündüz çim tuvali (2048×1024, gw×gh m alanı; saha çizgilerine hizalı): doğal sıcak yeşil, boyda 18
 //   belirgin biçme şeridi (±9%) + ende hafif dama (±2.5%), orta ölçek leke (değer gürültüsü), ince
 //   piksel gürültüsü ve ton kayması (sarımsı/mavimsi yeşil). Oturum başına bir kez (~0.1–0.3 sn).
+// Şerit kenarı yumuşatma: p = kale çizgisinden uzaklık (m), sw = şerit genişliği. Şerit içinde 1,
+//   kenara ~0.5 m kala 0'a iner (iki komşu şeridin ortalama tonu) → yumuşak geçiş.
+function day3dStripeEdge(p,sw){
+  const f=((p%sw)+sw)%sw, e=Math.min(f,sw-f), t=Math.min(1,e/0.55);
+  return t*t*(3-2*t);
+}
+// Kale önü yıpranması (0…~0.8): altıpasın içinde kale çizgisinden ~2 m önde en yoğun, kaleci
+//   şeridi (çizgi boyunca) ayrıca aşınmış; n: düşük frekanslı gürültü (0…1), rr: piksel rastgelesi.
+//   Lekeli olsun diye gürültüyle maskelenir. Gündüz ve gece çim tuvalleri birlikte kullanır.
+function day3dGoalWear(wx,wz,n,rr){
+  const L=PITCH3D_DIM.halfLen, ax=L-Math.abs(wx);
+  if(ax<-0.3||ax>8.5||Math.abs(wz)>9.5) return 0;
+  const ex=(ax-2.0)/3.0, ez=wz/4.4;
+  let w=Math.exp(-(ex*ex+ez*ez)*1.5);
+  const lx=(ax-0.5)/0.8, lz=wz/3.8;
+  w=Math.max(w,0.85*Math.exp(-(lx*lx+lz*lz)*1.3));
+  const m=Math.min(1,Math.max(0,(n-0.2)*1.6+(rr-0.5)*0.7));   // lekeli maske
+  return Math.min(0.8,w*m*0.95);
+}
+
 function day3dGrassCanvas(gw,gh){
   const C=DAY3D_CANVAS;
   if(C.grass||typeof document==="undefined") return C.grass;
@@ -131,16 +207,85 @@ function day3dGrassCanvas(gw,gh){
         const n=(lo[i00]*(1-tx)+lo[i01]*tx)*(1-ty)+(lo[i10]*(1-tx)+lo[i11]*tx)*ty;
         const h=(lo2[i00]*(1-tx)+lo2[i01]*tx)*(1-ty)+(lo2[i10]*(1-tx)+lo2[i11]*tx)*ty;
         const out=Math.abs(wx)>L+0.3||Math.abs(wz)>Hw+0.3;
-        let k=out?0.84:(1+(bx?0.09:-0.09)+(bz?0.025:-0.025));
+        // Yalnız boyuna biçme şeritleri (ende bant YOK). Şerit kenarı ~0.5 m yumuşak geçiş: biçme
+        //   yönü değişirken renk keskin çizgiyle değil doğal kayarak döner
+        let k=out?0.84:(1+0.09*(bx?1:-1)*day3dStripeEdge(wx+L,sx));
         k*=0.9+n*0.16+(r()-0.5)*0.09;
         const hue=(h-0.5)*0.22+(r()-0.5)*0.06;           // + sarımsı, − mavimsi
         const j=(y*W+x)*4;
-        px[j]=Math.min(255,(58+hue*70)*k); px[j+1]=Math.min(255,(134+hue*18)*k); px[j+2]=Math.min(255,(44-hue*40)*k); px[j+3]=255;
+        let cr=(58+hue*70)*k, cg=(134+hue*18)*k, cb=(44-hue*40)*k;
+        // Kale önü / altıpas yıpranması: lekeli toprak + solgun çim karışımı
+        const wv=out?0:day3dGoalWear(wx,wz,n,r());
+        if(wv>0){ cr+=(112-cr)*wv; cg+=(98-cg)*wv*0.92; cb+=(62-cb)*wv; }
+        px[j]=Math.min(255,cr); px[j+1]=Math.min(255,cg); px[j+2]=Math.min(255,cb); px[j+3]=255;
       }
     }
     ctx.putImageData(img,0,0); C.grass=cv;
   }catch(e){ C.grass=null; }
   return C.grass;
+}
+
+// Gündüz çim pürüzlülük tuvali (roughnessMap; G kanalı okunur): çim tuvaliyle aynı gw×gh alan ve
+//   aynı 18 boy şeridi + 10 en bandı. Açık şerit 0.78 (hafif parlak), koyu şerit 0.97 (mat), dama ±.
+function day3dGrassRoughCanvas(gw,gh){
+  const C=DAY3D_CANVAS;
+  if(C.grassRough||typeof document==="undefined") return C.grassRough;
+  try{
+    const W=512, Hh=256, cv=document.createElement("canvas"); cv.width=W; cv.height=Hh;
+    const ctx=cv.getContext("2d"), img=ctx&&ctx.createImageData?ctx.createImageData(W,Hh):null;
+    if(!img) return null;
+    const D=PITCH3D_DIM, L=D.halfLen, Hw=D.halfWid, sx=PITCH3D_LEN/18, sz=PITCH3D_WID/10;
+    for(let y=0;y<Hh;y++){
+      const wz=(y+0.5)/Hh*gh-gh/2, bz=Math.floor((wz+Hw)/sz)&1;
+      for(let x=0;x<W;x++){
+        const wx=(x+0.5)/W*gw-gw/2, bx=Math.floor((wx+L)/sx)&1;
+        const out=Math.abs(wx)>L+0.3||Math.abs(wz)>Hw+0.3;
+        const v=Math.round(255*(out?0.98:(bx?0.8:0.96))), j=(y*W+x)*4;
+        img.data[j]=v; img.data[j+1]=v; img.data[j+2]=v; img.data[j+3]=255;
+      }
+    }
+    ctx.putImageData(img,0,0); C.grassRough=cv;
+  }catch(e){ C.grassRough=null; }
+  return C.grassRough;
+}
+
+// Çim malzemesine iki ölçekli mikro çim ayrıntısı ekler (onBeforeCompile; Lambert ve Standard).
+//   Aynı dikişsiz kıl dokusu iki tekrar ölçeğinde (ince ~0.55 m, kaba ~3.3 m; oranları tamsayı
+//   değil → ortak tekrar deseni oluşmaz) örneklenir ve kamera uzaklığına göre karışır: yakında
+//   ince kıl, uzakta kaba doku → kuşbakışında da, çim seviyesi vuruş kamerasında da sahanın her
+//   yerinde aynı yoğunlukta, kare tekrar izi olmayan doğal çim. Bir de büyük ölçekli (~19 m)
+//   hafif ton dalgalanması tekrarı kırar. tex: day3dTex(THREE,"grassDetail") · gw/gh: düzlem (m).
+function day3dGrassDetail(THREE,mat,tex,gw,gh,amp){
+  if(!mat||!tex) return;
+  const rep=(m)=>[gw/m,gh/m];
+  const f=rep(0.55), c=rep(3.3), b=rep(19.0);
+  const uni={uDetail:{value:tex},uDetRep:{value:new THREE.Vector4(f[0],f[1],c[0],c[1])},
+    uDetBig:{value:new THREE.Vector2(b[0],b[1])},uDetAmp:{value:Number.isFinite(amp)?amp:0.22},
+    uDetNear:{value:6.0},uDetFar:{value:38.0}};
+  mat.detailTex=tex;   // disposeObject3D malzemenin doku alanlarını tarar → sahneyle serbest kalır
+  mat.onBeforeCompile=(sh)=>{
+    Object.assign(sh.uniforms,uni);
+    // vUvBump: bumpMap'in ince ölçekli uv'si (r128 bumpMap kendi repeat'ini kullanmaz → bumpmap
+    //   parçasındaki vUv makroyla vUvBump'a çevrilir; parça bitince makro kaldırılır)
+    sh.vertexShader="uniform vec4 uDetRep;\nvarying float vDetDist;\nvarying vec2 vUvBump;\n"+sh.vertexShader
+      .replace("#include <uv_vertex>","#include <uv_vertex>\nvUvBump=uv*uDetRep.xy;")
+      .replace("#include <project_vertex>","#include <project_vertex>\nvDetDist=-mvPosition.z;");
+    sh.fragmentShader="uniform sampler2D uDetail;\nuniform vec4 uDetRep;\nuniform vec2 uDetBig;\nuniform float uDetAmp;\n"+
+      "uniform float uDetNear;\nuniform float uDetFar;\nvarying float vDetDist;\nvarying vec2 vUvBump;\n"+
+      sh.fragmentShader
+      .replace("#include <bumpmap_pars_fragment>","#define vUv vUvBump\n#include <bumpmap_pars_fragment>\n#undef vUv")
+      .replace("#include <map_fragment>",[
+        "#include <map_fragment>",
+        "float detF=texture2D(uDetail,vUv*uDetRep.xy).g;",
+        "float detC=texture2D(uDetail,vUv*uDetRep.zw+vec2(0.37,0.11)).g;",
+        "float detB=texture2D(uDetail,vUv*uDetBig+vec2(0.71,0.53)).g;",
+        "float detK=1.0-smoothstep(uDetNear,uDetFar,vDetDist);",
+        "float det=mix(detC,detF,detK)*2.0-1.0;",
+        "diffuseColor.rgb*=(1.0+det*uDetAmp*(1.0+0.8*detK))*(1.0+(detB-0.5)*0.12);",   // yakında (vuruş kamerası) kıl kontrastı daha güçlü
+      ].join("\n"));
+  };
+  mat.customProgramCacheKey=()=>"grassDetail"+(mat.isMeshStandardMaterial?"S":"L");
+  mat.needsUpdate=true;
 }
 
 // Paylaşılan tuvalden yeni doku (her sahnenin kendi dokusu; sahneyle dispose edilir)
@@ -156,6 +301,7 @@ function day3dSkyDome(THREE){
   const geo=new THREE.SphereGeometry(300,32,16);
   const tex=day3dTex(THREE,"sky");
   const mat=new THREE.MeshBasicMaterial({color:tex?0xffffff:DAY3D_SKY_CLEAR,map:tex||null,side:THREE.BackSide,fog:false,depthWrite:false});
+  mat.toneMapped=false;   // gök tuvaldeki renkle aynen görünsün (ACES film tonu kubbeyi soldurmasın)
   const m=new THREE.Mesh(geo,mat);
   m.name="sky"; m.renderOrder=-10; m.frustumCulled=false;
   return m;
@@ -166,9 +312,10 @@ function day3dSkyDome(THREE){
 function day3dLights(THREE,scene,lowEnd){
   // Adım 17: sıcak güneş (≈4500 K sarımsı) + serin gök dolgusu, toprak tonlu yer yansıması →
   //   gölge tarafı mavimsi, güneş tarafı sıcak (düz "plastik" aydınlatma yerine renk kontrastı)
-  const hemi=new THREE.HemisphereLight(0xc9dcf2,0x6b5e3e,0.5);
+  //   Gök/çim yansıması: üstten mavi gök dolgusu, alttan çimden sekmiş yeşilimsi ışık
+  const hemi=new THREE.HemisphereLight(0xbcd8f5,0x4e6a34,0.55);
   scene.add(hemi);
-  const sun=new THREE.DirectionalLight(0xffdcaa,1.25);
+  const sun=new THREE.DirectionalLight(0xffe0b0,1.3);
   const d=DAY3D_SUN_DIR;
   sun.position.set(d[0]*160,d[1]*160,d[2]*160);
   sun.target.position.set(0,0,0);

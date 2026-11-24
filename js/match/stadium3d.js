@@ -26,12 +26,13 @@ const STADIUM3D_BRANDS=[
   ["DENİZ KARGO","#0e7490","#e0f2fe"],["ÇINAR SÜT","#f8fafc","#166534"],
 ];
 // Taraftar formaları: bizim (mavi/beyaz) · rakip (kırmızı/siyah) · tarafsız
-// Gündüz panoları (canlı gradyan; hepsi uydurma marka): [ad, üst renk, alt renk, yazı]
+// Gündüz panoları (NSM tarzı parlak, düz renk + basit amblem; hepsi uydurma marka):
+//   [ad, üst renk, alt renk, yazı, amblem: "bolt" şimşek | "star" yıldız | "ring" halka | "chev" ok]
 const STADIUM3D_BRANDS_DAY=[
-  ["KOZA ENERJİ","#ff7a00","#e04800","#ffffff"],["MAVİ HAVA","#1fa2ff","#0b5fd6","#ffffff"],
-  ["ATLAS GIDA","#ff2d55","#b5002a","#fff7e6"],["YILDIZ BANK","#ffd60a","#f5a300","#10131a"],
-  ["RÜZGAR SPOR","#22c55e","#0f8a3c","#ffffff"],["GLORY ROAD","#a855f7","#6d28d9","#ffffff"],
-  ["DENİZ KARGO","#06b6d4","#0e7490","#ffffff"],["ÇINAR SÜT","#ffffff","#dbeafe","#14532d"],
+  ["LEGGIT","#ff7a00","#f25500","#ffffff","chev"],["GLORY","#7c3aed","#5b21b6","#ffd60a","star"],
+  ["TURBO","#ff1f3d","#c8001e","#ffffff","bolt"],["MAVİ HAVA","#1fa2ff","#0b5fd6","#ffffff","ring"],
+  ["LEGGIT","#18c964","#0c9a49","#ffffff","chev"],["YILDIZ BANK","#ffd60a","#f5a300","#10131a","star"],
+  ["TURBO","#111827","#000000","#ff3b30","bolt"],["GLORY","#ffffff","#e5edf7","#5b21b6","star"],
 ];
 const STADIUM3D_FAN_COLS={
   home:[0x2485ff,0x2485ff,0x1a5fc4,0xf2f2f2,0x5aa8ff,0x2485ff],
@@ -46,6 +47,12 @@ const STADIUM3D_FAN_COLS_DAY={
   neutral:[0xf8fafc,0xfacc15,0x2563eb,0xdc2626,0xe5e7eb],
   skin:STADIUM3D_FAN_COLS.skin,
 };
+
+// 0xRRGGBB rengini k (0–1) ile koyulaştırır (vertex rengi AO için)
+function stadium3dShade(hex,k){
+  const f=Math.max(0,Math.min(1,k));
+  return (Math.round(((hex>>16)&255)*f)<<16)|(Math.round(((hex>>8)&255)*f)<<8)|Math.round((hex&255)*f);
+}
 
 function buildStadium3D(THREE,o){
   const day=!!(o&&o.day);
@@ -75,13 +82,17 @@ function buildStadium3D(THREE,o){
   ];
   const roofQuads=[];   // gündüz çatıları (uv'li dörtgenler → tek mesh)
   const roofLamps=[];   // gündüz çatı altı lambaları (tek mesh)
+  const risers=[];      // gündüz basamak alınları (seyirci dokusu, tek mesh)
+  const aoQuads=[];     // gündüz çatı altı / arka duvar fake AO dörtgenleri (tek mesh)
   const standParts=[];
   const seats=[]; // {x,y,z,ry,sec,row,col}
   const SEAT=0.84;
   sections.forEach((s,si)=>{
     for(let r=0;r<s.rows;r++){
       const top=s.base+RISE*(r+1), off=s.start+TREAD*(r+0.5);
-      const shade=day?(r%2?0x8e949c:0x9ea4ab):(r%2?0x2a3644:0x313f4f);   // gündüz: beton basamak
+      // Gündüz: beton basamak; çatı altında arka sıralara doğru koyulaşır (fake AO, vertex rengi)
+      const shade=day?stadium3dShade(r%2?0x8e949c:0x9ea4ab,1-0.42*Math.pow(r/Math.max(1,s.rows-1),1.3)):(r%2?0x2a3644:0x313f4f);
+      if(day) risers.push({s,r,top,off});
       // Basamak: zeminden basamak üstüne dolu blok
       if(s.axis==="z") standParts.push({g:box(s.len,top,TREAD,0,top/2,s.sign*off),c:shade});
       else standParts.push({g:box(TREAD,top,s.len,s.sign*off,top/2,0),c:shade});
@@ -110,6 +121,11 @@ function buildStadium3D(THREE,o){
         standParts.push({g:s.axis==="z"?box(1.0,yB*0.55,dep,al,yB*0.275,s.sign*mid):box(dep,yB*0.55,1.0,s.sign*mid,yB*0.275,al),c:0x7c4135});
       });
       roofQuads.push({a:P(fOff,yF,-hl),b:P(fOff,yF,hl),c:P(back+0.8,yB,hl),d:P(back+0.8,yB,-hl),len:hl*2,dep:back+0.8-fOff});
+      // Fake AO: çatının hemen altında koyu gradyan (ön saçakta saydam → arka duvarda koyu) +
+      //   arka duvarın sahaya bakan yüzünde üst sıraların arkası (çatı birleşimi koyu)
+      aoQuads.push({a:P(fOff,yF-0.12,-hl),b:P(fOff,yF-0.12,hl),c:P(back+0.8,yB-0.12,hl),d:P(back+0.8,yB-0.12,-hl),v0:0,v1:1});
+      const wf=back-0.62;   // duvarın ön yüzü (kalınlık 1.2) önünde
+      aoQuads.push({a:P(wf,topH-0.2,-s.len/2),b:P(wf,topH-0.2,s.len/2),c:P(wf,yB-0.1,s.len/2),d:P(wf,yB-0.1,-s.len/2),v0:0.15,v1:1});
       // Saçak kirişi (ön kenar) + dikmeler (her ~14 m)
       standParts.push({g:s.axis==="z"?box(s.len+2,0.7,0.35,0,yF-0.3,s.sign*fOff):box(0.35,0.7,s.len+2,s.sign*fOff,yF-0.3,0),c:0xe9edf1});
       // Çatı makasları (alttan bakınca derinlik): ön kirişten arka duvara eğik kirişler
@@ -209,15 +225,76 @@ function buildStadium3D(THREE,o){
       const lm=new THREE.Mesh(G(mergeGeos3D(THREE,roofLamps)),M(new THREE.MeshBasicMaterial({vertexColors:true,fog:false})));
       lm.name="roofLamps"; group.add(lm);
     }
+    // P2(bölüm, merkezden uzaklık, y, boyuna konum) → dünya [x,y,z]
+    const P2=(s,off,y,al)=>s.axis==="z"?[al,y,s.sign*off]:[s.sign*off,y,al];
+    // Seyirci dokusu: her basamağın sahaya bakan alnında (RISE yüksekliği) koltuk + taraftar deseni.
+    //   3D taraftarların arasındaki boşluklar dolu bir tribün gibi görünür. Tek mesh; vertex rengi =
+    //   basamak AO katsayısı (arka sıralar çatı altında koyu). u: 16 m'de bir doku tekrarı,
+    //   v: dokunun 16 sırasından biri (komşu basamaklar farklı desen).
+    if(risers.length){
+      const pos=[], uvs=[], cols=[];
+      risers.forEach(({s,r,top,off})=>{
+        const f=off-TREAD/2-0.02, y0=Math.max(0.05,top-RISE), y1=top-0.04, hl=s.len/2-0.6;
+        const a=P2(s,f,y0,-hl), b=P2(s,f,y0,hl), c=P2(s,f,y1,hl), d=P2(s,f,y1,-hl);
+        const u=s.len/16, v0=(r%16)/16+0.004, v1=(r%16+1)/16-0.004;
+        const k=1-0.5*Math.pow(r/Math.max(1,s.rows-1),1.3);
+        pos.push(...a,...b,...c, ...a,...c,...d);
+        uvs.push(0,v0,u,v0,u,v1, 0,v0,u,v1,0,v1);
+        for(let i=0;i<6;i++) cols.push(k,k,k);
+      });
+      const rg2=G(new THREE.BufferGeometry());
+      rg2.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+      rg2.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
+      rg2.setAttribute("color",new THREE.Float32BufferAttribute(cols,3));
+      rg2.computeVertexNormals();
+      const ct=day3dTex(THREE,"crowd",4);
+      if(ct){
+        owned.texs.push(ct);
+        const rm=new THREE.Mesh(rg2,M(new THREE.MeshLambertMaterial({map:ct,vertexColors:true,side:THREE.DoubleSide})));
+        rm.name="crowdRisers"; rm.receiveShadow=true; group.add(rm);
+      }
+    }
+    // Çatı altı + arka duvar fake AO: siyaha yakın, alphaMap gradyanlı, saydam (tek mesh)
+    if(aoQuads.length){
+      const pos=[], uvs=[];
+      aoQuads.forEach(q=>{
+        pos.push(...q.a,...q.b,...q.c, ...q.a,...q.c,...q.d);
+        uvs.push(0,q.v0,1,q.v0,1,q.v1, 0,q.v0,1,q.v1,0,q.v1);
+      });
+      const ag=G(new THREE.BufferGeometry());
+      ag.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+      ag.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
+      ag.computeVertexNormals();
+      const at=day3dTex(THREE,"ao");
+      if(at){
+        at.wrapS=at.wrapT=THREE.ClampToEdgeWrapping; owned.texs.push(at);
+        const am=new THREE.Mesh(ag,M(new THREE.MeshBasicMaterial({color:0x04070c,alphaMap:at,transparent:true,opacity:0.78,
+          depthWrite:false,side:THREE.DoubleSide})));
+        am.name="roofAO"; am.renderOrder=1; group.add(am);
+      }
+    }
     // Ağaçlar: köşe boşluklarında kümeler + kale arkası/yan tribünlerin gerisinde sıralar (tek InstancedMesh)
     const tp=[];
+    // Köşe kümeleri köşe tribün modüllerinin (aşağıda) arkasında başlar
     [-1,1].forEach(sx=>[-1,1].forEach(sz=>{
-      for(let k=0;k<7;k++) tp.push([sx*(60+rand()*26),sz*(38+rand()*28),1.0+rand()*0.6]);
+      for(let k=0;k<7;k++) tp.push([sx*(70+rand()*24),sz*(52+rand()*22),1.0+rand()*0.6]);
     }));
     [-1,1].forEach(sx=>{ for(let k=0;k<8;k++) tp.push([sx*(92+rand()*10),-40+k*11+(rand()-0.5)*4,1.2+rand()*0.5]); });
     [-1,1].forEach(sz=>{ for(let k=0;k<10;k++) tp.push([-58+k*13+(rand()-0.5)*4,sz*(68+rand()*8),1.2+rand()*0.5]); });
     trees=day3dTrees(THREE,tp);
     if(trees){ owned.geos.push(trees.geometry); owned.mats.push(trees.material); group.add(trees); }
+    // Hazır modeller (assets3d.js; gelmezse prosedürel kalır, köşeler açık kalır):
+    //   tree.glb → ağaçlar (prosedürel ağaçların konum/ölçek/tonları aynen), stadium.glb → dört açık
+    //   köşede sahaya dönük çatılı küçük tribün modülü
+    const isAlive=(o&&o.isAlive)||(()=>true), onAsset=(o&&o.onAsset)||(()=>{});
+    if(typeof assets3dApplyTrees==="function"&&trees){
+      assets3dApplyTrees(THREE,group,trees,10.5,isAlive).then(ok=>{ if(ok) onAsset(); }).catch(()=>{});
+    }
+    if(typeof assets3dApplyStands==="function"){
+      const cs=[];
+      [-1,1].forEach(sx=>[-1,1].forEach(sz=>{ const x=sx*64, z=sz*45; cs.push([x,z,Math.atan2(x,z),18]); }));
+      assets3dApplyStands(THREE,group,cs,isAlive).then(ok=>{ if(ok) onAsset(); }).catch(()=>{});
+    }
   } else {
     const lampMat=M(new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}));
     group.add(new THREE.Mesh(G(mergeGeos3D(THREE,lampFaces)),lampMat));
@@ -250,13 +327,30 @@ function buildStadium3D(THREE,o){
     const ctx=cv.getContext("2d");
     if(ctx&&day){
       const w=cv.width/STADIUM3D_BRANDS_DAY.length, h=cv.height;
-      STADIUM3D_BRANDS_DAY.forEach(([name,c1,c2,fg],i)=>{
+      // Amblem (kurgusal, basit geometrik): merkez (x,y), yarıçap r, renk fg
+      const emblem=(kind,x,y,r,fg)=>{
+        ctx.save(); ctx.fillStyle=fg; ctx.strokeStyle=fg; ctx.lineWidth=r*0.3; ctx.beginPath();
+        if(kind==="bolt"){ ctx.moveTo(x+r*0.25,y-r); ctx.lineTo(x-r*0.55,y+r*0.12); ctx.lineTo(x-r*0.02,y+r*0.12);
+          ctx.lineTo(x-r*0.3,y+r); ctx.lineTo(x+r*0.6,y-r*0.2); ctx.lineTo(x+r*0.05,y-r*0.2); ctx.closePath(); ctx.fill(); }
+        else if(kind==="star"){ for(let k=0;k<10;k++){ const a=-Math.PI/2+k*Math.PI/5, rr=k%2?r*0.45:r; ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); } ctx.closePath(); ctx.fill(); }
+        else if(kind==="ring"){ ctx.arc(x,y,r*0.78,0,Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(x,y,r*0.3,0,Math.PI*2); ctx.fill(); }
+        else { ctx.moveTo(x-r*0.7,y-r*0.8); ctx.lineTo(x+r*0.1,y-r*0.8); ctx.lineTo(x+r*0.8,y); ctx.lineTo(x+r*0.1,y+r*0.8);
+          ctx.lineTo(x-r*0.7,y+r*0.8); ctx.lineTo(x,y); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+      };
+      STADIUM3D_BRANDS_DAY.forEach(([name,c1,c2,fg,em],i)=>{
         const gr=ctx.createLinearGradient(i*w,0,i*w,h); gr.addColorStop(0,c1); gr.addColorStop(1,c2);
         ctx.fillStyle=gr; ctx.fillRect(i*w,0,w,h);
-        ctx.fillStyle="rgba(255,255,255,.18)"; ctx.fillRect(i*w,0,w,h*0.14);           // üst parlama şeridi
-        ctx.font="900 66px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-        ctx.lineWidth=7; ctx.strokeStyle="rgba(0,0,0,.35)"; ctx.strokeText(name,i*w+w/2,h/2+3,w-24);
-        ctx.fillStyle=fg; ctx.fillText(name,i*w+w/2,h/2+3,w-24);
+        ctx.fillStyle="rgba(255,255,255,.22)"; ctx.fillRect(i*w,0,w,h*0.12);           // üst parlama şeridi
+        ctx.fillStyle="rgba(0,0,0,.18)"; ctx.fillRect(i*w,h*0.9,w,h*0.1);               // alt gölge şeridi
+        ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(i*w+w-3,0,3,h);                   // panolar arası ek yeri
+        // Kalın italik yazı + amblem, birlikte ortalanır
+        ctx.font="italic 900 72px sans-serif"; ctx.textAlign="left"; ctx.textBaseline="middle";
+        const er=h*0.3, gap=er*0.7, tw=Math.min(ctx.measureText(name).width,w-er*2-gap-40);
+        const x0=i*w+(w-(er*2+gap+tw))/2;
+        emblem(em,x0+er,h/2+2,er,fg);
+        ctx.lineWidth=6; ctx.strokeStyle="rgba(0,0,0,.28)"; ctx.strokeText(name,x0+er*2+gap,h/2+4,tw);
+        ctx.fillStyle=fg; ctx.fillText(name,x0+er*2+gap,h/2+4,tw);
       });
     } else if(ctx){
       const w=cv.width/STADIUM3D_BRANDS.length;
@@ -271,6 +365,7 @@ function buildStadium3D(THREE,o){
     owned.texs.push(t); return t;
   })();
   const adMat=M(new THREE.MeshBasicMaterial({map:adTex}));
+  if(day) adMat.toneMapped=false;   // LED pano: ACES film tonu parlak renkleri soldurmasın
   const boardBack=M(new THREE.MeshLambertMaterial({color:0x111827}));
   const BH=0.95, BOFF=4.6;
   // u ölçeği: 1 doku tekrarı ≈ 48 m (her marka ~6 m)
@@ -392,6 +487,8 @@ function buildStadium3D(THREE,o){
   };
   const dispose=()=>{
     [bodies,heads,arms,trees].forEach(m=>{ try{ m&&m.dispose(); }catch(e){} });
+    // Sonradan gelen hazır modeller (glbStand / glbTrees) owned listelerinde değil
+    group.children.filter(c=>/^glb/.test(c.name)).forEach(c=>{ group.remove(c); disposeObject3D(c); });
     if(group.parent) group.parent.remove(group);
     group.clear();
     owned.geos.forEach(g=>{ try{ g.dispose(); }catch(e){} });

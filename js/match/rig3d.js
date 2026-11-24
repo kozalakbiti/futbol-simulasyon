@@ -22,6 +22,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const RIG3D_HIP=1.48;          // kalça ekseni (yerden, m; oyuncu ~3.2 m: uzaktan okunsun; bacak+krampon 1.48 m)
+const RIG3D_RIG_H=3.19;        // rig boyu (krampon tabanı → saç tepesi); gerçek boy ölçeği buna göre
 const RIG3D_ACT_DUR={kick:0.5,poke:0.55,dive:1.5,slide:0.9,fall:1.3,celebrate:2.2};
 // Dalış animasyonunun en çok hızlanma katı (players3d diveTo ve moment3d dalış zamanlaması ortak)
 //   ve tam uzanma anı (dalış süresinin kesri: animateRig3D "dive" 0.12–0.45 arası uçuş)
@@ -126,6 +127,7 @@ function createRigKit3D(THREE,COL){
     rig.torso.geometry=bodyGeo(k,rig.skin);
     rig.armL.geometry=armGeo(k,rig.skin); rig.armR.geometry=armGeo(k,rig.skin);
     rig.shinL.geometry=shinGeo(k,rig.boot); rig.shinR.geometry=shinGeo(k,rig.boot);
+    if(rig.glb&&rig.glb.setKit) rig.glb.setKit(k);   // hazır insan modeli (assets3d.js) forma rengi
   };
   const dispose=()=>{
     geos.forEach(g=>{ try{ g.dispose(); }catch(e){} });
@@ -133,7 +135,8 @@ function createRigKit3D(THREE,COL){
     try{ mat.dispose(); }catch(e){}
     Object.keys(cache).forEach(k=>delete cache[k]);
   };
-  return {build,setKit,dispose,material:mat};
+  // kitCol/SKIN/HAIR/BOOT: hazır insan modeli (assets3d.js) aynı forma/ten/saç renklerini kullanır
+  return {build,setKit,dispose,material:mat,kitCol,SKIN,HAIR,BOOT};
 }
 
 // Eylem başlat (aynı eylem sürerken yeniden başlatılmaz, "kick" hariç)
@@ -142,6 +145,9 @@ function rigAction3D(rig,kind,opts){
   if(rig.act===kind&&kind!=="kick"&&rig.actT<rig.actDur*0.6) return;
   const o=opts||{};
   rig.act=kind; rig.actDur=Number.isFinite(o.dur)?o.dur:RIG3D_ACT_DUR[kind];
+  // fast (dalış): uçuş (tam uzanmaya kadar, RIG3D_DIVE_REACH_U) fast× hızlı, sonrası (yerde yatış +
+  //   kalkış) normal hızda → çok hızlı şutta da kaleci topa uzanır ve yerde görünür kalır
+  rig.fast=(kind==="dive"&&Number.isFinite(o.fast))?Math.max(1,Math.min(RIG3D_DIVE_K_MAX,o.fast)):1;
   // t0: başlangıç kesri (ör. top hemen çıkıyorsa vuruş vuruş anından başlar)
   rig.actT=Number.isFinite(o.t0)?Math.max(0,Math.min(0.95,o.t0))*rig.actDur:0;
   rig.side=o.side<0?-1:1;
@@ -194,11 +200,24 @@ function animateRig3D(rig,dt,speed){
       rig.armL.rotation.x=rig3dMix(rig.armL.rotation.x,-0.8+br*0.03,rd); rig.armL.rotation.z=rig3dMix(rig.armL.rotation.z,0.38,rd);
       rig.armR.rotation.x=rig3dMix(rig.armR.rotation.x,-0.8-br*0.03,rd); rig.armR.rotation.z=rig3dMix(rig.armR.rotation.z,-0.38,rd);
       rig.head.rotation.x=rig3dMix(rig.head.rotation.x,-0.16,rd);   // gövde eğikken bakış öne (topa)
+      // Canlı bekleme (idle bounce): sağa-sola hafif yaylanma + parmak ucunda inip kalkma. Saat
+      //   GERÇEK zamanla işler (rig.rdt, players3d) → vuruş ekranının ağır çekiminde (×0.05) de
+      //   kaleci heykel gibi durmaz. Yan kayma uyluk açısıyla telafi edilir: ayaklar yerde kalır.
+      rig.gkT=(rig.gkT||0)+(Number.isFinite(rig.rdt)?rig.rdt:dt);
+      const gt=rig.gkT, sw=Math.sin(gt*2.3), dip=(1-Math.cos(gt*4.6))*0.5;   // dip: her yan uçta bir yaylanma
+      const dx=sw*0.13*rd;
+      B.position.x+=dx; B.position.y-=dip*0.08*rd;
+      B.rotation.z+=-sw*0.04*rd;
+      rig.thighL.rotation.z-=dx/1.4; rig.thighR.rotation.z-=dx/1.4;
+      rig.thighL.rotation.x-=dip*0.13*rd; rig.thighR.rotation.x-=dip*0.13*rd;
+      rig.shinL.rotation.x+=dip*0.24*rd; rig.shinR.rotation.x+=dip*0.24*rd;
+      rig.armL.rotation.x-=dip*0.08*rd; rig.armR.rotation.x-=dip*0.08*rd;      // eller hazır, ritimle hafif
+      rig.armL.rotation.z+=sw*0.05*rd; rig.armR.rotation.z+=sw*0.05*rd;
     }
   }
   // ── Eylem katmanı ──
   if(!rig.act) return;
-  rig.actT+=dt;
+  rig.actT+=dt*((rig.act==="dive"&&rig.fast>1&&rig.actT<RIG3D_DIVE_REACH_U*rig.actDur)?rig.fast:1);
   const u=Math.min(1,rig.actT/Math.max(0.05,rig.actDur));
   if(u>=1){ rig.act=null; return; }
   const sd=rig.side, P=rig.power;
@@ -232,14 +251,16 @@ function animateRig3D(rig,dt,speed){
     }
     case "dive":{
       // Kaleci: çömel (0–0.12) → yana uç (0.12–0.45) → yerde (–0.8) → kalk
-      const lie=-1.0, ang=1.4;
+      // rig.reach: ölçek telafisi (players3d: 1/oyuncu ölçeği) → küçültülmüş (gerçek boy) kalecide
+      //   de yana uzanma ~2.3 m ve sıçrama yüksekliği dünyada aynı kalır
+      const lie=-1.0, ang=1.4, rk=Number.isFinite(rig.reach)?rig.reach:1;
       let e, up;
       if(u<0.12){ e=0; up=0; B.position.y-=0.3*(u/0.12); }
-      else if(u<0.45){ const k=(u-0.12)/0.33; e=ease(0,1,k); up=Math.sin(Math.PI*k)*(0.7+rig.h*0.9); }
+      else if(u<0.45){ const k=(u-0.12)/0.33; e=ease(0,1,k); up=Math.sin(Math.PI*k)*(0.7+rig.h*0.9)*rk; }
       else if(u<0.8){ e=1; up=0; }
       else { e=ease(1,0,(u-0.8)/0.2); up=0; }
       B.rotation.z=-sd*ang*e;
-      B.position.x+=sd*2.3*Math.min(1,e*1.15);
+      B.position.x+=sd*2.3*rk*Math.min(1,e*1.15);
       B.position.y+=lie*e+up;
       rig.armL.rotation.set(-2.9*Math.min(1,e*1.6),0,0.25); rig.armR.rotation.set(-2.9*Math.min(1,e*1.6),0,-0.25);
       rig.thighL.rotation.set(0.15*e,0,0.2*e); rig.thighR.rotation.set(0.15*e,0,-0.2*e);

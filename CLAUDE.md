@@ -37,7 +37,7 @@ Grouped by folder. This is **not** the exact load order: `index.html` is the sou
 | `js/match/moments.js` | `planMoments`, `InteractiveMoment` |
 | `js/ui/primitives.js` | Shared UI bits: `PosTag`, `STitle`, `Chip`, `Btn`, `Modal`, `StatBar` |
 | `js/match/halftime.js` | `HalftimeSpeech` |
-| `js/match/three3d.js` … `hud3d.js` | 3D match view (Three.js r128, lazy-loaded from cdnjs; see `PLAN-3D.md`): `three3d` (`loadThreeJs`, coordinates, `mergeGeos3D`, `disposeObject3D`), `rig3d` (articulated low-poly player + animations), `stadium3d` (stands, instanced crowd, floodlights, ad boards, benches), `pitch3d` (`Pitch3D`, cameras), `players3d` (`createMatchActors3D`: players, ball physics, play director, event FX), `moment3d` (`InteractiveMoment3D`), `hud3d` (`Scoreboard3D`) |
+| `js/match/three3d.js` … `hud3d.js` | 3D match view (Three.js r128, lazy-loaded from cdnjs; see `PLAN-3D.md`): `three3d` (`loadThreeJs`, coordinates, `mergeGeos3D`, `disposeObject3D`), `rig3d` (articulated low-poly player + animations), `stadium3d` (stands, instanced crowd, floodlights, ad boards, benches), `pitch3d` (`Pitch3D`, cameras), `players3d` (`createMatchActors3D`: players, ball physics, play director, event FX), `moment3d` (`InteractiveMoment3D`), `hud3d` (`Scoreboard3D`), `day3d` (day scene: sky, lights, grass/crowd/AO canvases), `assets3d` (`loadModel()` + GLTFLoader from `js/vendor/`, applies `assets/models/*.glb`; credits in `assets/CREDITS.md`) |
 | `js/match/overlay.js` | `SPEED_CONFIGS`, `MATCH3D_TEMPO`, `MatchOverlay` (live match UI) |
 | `js/ui/player-modal.js` | `PlayerModal`, `calcTeamGrades`, `NEAREST_POS` |
 | `js/data/traits.js` | `PLAYER_TRAITS`, `assignTraits`, `calcTraitBonus` |
