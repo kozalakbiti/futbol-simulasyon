@@ -117,15 +117,11 @@ function day3dCanvas(kind){
       const g=cv.getContext("2d"); if(!g) return null;
       const r=day3dRand(778899);
       g.fillStyle="#808080"; g.fillRect(0,0,N,N);
-      // Taban: piksel gürültüsü (kıllar arası koyu boşluk / toprak) → yakın planda düz gri değil
-      { const im=g.getImageData(0,0,N,N), d=im.data;
-        for(let j=0;j<d.length;j+=4){ const v=Math.round(128+(r()-0.55)*70); d[j]=d[j+1]=d[j+2]=v; }
-        g.putImageData(im,0,0); }
       g.lineCap="round";
-      for(let i=0;i<5200;i++){
+      for(let i=0;i<4200;i++){
         const x=r()*N, y=r()*N, len=3+r()*8, a=-Math.PI/2+(r()-0.5)*0.9;
-        const v=r()<0.5?Math.round(165+r()*85):Math.round(15+r()*65);   // yüksek kontrast: açık kıl / koyu gölge
-        g.strokeStyle="rgba("+v+","+v+","+v+","+(0.45+r()*0.5)+")"; g.lineWidth=0.7+r()*1.1;
+        const v=r()<0.5?Math.round(150+r()*60):Math.round(60+r()*50);   // yumuşak: açık kıl / hafif gölge (gürültüsüz)
+        g.strokeStyle="rgba("+v+","+v+","+v+","+(0.22+r()*0.3)+")"; g.lineWidth=0.7+r()*1.1;
         const dx=Math.cos(a)*len, dy=Math.sin(a)*len;
         for(const ox of [-N,0,N]) for(const oy of [-N,0,N]){
           if(x+ox+len<0||x+ox-len>N||y+oy+len<0||y+oy-len>N) continue;
@@ -170,7 +166,7 @@ function day3dCanvas(kind){
 // Şerit kenarı yumuşatma: p = kale çizgisinden uzaklık (m), sw = şerit genişliği. Şerit içinde 1,
 //   kenara ~0.5 m kala 0'a iner (iki komşu şeridin ortalama tonu) → yumuşak geçiş.
 function day3dStripeEdge(p,sw){
-  const f=((p%sw)+sw)%sw, e=Math.min(f,sw-f), t=Math.min(1,e/0.55);
+  const f=((p%sw)+sw)%sw, e=Math.min(f,sw-f), t=Math.min(1,e/0.9);
   return t*t*(3-2*t);
 }
 // Kale önü yıpranması (0…~0.8): altıpasın içinde kale çizgisinden ~2 m önde en yoğun, kaleci
@@ -210,8 +206,8 @@ function day3dGrassCanvas(gw,gh){
         // Yalnız boyuna biçme şeritleri (ende bant YOK). Şerit kenarı ~0.5 m yumuşak geçiş: biçme
         //   yönü değişirken renk keskin çizgiyle değil doğal kayarak döner
         let k=out?0.84:(1+0.09*(bx?1:-1)*day3dStripeEdge(wx+L,sx));
-        k*=0.9+n*0.16+(r()-0.5)*0.09;
-        const hue=(h-0.5)*0.22+(r()-0.5)*0.06;           // + sarımsı, − mavimsi
+        k*=0.92+n*0.12+(r()-0.5)*0.035;   // dengeli ton: piksel titreşimi düşük (keskin/gürültülü görünmesin)
+        const hue=(h-0.5)*0.18+(r()-0.5)*0.025;           // + sarımsı, − mavimsi
         const j=(y*W+x)*4;
         let cr=(58+hue*70)*k, cg=(134+hue*18)*k, cb=(44-hue*40)*k;
         // Kale önü / altıpas yıpranması: lekeli toprak + solgun çim karışımı
@@ -281,7 +277,7 @@ function day3dGrassDetail(THREE,mat,tex,gw,gh,amp){
         "float detB=texture2D(uDetail,vUv*uDetBig+vec2(0.71,0.53)).g;",
         "float detK=1.0-smoothstep(uDetNear,uDetFar,vDetDist);",
         "float det=mix(detC,detF,detK)*2.0-1.0;",
-        "diffuseColor.rgb*=(1.0+det*uDetAmp*(1.0+0.8*detK))*(1.0+(detB-0.5)*0.12);",   // yakında (vuruş kamerası) kıl kontrastı daha güçlü
+        "diffuseColor.rgb*=(1.0+det*uDetAmp*(1.0+0.2*detK))*(1.0+(detB-0.5)*0.08);",   // yakında ince, yumuşak kıl geçişi
       ].join("\n"));
   };
   mat.customProgramCacheKey=()=>"grassDetail"+(mat.isMeshStandardMaterial?"S":"L");

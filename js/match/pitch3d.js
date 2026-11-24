@@ -128,7 +128,7 @@ function pitch3dGrassCanvases(gw,gh){
             const out=Math.abs(wx)>L||Math.abs(wz)>Hw;            // çizgi dışı pay: düz, biraz koyu
             // Yalnız boyuna biçme şeritleri (ende bant kaldırıldı: iki yönlü dama büyük kareler gibi görünüyordu)
             let k=out?0.86:(1+0.075*(bx?1:-1)*day3dStripeEdge(wx+L,sx));   // yumuşak şerit kenarı
-            k*=0.93+n*0.12+(rnd()-0.5)*0.05;
+            k*=0.93+n*0.1+(rnd()-0.5)*0.03;
             const j=(y*W+x)*4;
             let cr=44*k, cg=124*k, cb=50*k;
             const wv=out?0:day3dGoalWear(wx,wz,n,rnd());                    // kale önü yıpranması
@@ -201,8 +201,8 @@ function buildPitch3DMeshes(THREE,maxAniso,day){
     // bumpMap: r128'de tüm haritalar map'in uv dönüşümünü paylaşır (bumpMap.repeat yok sayılır);
     //   ince tekrar gölgelendiricide (day3dGrassDetail: bump uv = vUv × ince ölçek)
     const bt=day3dTex(THREE,"grassDetail",aniso);
-    if(bt){ grassMat.bumpMap=bt; grassMat.bumpScale=day?0.95:0.6; }   // belirgin kıl kabartması (alçak açıda düz görünmesin)
-    day3dGrassDetail(THREE,grassMat,detT,GW2,GH2,day?0.26:0.28);
+    if(bt){ grassMat.bumpMap=bt; grassMat.bumpScale=day?0.24:0.2; }   // ince kıl kabartması (yumuşak, gürültüsüz)
+    day3dGrassDetail(THREE,grassMat,detT,GW2,GH2,day?0.12:0.14);
   }
   const grassBase=new THREE.Mesh(grassGeo,grassMat);
   grassBase.position.y=-0.01; grassBase.name="grass"; g.add(grassBase);
