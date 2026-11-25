@@ -660,7 +660,7 @@ function createMatchActors3D(api,opts={}){
   };
   const curl={x:0,z:0,t:0};                      // falso: kısa süreli yanal ivme
   let freeBall=false;                            // top ayaktan koptu, fizikle ilerliyor
-  const rcv={team:null,i:-1,x:0,z:0,t:0,tried:0};// pas alıcısı, buluşma noktası, zaman aşımı, kesme denemeleri (bit)
+  const rcv={team:null,i:-1,x:0,z:0,t:0,tried:0,off:false,d:0};// pas alıcısı, buluşma noktası, zaman aşımı, kesme denemeleri (bit)
   const bt={on:false,x:0,z:0};                   // son ballPos hedefi (dünya)
   const anc={x:0,z:0,on:false};                  // yumuşatılmış ballPos (çapa)
   const passPt={x:0,z:0};                        // öngörülü hedef (tahsis yok)
@@ -709,12 +709,18 @@ function createMatchActors3D(api,opts={}){
   const setOwnerInternal=(team,i)=>{
     const tp=tempo();
     if(!(rcv.team===team&&rcv.i===i)) own.fromT=null;   // pasla gelmedi: eski verkaç bilgisi geçersiz
+    if(chain.team!==team){ chain.team=team; chain.n=0; }
     own.team=team; own.i=i; own.since=clk; lastPoss=team;
     own.dwell=(0.5+Math.random()*0.6)*clamp(btEma/PACE.tick,0.3,1);
     // İlk dokunuştan sonra karar: kısa (verkaç) ile ~1.3 sn arası
     // Adım 12: topu alır almaz karar (≈0.15–0.45 sn) → bekleme yok, akıcı tek-iki dokunuş paslaşma
     own.decide=clk+(Math.random()<ACTORS3D_ONE_TOUCH?0.02:0.06+Math.random()*0.14)/tp; // tek pas ya da çok kısa kontrol
     own.dribble=false; own.touchT=0; own.drN=0;
+    if(!manual){
+      const p=teams[team]&&teams[team][i];
+      if(p&&p.gk) own.decide=clk+0.7/tp;                                   // kaleci: kontrol et, kısa sürede dağıt
+      else if(p&&nearestOppDist(p)>6) own.decide+=(0.05+Math.random()*0.15)/tp;   // baskı yok: başını kaldırır, sabırlı
+    }
     freeBall=false; bvel.set(0,0,0); curl.t=0; rcv.team=null; chaser=null; pk.on=false;
     // Canlı akış: topu alan oyuncu topa döner (top ayağının önüne arkasından ışınlanmasın);
     //   top ACTORS3D_GRAB_SEC içinde ayağa yumuşakça oturur (updateBall)
@@ -832,10 +838,35 @@ function createMatchActors3D(api,opts={}){
     }
     return laneHit;
   };
-  const setRcv=(p,x,z,T)=>{ rcv.team=p.team; rcv.i=p.idx; rcv.x=x; rcv.z=z; rcv.t=clk+T+2.5; rcv.tried=0; };
+  const setRcv=(p,x,z,T,off)=>{ rcv.off=!!off; rcv.d=Math.hypot(x-bpos.x,z-bpos.z); rcv.team=p.team; rcv.i=p.idx; rcv.x=x; rcv.z=z; rcv.t=clk+T+2.5; rcv.tried=0; };
   const clearOverrides=()=>{
     for(let t=0;t<2;t++){ const list=t===0?teams.home:teams.away; for(let i=0;i<list.length;i++){ list[i].ovr=false; list[i].cap=0; } }
   };
+  // ── OFSAYT (canlı akış) ── çizgi (hücum yönünde): sondan ikinci savunmacı (kaleci dahil) · top · orta çizgi
+  const offLine=(team)=>{
+    const dir=atkDir(team), list=teams[otherTeam(team)];
+    let a=-1e9, b=-1e9;
+    for(let i=0;i<list.length;i++){
+      const q=list[i]; if(!q.g.visible) continue;
+      const f=q.pos.x*dir; if(f>a){ b=a; a=f; } else if(f>b) b=f;
+    }
+    return Math.max(0,b,bpos.x*dir);
+  };
+  const isOff=(m)=>!manual&&!!m&&!m.gk&&m.pos.x*atkDir(m.team)>offLine(m.team)+0.5;
+  // Ofsayttaki alıcı topa dokundu: düdük, serbest vuruş rakibe, akış metni (opts.onOffside)
+  const offsideCall=(r)=>{
+    const x=r.pos.x, z=r.pos.z;
+    rcv.off=false;
+    if(!foulStop(otherTeam(r.team),{x,z})) return false;
+    spawnRing(x,0.06,z,0xf1c40f,1.2,4);
+    try{ if(typeof MATCH_SFX!=="undefined") MATCH_SFX.whistle("short"); }catch(_){}
+    if(opts.onOffside) try{ opts.onOffside({team:r.team,idx:r.idx}); }catch(e){ console.error("[3D] onOffside hatası",e); }
+    return true;
+  };
+  // Kaleci topu kontrol etti: dokunulmaz (müdahale/kapma/şut senaryosu yok); en çok 3 sn (takılma koruması)
+  const gkHeld=()=>{ if(manual) return false; const o=ownerP(); return !!(o&&o.gk&&clk-own.since<3&&Math.abs(o.pos.x)>L-17.5&&Math.abs(o.pos.z)<D.penWidth/2+1); };
+  let gkCatch=null;                              // kurtarışta topu tutan kaleci (senaryo bitince sahip olur)
+  const chain={team:null,n:0};                   // aynı takımın kesintisiz pas sayısı (sabırlı kuruluş)
   const nearestOppDist=(p)=>{ nearestTo(p.pos.x,p.pos.z,null,otherTeam(p.team),false); return nearD; };
   const isWide=(r)=>r==="LB"||r==="RB"||r==="LM"||r==="RM"||r==="LW"||r==="RW"||r==="LWB"||r==="RWB";
 
@@ -860,7 +891,7 @@ function createMatchActors3D(api,opts={}){
     const ko=(rs.on&&rs.kind==="kickoff")||!own.team&&!freeBall&&!rcv.team&&Math.hypot(bpos.x,bpos.z)<1.5;   // santra bekleniyor
     for(let t=0;t<2;t++){
       const team=t===0?"home":"away", list=teams[team], base=baseArr[team];
-      const dir=atkDir(team), att=possT===team, bf=bpos.x*dir, opp=teams[t===0?"away":"home"];
+      const dir=atkDir(team), att=possT===team, bf=bpos.x*dir, opp=teams[t===0?"away":"home"], offT=att&&!(rs.on&&rs.kind==="corner")?offLine(team):L;
       for(let i=0;i<list.length;i++){
         const p=list[i]; if(!p.g.visible||p.driven) continue;
         // Taban: derinlik + kanat (2D tabanı: home bx=100−derinlik, rakip bx=derinlik; by=kanat)
@@ -887,7 +918,9 @@ function createMatchActors3D(api,opts={}){
             f=clamp(f,-L+7,att?(isWide(p.role)?(ovl?L-18:8):0):-6);
           }
           else if(cls===2) f=clamp(f,-L+14,L-20);
-          else f=att?clamp(Math.max(f,bf+6),L-34,L-11):clamp(f,-8,12);
+          // Hatlar kopmaz: forvet topun en çok ~30 m önünde (eskiden top kendi kalemizdeyken 60 m ileride bekliyordu)
+          else f=att?clamp(Math.max(f,bf+6),Math.min(L-34,bf+30),L-11):clamp(f,-8,12);
+          if(att&&cls===1&&!isWide(p.role)) f=Math.max(f,Math.min(bf-30,0));
           z=zt*dir*(att?1.05:0.75)+bpos.z*(cls===2?0.38:cls===1?0.22:0.25);
           if(att&&isWide(p.role)&&cls!==1) z=sgn(z||zt*dir)*Math.max(Math.abs(z),H*0.62);   // kanat açılır
           // Savunurken markaj: kendi yarımızdaki en yakın rakip forvetin kale tarafı
@@ -916,6 +949,7 @@ function createMatchActors3D(api,opts={}){
               f+=(bfx-f)/dB*mv; z+=(bz-z)/dB*mv;
             }
           }
+          if(att&&cls>=2) f=Math.min(f,offT-0.3);                        // ofsayt çizgisi gerisinde bekle
           if(ko) f=Math.min(f,-1.2);                                     // santrada kendi yarısında
         }
         const wx=clamp(f*dir,-L+1,L-1), wz=clamp(z,-H+1.5,H-1.5);
@@ -956,7 +990,7 @@ function createMatchActors3D(api,opts={}){
   //   konumlarına ışınlanır
   const swapSides=()=>{
     legs.length=0; fl.on=false; fl.fn=null; fl.script=false; lockUntil=0; pend.on=false; pk.on=false;
-    evQ.length=0; gkPend.on=false; rs.on=false; rsNext.kind="";
+    evQ.length=0; gkPend.on=false; gkCatch=null; chain.team=null; rs.on=false; rsNext.kind="";
     own.team=null; freeBall=false; bvel.set(0,0,0); curl.t=0; rcv.team=null; chaser=null; lastPoss=null; bu.team=null;
     for(let t=0;t<2;t++){ const list=t===0?teams.home:teams.away;
       for(let i=0;i<list.length;i++){ const p=list[i]; p.has=false; p.anOn=false; p.vx=0; p.vz=0; p.speed=0; } }
@@ -981,13 +1015,16 @@ function createMatchActors3D(api,opts={}){
   const passN={home:0,away:0};   // atak hazırlığı: takımın verdiği pas sayısı
   const execPass=()=>{
     pk.on=false; if(passN[pk.team]!=null) passN[pk.team]++;
+    if(chain.team===pk.team) chain.n++;
     const m=teams[pk.team]&&teams[pk.team][pk.i];
     // Top zaten ayağın önünde; animasyon vuruş anında → kickTo animasyonu yeniden başlatmasın
     const o=ownerP(); const act=o?o.rig.act:null;
     if(o) o.rig.act=null;
+    const off=bu.team!==pk.team&&isOff(m);          // ofsayt pas ANINDAKİ konuma göre
+    if(!manual&&o&&o.gk) bpos.y=0;                   // elden yere bırakıp vurur
     const T=kickTo(pk.x,pk.z,pk.lofted);
     if(o&&act==="kick"){ o.rig.act="kick"; o.rig.actT=o.rig.actDur*0.42; }
-    if(m&&m.g.visible) setRcv(m,pk.x,pk.z,T);
+    if(m&&m.g.visible) setRcv(m,pk.x,pk.z,T,off);
   };
   const decide=(o)=>{
     const tp=tempo(), dir=atkDir(o.team);
@@ -997,13 +1034,14 @@ function createMatchActors3D(api,opts={}){
     for(let i=0;i<mates.length;i++){
       const m=mates[i]; if(m===o||!m.g.visible) continue;
       const d=Math.hypot(m.pos.x-o.pos.x,m.pos.z-o.pos.z);
+      if(isOff(m)&&(bu.team===o.team||Math.random()<0.2)) continue;   // ofsayttaki arkadaşa çoğunlukla oynanmaz (bazen yanılır)
       if(o.gk&&!manual&&m.pos.x*dir>0) continue;           // kaleci rakip yarıdaki arkadaşı hedeflemez
       // KISA PASLAŞMA: en yakın uygun (pas yolu açık) arkadaş tercih edilir; uzun/havadan top
       //   yalnız kısa seçenek yoksa ve ağır cezayla (rastgele uzun top yok, kademeli ilerleme)
       if(d<4.5||d>ACTORS3D_PASS_MAX) continue;
       if(m.gk&&(o.pos.x*dir>-12||pressure>5)) continue;    // kaleciye yalnızca kendi yarıda, baskı altında
       let lofted=d>ACTORS3D_PASS_SHORT;
-      if(!lofted&&laneBlocked(o.team,bpos.x,bpos.z,m.pos.x,m.pos.z,1.8)){ if(d<16) continue; lofted=true; }
+      if(!lofted&&laneBlocked(o.team,bpos.x,bpos.z,m.pos.x,m.pos.z,2.2)){ if(d<16) continue; lofted=true; }
       let sc=1.35-d*0.04;                                    // yakın arkadaş: en yüksek puan
       if(lofted) sc-=0.55;                                   // uzun/havadan top: son çare
       // AMAÇLI PAS: hedef kaleye doğru ilerleme (geri pas cezalı) + boşta olma (en yakın rakip) +
@@ -1018,9 +1056,18 @@ function createMatchActors3D(api,opts={}){
         if(fx>L-28&&fx<L-12&&Math.abs(m.pos.z)<18&&Math.abs(o.pos.z)>H*0.45) sc+=0.2; }
       if(m.pos.x*dir>L/3) sc+=0.12;                           // son üçte birdeki arkadaş
       if(anc.on&&bu.team!==o.team) sc-=Math.hypot(m.pos.x-anc.x,m.pos.z-anc.z)*0.015; // 2D top bölgesine hafif bağ
-      sc+=Math.min(nearestOppDist(m),8)*0.08;                // boştaki arkadaş
+      sc+=Math.min(nearestOppDist(m),8)*0.11;                // boştaki arkadaş
       if(own.fromT===m.team&&own.fromI===m.idx)               // verkaç: pası veren koşup öne geçtiyse geri ver
         sc+=((m.pos.x-o.pos.x)*dir>3&&nearestOppDist(m)>3)?0.3:-0.2;
+      // KADEMELİ KURULUŞ: savunma → orta saha → kanat/forvet; hat atlayan pas cezalı. İlk 3 pasta
+      //   (baskı yokken) sabır: acele dikine top yerine kısa, boştaki arkadaş
+      if(!manual&&!o.gk&&!m.gk){
+        const c0=roleCls(o.role), c1=roleCls(m.role);
+        if(c0===1&&c1===2) sc+=0.28; else if(c0===1&&c1===3) sc-=0.4;
+        else if(c0===2&&(c1===3||isWide(m.role))&&prog>-3) sc+=0.22;
+        if(c0===2&&c1===1&&pressure<4) sc+=0.15;               // baskıda geriye güvenli çıkış
+        if(bu.team!==o.team&&chain.team===o.team&&chain.n<3&&pressure>3.5&&prog>12) sc-=(prog-12)*0.05+0.15;
+      }
       if(m.gk) sc-=0.8;
       sc+=Math.random()*0.08;
       if(sc>bs){ bs=sc; best=m; bestLoft=lofted; }
@@ -1039,8 +1086,14 @@ function createMatchActors3D(api,opts={}){
     if(o.gk) ds=-9;
     if(best&&bs>ds){ startPass(o,best,bestLoft); return; }
     if(o.gk){ // kaleci top sürmez: kısa seçenek yoksa en yakın arkadaşa (gerekirse havadan)
-      const q=nearestTo(o.pos.x,o.pos.z,o,o.team,true);
-      if(q){ startPass(o,q,Math.hypot(q.pos.x-o.pos.x,q.pos.z-o.pos.z)>ACTORS3D_PASS_SHORT); return; }
+      let q=null, qs=-1e9;                                 // en boştaki arkadaş (pas yolu kapalıysa havadan)
+      for(let i=0;i<mates.length;i++){
+        const m=mates[i]; if(m===o||!m.g.visible||m.gk||(!manual&&m.pos.x*dir>0)) continue;
+        const d=Math.hypot(m.pos.x-o.pos.x,m.pos.z-o.pos.z), s=Math.min(nearestOppDist(m),12)-d*0.12;
+        if(d>6&&s>qs){ qs=s; q=m; }
+      }
+      if(!q) q=nearestTo(o.pos.x,o.pos.z,o,o.team,true);
+      if(q){ startPass(o,q,Math.hypot(q.pos.x-o.pos.x,q.pos.z-o.pos.z)>ACTORS3D_PASS_SHORT||laneBlocked(o.team,bpos.x,bpos.z,q.pos.x,q.pos.z,1.8)); return; }
     }
     // Boş alana sür: ileri + çapaya doğru kanat ayarı
     own.dribble=true; own.drN++;
@@ -1064,7 +1117,9 @@ function createMatchActors3D(api,opts={}){
     }
     for(let k=0;k<2;k++){
       const m=runners[k]; if(!m) continue;
-      const ax=clamp(Math.max(m.pos.x*dir,o.pos.x*dir+10+k*5+Math.random()*4),-L+4,L-6)*dir;
+      // Koşu ofsayt çizgisinde biter; ara sıra (hücum kurulumu dışında) erken çıkar
+      const ol=offLine(o.team), early=bu.team!==o.team&&Math.random()<0.4&&ol-m.pos.x*dir<14;
+      const ax=clamp(Math.max(m.pos.x*dir,o.pos.x*dir+10+k*5+Math.random()*4,early?ol+2+Math.random()*4:-L),-L+4,early?L-6:Math.min(L-6,ol-0.3))*dir;
       let bz=m.pos.z, bd=-1;
       for(let c=-1;c<=1;c++){
         const zc=clamp(m.pos.z+c*9,-H+3,H-3);
@@ -1093,6 +1148,14 @@ function createMatchActors3D(api,opts={}){
     const tp=tempo(), dt2=otherTeam(o.team), goalX=-atkDir(dt2)*L;   // baskı yapan takımın kendi kalesi
     pr1=null; pr2=null; let d1=1e9, d2=1e9;
     const list=teams[dt2];
+    if(gkHeld()){   // kaleci topu kontrol etti: rakip müdahale etmez, çevresinden çekilir
+      const dir=atkDir(o.team);
+      for(let i=0;i<list.length;i++){
+        const q=list[i]; if(!q.g.visible||q.gk||Math.hypot(q.pos.x-o.pos.x,q.pos.z-o.pos.z)>13) continue;
+        q.ovr=true; q.ox=o.pos.x+dir*16; q.oz=q.pos.z; q.cap=PACE.press*tp;
+      }
+      return;
+    }
     for(let i=0;i<list.length;i++){
       const q=list[i]; if(!q.g.visible||q.gk) continue;
       const d=Math.hypot(q.pos.x-bpos.x,q.pos.z-bpos.z);
@@ -1106,11 +1169,11 @@ function createMatchActors3D(api,opts={}){
       // Ayak uzatma: müdahale mesafesinde, bekleme süresi dolduysa
       if(pr1.tackleCd>0) pr1.tackleCd-=dt;
       else if(!(bu.team&&bu.team!==dt2)&&ballSegD(pr1.pos.x,pr1.pos.z)<ACTORS3D_TACKLE_R&&bpos.y<0.6&&clk-own.since>0.6){
-        if(Math.random()<1-Math.exp(-0.9*dt)){
+        if(Math.random()<1-Math.exp(-0.45*dt)){
           pr1.tackleCd=1.4;
           const lx=Math.cos(pr1.yaw), lz=-Math.sin(pr1.yaw); // yerel sağ (dünya)
           rigAction3D(pr1.rig,"poke",{side:((bpos.x-pr1.pos.x)*lx+(bpos.z-pr1.pos.z)*lz)>=0?1:-1});
-          if(Math.random()<0.5){ // top kapıldı: top hafifçe sekip sahipsiz kalır
+          if(Math.random()<0.4){ // top kapıldı: top hafifçe sekip sahipsiz kalır
             const a=Math.atan2(pr1.pos.z-o.pos.z,pr1.pos.x-o.pos.x)+(Math.random()-0.5)*1.4, v=3+Math.random()*3;
             // Doğrudan serbest bırak (kickBall sahibe vuruş animasyonu oynatırdı)
             own.team=null; freeBall=true; rcv.team=null; pk.on=false; landSoft=false; landStop=false; curl.t=0;
@@ -1134,7 +1197,7 @@ function createMatchActors3D(api,opts={}){
     // Top 2D bölgesinden koptu (≥26 m, 1.5 sn): o bölgeye KISA pas zinciriyle ilerle — bölgeye
     //   en çok yaklaştıran, pas yolu açık yakın arkadaşa yerden pas; yoksa o yöne sür.
     //   Uzun top yalnız bölge çok uzaksa (≥45 m) ve 3.5 sn'de kısa yolla yaklaşılamadıysa.
-    const farD=anc.on&&!bu.team?Math.hypot(anc.x-bpos.x,anc.z-bpos.z):0;   // hücum kurulumunda 2D bölgesi izlenmez
+    const farD=anc.on&&!bu.team&&!o.gk?Math.hypot(anc.x-bpos.x,anc.z-bpos.z):0;   // hücum kurulumunda 2D bölgesi izlenmez
     if(farD>30){ farT+=dt; } else farT=0;
     if(farT>1.5&&clk-own.since>0.5&&!(farD>=45&&farT>3.5)){
       const mates=teams[o.team];
@@ -1162,7 +1225,7 @@ function createMatchActors3D(api,opts={}){
         const tx=clamp(ax,-L+2,L-2), tz=clamp(anc.z,-H+2,H-2);
         faceTo(o,tx-o.pos.x,tz-o.pos.z,0.6);
         rigAction3D(o.rig,"kick",{power:1,t0:0.25,side:1});
-        const T=kickTo(tx,tz,true); setRcv(q,tx,tz,T+0.6);
+        const off=isOff(q), T=kickTo(tx,tz,true); setRcv(q,tx,tz,T+0.6,off);
         return;
       }
     }
@@ -1180,7 +1243,7 @@ function createMatchActors3D(api,opts={}){
     } else {
       // Topu ayakta tut, hafif koruma hareketi
       o.ox=o.pos.x+Math.sin(clk*1.3+o.idx)*0.25; o.oz=o.pos.z+Math.cos(clk*1.1+o.idx)*0.25; o.cap=1.4;
-      if(!pk.on&&own.decide>clk+0.25/tp) own.decide=clk+0.25/tp; // topla beklerken en geç ~0.25 sn'de karar
+      if(!pk.on&&!o.gk&&own.decide>clk+0.6/tp) own.decide=clk+0.6/tp; // topla beklerken en geç ~0.6 sn'de karar
     }
   };
   // ── Duran top akışı (yalnız canlı maç) ──
@@ -1235,7 +1298,8 @@ function createMatchActors3D(api,opts={}){
     let ox=rs.x-dir*0.7, oz=rs.z;
     if(K==="throw"){ ox=rs.x; oz=rs.z+sgn(rs.z)*0.5; }
     else if(K==="corner"){ ox=rs.x+sgn(rs.x)*0.4; oz=rs.z+sgn(rs.z)*0.5; }
-    p.ovr=true; p.ox=ox; p.oz=oz; p.cap=sp;
+    p.ovr=true; p.ox=ox; p.oz=oz;
+    p.cap=K==="corner"?Math.max(sp,Math.min(22,Math.hypot(ox-p.pos.x,oz-p.pos.z)*1.6)):sp;   // uzaktan gelen kullanıcı oyunu bekletmesin
     // Diğerleri: santrada kendi yarısı (rakip orta yuvarlak dışında), serbest vuruş/korner/taçta rakip mesafesi,
     //   kale vuruşunda rakip ceza sahası dışında
     if(K==="kickoff") kickoffShape(rs.team,p,rs.min-el,sp);
@@ -1274,7 +1338,7 @@ function createMatchActors3D(api,opts={}){
       setRcv(m,ex,ez,T);
     } else {
       faceTo(p,tx-bpos.x,tz-bpos.z,0.5);
-      const T=kickTo(tx,tz,t.lof); setRcv(m,tx,tz,T);
+      const off=K==="freekick"&&isOff(m), T=kickTo(tx,tz,t.lof); setRcv(m,tx,tz,T,off);   // kale vuruşu/taç/kornerde ofsayt yok
     }
   };
   // Serbest top çizgiyi geçti: yan çizgi → taç, dip çizgi → kale vuruşu / korner
@@ -1306,6 +1370,7 @@ function createMatchActors3D(api,opts={}){
     if(rs.on){ restartLogic(); return; }
     if(postScript){
       postScript=false; scr.p=null;
+      if(gkCatch){ const k=gkCatch; gkCatch=null; if(k.g.visible&&Math.hypot(k.pos.x-bpos.x,k.pos.z-bpos.z)<3){ pend.on=false; setOwnerInternal(k.team,k.idx); return; } }
       // Senaryo bitti: ballPos çok uzaktaysa (gol → santra, aut → kale vuruşu) uzun top
       if(pend.on){
         pend.on=false;
@@ -1352,7 +1417,7 @@ function createMatchActors3D(api,opts={}){
     if(bu.team){
       const pt=own.team||rcv.team;
       if(pt&&pt!==bu.team) bu.oppT+=dt; else if(pt===bu.team) bu.oppT=0;
-      if(bu.oppT>1.2&&bpos.y<1.2&&!pk.on){
+      if(bu.oppT>1.2&&!gkHeld()&&bpos.y<1.2&&!pk.on){
         const q=nearestTo(bpos.x,bpos.z,null,bu.team,true);
         if(q&&ballSegD(q.pos.x,q.pos.z)<2.2){ rigAction3D(q.rig,"poke",{side:1}); setOwnerInternal(bu.team,q.idx); bu.oppT=0; }
       }
@@ -1397,7 +1462,7 @@ function createMatchActors3D(api,opts={}){
         // Buluşma noktasına koş; top yakına gelince doğrudan topa
         // (yakında topun birazcık önüne: yuvarlanan topun yoluna girer, arkasından kovalamaz)
         if(db<4&&bpos.y<1.2){ r.ox=bpos.x+bvel.x*0.12; r.oz=bpos.z+bvel.z*0.12; } else { r.ox=rcv.x; r.oz=rcv.z; }
-        if(ballSegD(r.pos.x,r.pos.z)<ACTORS3D_REACH&&bpos.y<1.7){ setOwnerInternal(r.team,r.idx); return; }
+        if(ballSegD(r.pos.x,r.pos.z)<ACTORS3D_REACH&&bpos.y<1.7){ if(rcv.off&&offsideCall(r)) return; setOwnerInternal(r.team,r.idx); return; }
         // Off-the-ball: top alıcıya gitmeden takım arkadaşları boş kulvarlara koşmaya başlar
         const rk=-2-rcv.i-(rcv.team==="away"?100:0);   // takım + alıcı anahtarı
         if(clk>runT||runFor!==rk){ pickRunners(r); runT=clk+1.4; runFor=rk; }
@@ -1406,7 +1471,7 @@ function createMatchActors3D(api,opts={}){
           m.ovr=true; m.ox=runAt[k].x; m.oz=runAt[k].z; m.cap=PACE.receive*tp;
         }
         // Pas yoluna en yakın rakip topa hamle eder; TOPA ayak erişimine (ACTORS3D_REACH) girerse
-        //   (oyuncu başına bir kez) %45 keser — yol çizgisine uzaklık değil, topun kendisine uzaklık
+        //   (oyuncu başına bir kez) mesafeye göre %13–35 keser — yol çizgisine uzaklık değil, topun kendisine uzaklık
         const q=nearestTo(bpos.x,bpos.z,null,otherTeam(rcv.team),true);
         if(q&&nearD<7&&!manual){
           q.ovr=true; q.ox=bpos.x+bvel.x*0.3; q.oz=bpos.z+bvel.z*0.3; q.cap=PACE.chase*tp;
@@ -1414,7 +1479,8 @@ function createMatchActors3D(api,opts={}){
           const buQ=bu.team===q.team;                          // kurulumda kesme kesin, erişim geniş
           if(ballSegD(q.pos.x,q.pos.z)<(buQ?1.6:ACTORS3D_REACH)&&bpos.y<1.0&&!(rcv.tried&bit)){
             rcv.tried|=bit;
-            if(buQ||Math.random()<0.45){ rigAction3D(q.rig,"poke",{side:1}); setOwnerInternal(q.team,q.idx); return; }
+            const sh=rcv.d<14?0.13:rcv.d<24?0.2:0.35;                 // kısa/orta pas güvenli, uzun top riskli
+            if(buQ||Math.random()<sh){ rigAction3D(q.rig,"poke",{side:1}); setOwnerInternal(q.team,q.idx); return; }
             // Kanatta kaçan müdahale: top rakibe çarpıp taca çıkabilir
             if(Math.abs(bpos.z)>H-13&&Math.random()<0.6){
               rigAction3D(q.rig,"poke",{side:1}); lastPoss=q.team;
@@ -1427,7 +1493,14 @@ function createMatchActors3D(api,opts={}){
       rcv.team=null;
     }
     // Sahipsiz top: en yakın oyuncu topa koşar (0.3 sn'de bir yeniden seçilir)
-    if(!chaser||clk>chaseT||!chaser.g.visible){ chaser=nearestTo(bpos.x,bpos.z,null); chaseT=clk+0.3; }
+    if(!chaser||clk>chaseT||!chaser.g.visible){
+      chaser=nearestTo(bpos.x,bpos.z,null); chaseT=clk+0.3;
+      // Ceza sahasında boşa çıkan top: kaleci yakınsa (rakipten en çok 3 m geride) topa O çıkar
+      if(!manual&&Math.abs(bpos.x)>L-16.5&&Math.abs(bpos.z)<D.penWidth/2){
+        const k=keeperOf(sgn(bpos.x)), dc=nearD;
+        if(k&&chaser!==k&&Math.hypot(k.pos.x-bpos.x,k.pos.z-bpos.z)<(chaser&&chaser.team===k.team?dc:dc+3)) chaser=k;
+      }
+    }
     if(!chaser){
       // Kadro yok (oyuncu görünmüyor): top ballPos'a uçar
       if(bt.on&&btSeq!==flSeq&&!fl.on){
@@ -1438,11 +1511,12 @@ function createMatchActors3D(api,opts={}){
       return;
     }
     chaser.ovr=true; chaser.cap=PACE.chase*tp; chaser.ox=bpos.x; chaser.oz=bpos.z;
-    if(ballSegD(chaser.pos.x,chaser.pos.z)<ACTORS3D_REACH&&bpos.y<1.7&&Math.hypot(bvel.x,bvel.z)<10)
+    if(ballSegD(chaser.pos.x,chaser.pos.z)<(chaser.gk&&!manual?1.3:ACTORS3D_REACH)&&bpos.y<(chaser.gk?2.2:1.7)&&Math.hypot(bvel.x,bvel.z)<10)
       setOwnerInternal(chaser.team,chaser.idx);
   };
   // Senaryo başlat: mevcut uçuşu kes, sahipliği askıya al, kilitle
   const beginScript=(lockSec)=>{
+    gkCatch=null;
     rs.on=false; rsNext.kind=""; rsNext.go=false;
     legs.length=0; fl.on=false; fl.fn=null; pk.on=false; scr.relay=null;
     own.team=null; freeBall=false; bvel.set(0,0,0); curl.t=0; rcv.team=null;
@@ -1744,7 +1818,9 @@ function createMatchActors3D(api,opts={}){
         },Z);
         deferred=true;
         leg(s*(L-0.9),gz,hgt,0.6,shotDur(0.4),()=>{ impact(); spawnRing(s*(L-0.9),0.06,gz,0xffffff,0.6,3); try{ if(typeof MATCH_SFX!=="undefined") MATCH_SFX.save(); }catch(_){} });
-        leg(s*(L-8),clamp(gz+rz(7),-(H-2),H-2),0,2.2,sDur(0.6));
+        { const k=keeperOf(s);
+          if(k&&Math.random()<0.7){ gkCatch=k; leg(k.pos.x-s*0.4,k.pos.z,0.9,0,sDur(0.55)); }   // kaleci tuttu: top elinde
+          else leg(s*(L-8),clamp(gz+rz(7),-(H-2),H-2),0,2.2,sDur(0.6)); }                        // çeldi: sahipsiz top
         break;
       }
       case "crossbar":{
@@ -1778,6 +1854,11 @@ function createMatchActors3D(api,opts={}){
       }
       case "offside":   // kilit andaki ofsayt (spot): bayrağın kalktığı noktadan rakip serbest vuruşu
         if(ev.spot) foulStop(defTeam,W);
+        else if(lastPoss===atkTeam&&!gkHeld()){       // metin akışı ofsaytı: en ilerideki hücumcunun noktasından serbest vuruş
+          let far=null; const l=teams[atkTeam], d2=atkDir(atkTeam);
+          for(let i=0;i<l.length;i++) if(l[i].g.visible&&!l[i].gk&&(!far||l[i].pos.x*d2>far.pos.x*d2)) far=l[i];
+          if(far&&far.pos.x*d2>2) foulStop(defTeam,{x:far.pos.x,z:far.pos.z});
+        }
         break;
       case "foul": case "handball":
         foulStop(defTeam); break;
@@ -1956,7 +2037,7 @@ function createMatchActors3D(api,opts={}){
     return ok;
   };
   const EV_BALL={goal:1,miss:1,header:1,save:1,keeper:1,chance:1,crossbar:1,corner:1};
-  const ballInFlight=()=>rs.on||!!rsNext.kind||!busy()&&!ownerP()&&freeBall&&Math.hypot(bvel.x,bvel.z)>1.5;
+  const ballInFlight=()=>gkHeld()||rs.on||!!rsNext.kind||!busy()&&!ownerP()&&freeBall&&Math.hypot(bvel.x,bvel.z)>1.5;
   // Duvar saati (ms): sahne duraklatılınca (devre arası, dt=0) ya da sekme arka plandayken kare
   //   dönmez; bekleyen olay gerçek zamanda ACTORS3D_EV_WAIT'ten eskiyse 2. yarıda oynatılmaz, atılır
   const evNowMs=()=>(typeof performance!=="undefined"&&performance.now)?performance.now():Date.now();
@@ -2154,6 +2235,11 @@ function createMatchActors3D(api,opts={}){
       const off=(0.8+0.45*run*touch)*(0.35+0.65*o.sk);   // ayak önü: oyuncu ölçeğiyle (gerçek boyda ~0.6 m)
       bpos.x=o.pos.x+Math.sin(o.yaw)*off; bpos.z=o.pos.z+Math.cos(o.yaw)*off;
       bpos.y=0.1*run*4*touch*(1-touch);
+      // Canlı akış: kaleci topu elinde tutar (arkadaştan pasla geldiyse ayağında)
+      if(!manual&&o.gk&&own.fromT===null){
+        const k2=Math.min(1,(clk-own.since)/0.25), o2=0.42*o.sk;
+        bpos.x+=(o.pos.x+Math.sin(o.yaw)*o2-bpos.x)*k2; bpos.z+=(o.pos.z+Math.cos(o.yaw)*o2-bpos.z)*k2; bpos.y=1.05*k2*o.sk;
+      }
       // Canlı akış, topu yeni alma: top ayağa ışınlanmaz, kısa sürede yumuşakça oturur
       if(!manual){
         const g=(clk-own.since)/ACTORS3D_GRAB_SEC;
@@ -2235,7 +2321,7 @@ function createMatchActors3D(api,opts={}){
     //   uzun kare boşluğunda (>1 sn) uygulanır — düşük FPS'li cihazda gol animasyonu düşmesin
     const wallStale=(typeof document!=="undefined"&&document.hidden)||gapMs>1000;
     if(evQ.length&&(dt<=0||(wallStale&&nowMs-evQ[0].w>(ACTORS3D_EV_WAIT+(evQ[0].team?ACTORS3D_PREP_SEC:0))*1000+500))) dropEvQ();
-    if(!manual&&dt>0&&evQ.length&&!busy()&&prepDone(evQ[0])&&(!ballInFlight()||(clk>=evQ[0].t&&!rs.on&&!rsNext.kind))){ const q=evQ.shift(); triggerEvent(q.ev); if(!busy()&&!evQ.length) pend.on=false; } // senaryo kurmayan olay: bekletilen ballPos zaten bt'de
+    if(!manual&&dt>0&&evQ.length&&!busy()&&prepDone(evQ[0])&&(!ballInFlight()||(clk>=evQ[0].t&&!gkHeld()&&!rs.on&&!rsNext.kind))){ const q=evQ.shift(); triggerEvent(q.ev); if(!busy()&&!evQ.length) pend.on=false; } // senaryo kurmayan olay: bekletilen ballPos zaten bt'de
     if(!manual&&dt>0) updateAnchors(dt);
     if(!manual&&dt>0) autoPossess(dt);
     updatePlayers(dt,rdt);

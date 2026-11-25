@@ -233,8 +233,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         queue.current=queue.current.map(q=>q===e?{min:e.min,type:"save",team:tm==="me"?"opp":"me",zone:e.zone}:q);
       }
     }
-    // Kaçan hücum anı: çoğunlukla sıradaki planlı golümüz de gelmez (anlar skoru şişirmesin)
-    else if(!res.goalScored&&res.momentType!=="tackle"&&result.current&&Math.random()<0.8){
+    // Kaçan hücum anı: skorumuza göre (0: %20 · 1: %50 · 2+: %85) sıradaki planlı golümüz gelmez (anlar skoru şişirmesin)
+    else if(!res.goalScored&&res.momentType!=="tackle"&&result.current&&Math.random()<(myScore>=2?0.85:myScore===1?0.5:0.2)){
       const R=result.current, e=queue.current.find(q=>q.type==="goal"&&q.team==="me"&&q.min>momentMin);
       if(e){
         const sv={min:e.min,type:"save",team:"opp",zone:e.zone}, at=R.scorers.lastIndexOf(e.scorer);
@@ -390,6 +390,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const moment3dMates=React.useMemo(()=>(lineup.length>0?lineup.map(i=>squad[i]):squad.slice(0,11)).filter(Boolean),[lineup,squad]);
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
+  const minuteRef3d=useRef(0); minuteRef3d.current=minute;
   // half: 3D'de 2. yarı taraf değişimi (2D yönü değişmez) · myBase/oppBase: diziliş tabanı (3D çapaları)
   if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d,shots:shots3d,oppStr:fixture.str,
     half:minute>45?2:1,myBase:baseDotsRef.current,oppBase:baseOppDotsRef.current};
@@ -1066,7 +1067,17 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
                   try{
                     // onImpact: top olayın anına vardı (ağlar/kaleci/kale çizgisi) → bekleyen metin/skor/ses
                     const ac=createMatchActors3D(api,{getSnapshot:()=>live3dRef.current,colors:kit3d,
-                      onImpact:(ev)=>{ if(ev&&ev.id!=null) resolve3d(ev.id); }});
+                      onImpact:(ev)=>{ if(ev&&ev.id!=null) resolve3d(ev.id); },
+                      // Canlı akışta 3D ofsayt düdüğü: akış metni + istatistik
+                      onOffside:(o)=>{
+                        if(!mountedRef.current) return;
+                        const me=o.team==="home", L2=lineupRef.current||[];
+                        const pl=me?(L2.length>0?squad[L2[o.idx]]:squad[o.idx]):null;
+                        const min=Math.max(1,Math.min(90,minuteRef3d.current||1));
+                        setLog(l=>[...l,{min,text:me?`🚩 Ofsayt! ${pl&&pl.n?pl.n+" ":""}savunma arkasında yakalandı — ${fixture.opp} serbest vuruş kullanıyor`:`🚩 Ofsayt! ${fixture.opp} hücumu bayrağa takıldı — serbest vuruş bizim`,col:me?"#f1c40f":"#778"}]);
+                        const st=result.current&&result.current.stats;
+                        if(st){ if(me) st.myOffsides=(st.myOffsides||0)+1; else st.opOffsides=(st.opOffsides||0)+1; }
+                      }});
                     actors3dRef.current=ac;
                     // Kilit an hücum kurulumu sürerken sahne yeniden kurulduysa kurulum sürsün
                     const bu=buildUpRef.current; if(bu&&ac&&ac.buildUp) ac.buildUp(bu.team,MATCH3D_BUILDUP_MAX_MS/1000+2);

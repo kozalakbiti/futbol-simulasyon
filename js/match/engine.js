@@ -145,8 +145,8 @@ function simulateMatch(myStr,oppStr,home,coachBonus=0,squad=[]){
     else if(mr<p1+p2) opG=myG+2;
     else opG=myG+3;
   } else if(res==="D"){
-    // Berabere: 0-0, 1-1, 2-2 dağılımı için Poisson(0.9)
-    const eq=Math.min(3,poissonRandom(0.9));
+    // Berabere: 0-0, 1-1, 2-2 dağılımı için Poisson(1.05): 0-0 azınlıkta
+    const eq=Math.min(3,poissonRandom(1.05));
     myG=eq; opG=eq;
   }
   // Gerçekçi skor: 5+ gollü maçların çoğu kısılır (kurtarış/blok); sonuç (G/B/M) değişmez
