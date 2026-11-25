@@ -111,25 +111,15 @@ function planMoments(myStr, oppStr, squad){
   const pickPlayer=(pool)=>pool[Math.floor(Math.random()*pool.length)]||all[0]||src[0];
   const moments=[];
 
-  const usedMins=new Set();
-  const pickMin=(lo,hi)=>{
-    let m;
-    let tries=0;
-    do{ m=lo+Math.floor(Math.random()*(hi-lo)); tries++; }while((usedMins.has(m)||[...usedMins].some(u=>Math.abs(u-m)<4))&&tries<30);
-    usedMins.add(m);
-    return m;
-  };
-
-  // ROTASYON + COOLDOWN: maçta 4 an; aynı tür bir maçta en çok bir kez, art arda iki an
-  //   aynı türden olamaz ve son maçlarda görülen türler (MOMENT_RECENT, oturum boyu) bekletilir.
-  //   Ağırlık: hücum türleri; penaltı nadir; savunma (tackle) maçta en çok bir kez, 2. yarıda.
+  // ROTASYON + COOLDOWN: maçta 6–8 an; aynı tür (savunma hariç) bir maçta en çok bir kez, son maçlarda görülen türler (MOMENT_RECENT, oturum boyu) bekletilir.
+  //   Ağırlık: hücum türleri; penaltı nadir; savunma (tackle) maçta 1–2 kez.
   const atkPool=[...atk,...mid];
   const W={corner:0.8,freekick:1,counter:0.8,scramble:1.1,cross:1.1,through:1.1,oneonone:0.9,longshot:1,penalty:0.45};
   const recent=MOMENT_RECENT.list;
-  const pickType=(used,prevType)=>{
+  const pickType=(used,prevType,only)=>{
     let tot=0; const cand=[];
     for(const t in W){
-      if(used.has(t)||t===prevType) continue;
+      if(used.has(t)||t===prevType||(only&&!only.includes(t))) continue;
       const ri=recent.lastIndexOf(t);                       // yakın zamanda görüldüyse bekleme cezası
       const cool=ri<0?1:Math.min(1,0.15+0.17*(recent.length-1-ri));
       const w=W[t]*cool; if(w<=0) continue;
@@ -139,12 +129,24 @@ function planMoments(myStr, oppStr, squad){
     for(const [t,w] of cand){ if((r-=w)<=0) return t; }
     return cand.length?cand[cand.length-1][0]:"counter";
   };
-  const mins=[pickMin(12,30),pickMin(33,44),pickMin(52,68),pickMin(72,87)].sort((x,y)=>x-y);
-  const tackleSlot=Math.random()<0.6?(2+Math.floor(Math.random()*2)):-1;   // 2. yarıda en çok bir savunma anı
-  const used=new Set(); let prev=null;
+  // Dakikalar: iki devreye eşit, dilimlere yayılı (aralarında en az ~3 dk; devre arasına denk gelmez)
+  const n=6+(Math.random()<0.25?0:Math.random()<0.67?1:2);    // %25: 6 · %50: 7 · %25: 8
+  const n1=n%2&&Math.random()<0.5?Math.ceil(n/2):Math.floor(n/2);
+  const spread=(lo,hi,k)=>{ const s=(hi-lo)/k; return Array.from({length:k},(_,i)=>Math.floor(lo+s*(i+Math.random()*0.65))); };
+  const mins=[...spread(7,43,n1),...spread(50,89,n-n1)];
+  // Garanti türler rastgele yuvalara: 1 kontra, 1–2 duran top, 1–2 savunma; kalan yuvalar açık oyun ağırlıklı
+  const slots=mins.map(()=>null), free=mins.map((_,i)=>i);
+  const put=(t,ok)=>{ const c=free.filter(i=>!ok||ok(i)); if(!c.length) return; const i=c[Math.floor(Math.random()*c.length)]; slots[i]=t; free.splice(free.indexOf(i),1); };
+  const used=new Set();
+  const take=(only)=>{ const t=pickType(used,null,only); used.add(t); return t; };
+  put("tackle",i=>i>0);
+  if(n===8||Math.random()<0.5) put("tackle",i=>i>0&&slots[i-1]!=="tackle"&&slots[i+1]!=="tackle");
+  put(take(["counter"]));
+  put(take(["corner","freekick","penalty"]));
+  if(n>6) put(take(["corner","freekick","penalty"]));
+  free.slice().forEach(i=>{ slots[i]=take(["scramble","cross","through","oneonone","longshot"]); });
   const plan=mins.map((min,i)=>{
-    const type=i===tackleSlot?"tackle":pickType(used,prev);
-    used.add(type); prev=type;
+    const type=slots[i];
     const pool=type==="tackle"?def:(type==="penalty"||type==="oneonone"||type==="through"?atk:atkPool);
     return {type,min,player:pickPlayer(pool.length?pool:all)};
   });

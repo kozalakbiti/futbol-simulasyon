@@ -233,8 +233,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         queue.current=queue.current.map(q=>q===e?{min:e.min,type:"save",team:tm==="me"?"opp":"me",zone:e.zone}:q);
       }
     }
-    // Kaçan hücum anı: yarı yarıya sıradaki planlı golümüz de gelmez (anlar skoru şişirmesin)
-    else if(!res.goalScored&&res.momentType!=="tackle"&&result.current&&Math.random()<0.55){
+    // Kaçan hücum anı: çoğunlukla sıradaki planlı golümüz de gelmez (anlar skoru şişirmesin)
+    else if(!res.goalScored&&res.momentType!=="tackle"&&result.current&&Math.random()<0.8){
       const R=result.current, e=queue.current.find(q=>q.type==="goal"&&q.team==="me"&&q.min>momentMin);
       if(e){
         const sv={min:e.min,type:"save",team:"opp",zone:e.zone}, at=R.scorers.lastIndexOf(e.scorer);
@@ -477,8 +477,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
         // Duraklatma kontrolü (müdahale anı aktifse atla)
         if(pausedRef.current) return;
 
-        // Müdahale anı tetikle?
-        const nextMoment=momentsRef.current.find(mo=>!mo.resolved&&mo.min<=m&&mo.min>(m-dpt));
+        // Müdahale anı tetikle? (duraklatma yüzünden kaçan dakika 3 dk içinde yine açılır)
+        const nextMoment=momentsRef.current.find(mo=>!mo.resolved&&mo.min<=m&&mo.min>(m-dpt-3));
         if(nextMoment&&speedRef.current==="slow"){
           nextMoment.resolved=true;
           const ac=actors3dRef.current;

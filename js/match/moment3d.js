@@ -91,6 +91,7 @@ const MOMENT3D_PASS_V0=13, MOMENT3D_PASS_VK=0.5, MOMENT3D_PASS_VMIN=15, MOMENT3D
 // Adım 17 — kuşbakışı yörünge kamerası: varsayılan eğim (rad; eski sabit poz: geri 0.2h → ~78.7°),
 //   kullanıcı sınırları (25°–79°) ve sürükleme duyarlılığı (ekran genişliği = 180° yaw, yüksekliği = 70° eğim)
 const MOMENT3D_ORBIT_EL0=Math.atan2(1,0.2), MOMENT3D_ORBIT_EL_MIN=18*Math.PI/180, MOMENT3D_ORBIT_EL_MAX=86*Math.PI/180;
+const MOMENT3D_ORBIT_CLEAR_H=26;   // yörünge bakışının aşması gereken tribün çatısı yüksekliği (m)
 // Arcade tempo: şutun ekrandaki hızı (×; yörünge ve gol/kurtarış sonucu değişmez, oynatma sıkışır) ve
 //   kaleci dalış animasyonunun en çok hızlanma katı (hızlı topa da tam uzanma zamanında yetişsin)
 const MOMENT3D_ARCADE_SHOT=2.2, MOMENT3D_DIVE_K_MAX=RIG3D_DIVE_K_MAX;   // (rig3d.js daha önce yüklenir)
@@ -594,20 +595,21 @@ function createMoment3DController(api,cfg){
   const camOrbit={yaw:0,el:MOMENT3D_ORBIT_EL0,tyaw:0,tel:MOMENT3D_ORBIT_EL0};
   const orbitDefault=()=>Math.abs(camOrbit.tyaw)<1e-3&&Math.abs(camOrbit.tel-MOMENT3D_ORBIT_EL0)<1e-3;
   const overheadCam=(fx,fz,h,snap)=>{
-    const o=camOrient, yaw=camOrbit.yaw, el=camOrbit.el;
-    if(Math.abs(yaw)<1e-4&&Math.abs(el-MOMENT3D_ORBIT_EL0)<1e-4){
+    const o=camOrient, yaw=camOrbit.yaw;
+    // Tribün/çatı görüşü kapatmasın: en alçak eğim yalnız ODAĞIN çizgiye uzaklığına bağlı (yaw'a DEĞİL) →
+    //   yatay dönüşte yükseklik ve uzaklık sabit kalır, kamera kuş bakışına zıplamaz.
+    const edge=Math.max(0,Math.min(L-Math.abs(fx),H-Math.abs(fz))), R0=h*1.0198;
+    const clear=Math.min(Math.acos(clamp((edge+5)/R0,0,1)),Math.atan2(MOMENT3D_ORBIT_CLEAR_H,edge+10));
+    const el=Math.max(camOrbit.el,Math.min(clear,MOMENT3D_ORBIT_EL0));
+    if(orbitDefault()&&Math.abs(yaw)<1e-4&&Math.abs(el-MOMENT3D_ORBIT_EL0)<1e-4){
       if(o==="z") setCam(fx-h*0.2,h,fz,fx,0,fz,!!snap,false);
       else setCam(fx,h,fz+h*0.2,fx,0,fz,!!snap,false);
       return;
     }
     // Varsayılanla aynı uzaklık (h·√1.04); alçak eğimde yaklaşır (saha kutusu kırpması az, izometrik his)
     const t=clamp((el-MOMENT3D_ORBIT_EL_MIN)/(MOMENT3D_ORBIT_EL0-MOMENT3D_ORBIT_EL_MIN),0,1);
-    const R=h*1.0198*(0.62+0.38*t), cy=Math.cos(yaw), sy=Math.sin(yaw), hor=Math.cos(el)*R;
-    // Saha kutusuna sığmayan eğimde yön (yaw) korunur, kamera yalnız dikleşir. (Eskiden konum x/z ayrı ayrı
-    //   kırpılıyordu: yaw bozulup görüntü kilitleniyor/ters dönüyordu.) Kamera odaktan (−cos, −sin) yönünde.
-    const rx=(L+3+sgn(cy)*fx)/Math.max(1e-3,Math.abs(cy)), rz=(H+3+sgn(sy)*fz)/Math.max(1e-3,Math.abs(sy));
-    const ce=Math.min(hor,Math.max(R*0.2,Math.min(rx,rz)));
-    setCam(fx-cy*ce,Math.sqrt(R*R-ce*ce),fz-sy*ce,fx,0,fz,!!snap,false,undefined,true);
+    const R=R0*(0.62+0.38*t), cy=Math.cos(yaw), sy=Math.sin(yaw), hor=Math.cos(el)*R;
+    setCam(fx-cy*hor,Math.sin(el)*R,fz-sy*hor,fx,0,fz,!!snap,false,undefined,true);
   };
   // Kadraj: verilen noktaları (dünya x,z) ekranda tutacak odak + yükseklik (orta mesafe, en çok MOMENT3D_CAM_MAX_H).
   //   Yatay ekranda saha boyu (x) yatay eksende, dikeyde z yatay eksende. %12 kenar payı.
@@ -925,7 +927,7 @@ function createMoment3DController(api,cfg){
   };
   const sdrag={on:false,id:null,sx:0,sy:0,t0:0};   // vuruş ekranı önizleme sürüklemesi (hud okur)
   // Yörünge sürüklemesi durumu: pan = sürükleme sürüyor, lx/ly = son parmak konumu, tapT = çift dokunma
-  const camPan={vy:0,ve:0,mt:0,pan:false,lx:0,ly:0,tapT:-9,hinted:false};
+  const camPan={vy:0,ve:0,mt:0,pan:false,axis:"",lockT:0,lockH:0,lx:0,ly:0,tapT:-9,hinted:false};
   const resetPan=()=>{ camPan.vy=camPan.ve=0; camOrbit.yaw-=Math.round(camOrbit.yaw/(Math.PI*2))*Math.PI*2; camOrbit.tyaw=0; camOrbit.tel=MOMENT3D_ORBIT_EL0; };
   const hud=()=>{
     const h={phase,hint:flashT>0?flashMsg:hintFor(),passes,
@@ -3175,6 +3177,8 @@ function createMoment3DController(api,cfg){
         startDraw(act.mate);                    // takım arkadaşından koşu yolu
       } else if(!act.near&&act.mate<0&&!camPan.pan&&phase!=="strike"&&phase!=="intro"&&!hold.on){
         // Boş alandan sürükleme: yörünge kamerası (sağa-sola dönüş, yukarı-aşağı eğim)
+        // Eksen kilidi: sürükleme başındaki baskın yön hareket boyunca geçerli (yatay dönüş eğime karışmaz)
+        camPan.axis=Math.abs(e.clientY-act.sy)>Math.abs(e.clientX-act.sx)*1.5?"el":"yaw";
         camPan.pan=true; camPan.vy=camPan.ve=0; camPan.mt=nowS(); camPan.lx=e.clientX; camPan.ly=e.clientY;
         if(!camPan.hinted){ camPan.hinted=true; flash("Kamera döndü — varsayılana dönmek için boş alana çift dokun"); }
       }
@@ -3185,7 +3189,7 @@ function createMoment3DController(api,cfg){
       const r=rectOf(), wpx=r&&r.width>0?r.width:400, hpx=r&&r.height>0?r.height:600;
       const dx=e.clientX-camPan.lx, dy=e.clientY-camPan.ly; camPan.lx=e.clientX; camPan.ly=e.clientY;
       // Açı sarılmaz (kesintisiz döner); bırakınca hız sönümlenerek sürer (updateCamera)
-      const da=dx/wpx*Math.PI, de=dy/hpx*(60*Math.PI/180), mt=nowS(), idt=clamp(mt-camPan.mt,0.008,0.1); camPan.mt=mt;
+      const da=camPan.axis==="el"?0:dx/wpx*Math.PI, de=camPan.axis==="el"?dy/hpx*(60*Math.PI/180):0, mt=nowS(), idt=clamp(mt-camPan.mt,0.008,0.1); camPan.mt=mt;
       camPan.vy+=(clamp(da/idt,-5,5)-camPan.vy)*0.4; camPan.ve+=(clamp(de/idt,-2.5,2.5)-camPan.ve)*0.4;
       camOrbit.tyaw+=da;
       camOrbit.tel=clamp(camOrbit.tel+de,MOMENT3D_ORBIT_EL_MIN,MOMENT3D_ORBIT_EL_MAX);
@@ -3451,8 +3455,10 @@ function createMoment3DController(api,cfg){
         const h=phase==="pass"?B:phase==="press"&&press.a?press.a:isTackle&&att?att:c;
         fx=h.x; fz=h.z;
       }
-      const kf=Math.min(1,rdt*(lock?12:phase==="pass"?5:3.2));
-      focus.x+=(fx-focus.x)*kf; focus.z+=(fz-focus.z)*kf; focus.h+=(fitTmp.h-focus.h)*kf;
+      // Kilit: uzaklık (h) döndürme başındaki kadrajda sabit; hedefe geçiş yumuşak hızlanır (itilme yok)
+      if(lock){ if(camPan.lockT<=0) camPan.lockH=fitTmp.h; camPan.lockT+=rdt; } else camPan.lockT=0;
+      const kf=Math.min(1,rdt*(lock?3.2+8.8*Math.min(1,camPan.lockT/0.8):phase==="pass"?5:3.2));
+      focus.x+=(fx-focus.x)*kf; focus.z+=(fz-focus.z)*kf; focus.h+=((lock?camPan.lockH:fitTmp.h)-focus.h)*Math.min(kf,rdt*5);
     }
     // Yörünge (boş alandan sürükleme): hedefe hızlı yaklaşır; çift dokunmada varsayılana döner
     if(!camPan.pan&&(camPan.vy||camPan.ve)){   // bırakınca sönümlü devam

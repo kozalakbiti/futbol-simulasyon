@@ -516,6 +516,7 @@ function createPitch3DScene(THREE,container,opts){
     const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
     const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
     const customCam={on:false,low:false,free:false,fov:PITCH3D_FOV,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
+    let freeAge=0;   // yörünge kamerasında geçen süre (sn): geçiş yumuşak başlar, sonra hedefe rijit bağlanır
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
     let timeScale=1, hookClock=0; // ağır çekim: kancalar ölçekli dt/saat alır
     // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
@@ -556,7 +557,10 @@ function createPitch3DScene(THREE,container,opts){
       const wantFov=(mode==="custom"&&customCam.on)?customCam.fov:PITCH3D_FOV;
       let nf=camera.fov; const snapCam=first;
       if(first){camPos.copy(tPos);camLook.copy(tLook);nf=wantFov;first=false;}
-      else{const kc=1-Math.exp(-dt*(mode==="custom"&&customCam.on&&customCam.free?14:2.8));camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);nf+=(wantFov-nf)*kc;}
+      else{
+        // Yörüngede hedef zaten yumuşatılmış: doğrusal lerp yay yerine kiriş çizip yatay uzaklığı daraltmasın
+        freeAge=mode==="custom"&&customCam.on&&customCam.free?freeAge+dt:0;
+        const kc=1-Math.exp(-dt*(freeAge>0?6+Math.min(1,freeAge/0.6)*84:2.8));camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);nf+=(wantFov-nf)*kc;}
       if(Math.abs(nf-wantFov)<0.01) nf=wantFov;
       if(nf!==camera.fov){ camera.fov=nf; camera.updateProjectionMatrix(); }
       // Pus: yalnız çim seviyesi özel kamerada (vuruş ekranı) yaklaşır; geçişi kamerayla aynı hızda
