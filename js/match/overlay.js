@@ -17,7 +17,7 @@ function matchTickMs(cfg,is3D){ return is3D?Math.round(cfg.ms/MATCH3D_TEMPO):cfg
 //   olayın anına varınca (players3d onImpact) gösterilir. SYNC3D_MAX_MS: animasyon hiç bitmezse
 //   (sahne kapandı, kilit an açıldı, senaryo kesildi) en geç bu sürede yine gösterilir.
 const SYNC3D_TYPES={goal:1,miss:1,header:1,save:1,keeper:1,chance:1,crossbar:1};
-const SYNC3D_MAX_MS=6000;
+const SYNC3D_MAX_MS=12000;   // (atak hazırlığı ACTORS3D_PREP_SEC dahil)
 
 function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup=[],onFinish,clubName="Club Manager: Glory Road",formation="4-4-2"}){
   const [minute,setMinute]=useState(0);
@@ -216,6 +216,33 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     // Skor tabelası listesi (yalnız görsel)
     if(res.goalScored) setGoalList(g=>[...g,{min:momentMin,team:"me",name:res.player||""}]);
     else if(res.goalConceded) setGoalList(g=>[...g,{min:momentMin,team:"opp",name:""}]);
+    // Gerçekçi skor: kilit an golü, aynı takımın maçın KALANINDA planlı bir golünün yerine geçer
+    //   (o pozisyonu kaleci kurtarır); golcü listesi de buna göre güncellenir
+    if((res.goalScored||res.goalConceded)&&result.current){
+      const tm=res.goalScored?"me":"opp", R=result.current;
+      const e=queue.current.find(q=>q.type==="goal"&&q.team===tm&&q.min>momentMin);
+      if(e){
+        if(tm==="me"){
+          const who=res.player||e.scorer;
+          R.evs=R.evs.map(q=>q===e?{...e,min:momentMin,scorer:who,assist:null,act:MOMENT_TYPES[res.momentType]?.label||e.act,pos:""}:q)
+            .sort((a,b)=>a.min-b.min);
+          const at=R.scorers.lastIndexOf(e.scorer);
+          if(at>=0){ R.scorers.splice(at,1); R.assisters.splice(at,1); R.scorers.unshift(who); R.assisters.unshift(null); }
+        } else R.evs=R.evs.map(q=>q===e?{...e,min:momentMin}:q).sort((a,b)=>a.min-b.min);
+        // Kuyrukta gol → savunan takımın kaleci kurtarışı (evs listesi ayrı)
+        queue.current=queue.current.map(q=>q===e?{min:e.min,type:"save",team:tm==="me"?"opp":"me",zone:e.zone}:q);
+      }
+    }
+    // Kaçan hücum anı: yarı yarıya sıradaki planlı golümüz de gelmez (anlar skoru şişirmesin)
+    else if(!res.goalScored&&res.momentType!=="tackle"&&result.current&&Math.random()<0.55){
+      const R=result.current, e=queue.current.find(q=>q.type==="goal"&&q.team==="me"&&q.min>momentMin);
+      if(e){
+        const sv={min:e.min,type:"save",team:"opp",zone:e.zone}, at=R.scorers.lastIndexOf(e.scorer);
+        if(at>=0){ R.scorers.splice(at,1); R.assisters.splice(at,1); }
+        R.evs=R.evs.map(q=>q===e?sv:q);
+        queue.current=queue.current.map(q=>q===e?sv:q);
+      }
+    }
     // Gol/gol yenme güncelle
     if(res.goalScored){
       setMyScore(s=>s+1);
@@ -349,6 +376,11 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     if(!pl||!pl.n) return "";
     return matchLabelName3D(pl.n);
   }),[is3D,lineup,squad,playerDots.length]);
+  // 3D akış: oyuncu başına şut reytingi (uzaktan şut yalnız iyi şutörlere)
+  const shots3d=React.useMemo(()=>!is3D?null:playerDots.map((p,i)=>{
+    const pl=lineup.length>0?squad[lineup[i]]:squad[i];
+    return pl?Number(pl.sht)||Math.round((Number(pl.ovr)||65)*0.88):60;
+  }),[is3D,lineup,squad,playerDots.length]);
   // 3D kilit an: sahadaki kadro (takım arkadaşı adları). Koşulsuz hook; yalnız kadro değişince yeniden hesaplanır
   // 3D/2.5D: takım forma renkleri (veri dosyasındaki birincil/ikincil; yakınsa deplasmana ikinci forma)
   //   ve stadyum/çim/ışık varyasyonu (ev sahibi gücü + maç hash'i). Maç boyunca sabit.
@@ -359,7 +391,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   // 3D sahne denetleyicisi bu ref'i her karede okur (React state'i karede güncellenmez)
   const live3dRef=useRef(null);
   // half: 3D'de 2. yarı taraf değişimi (2D yönü değişmez) · myBase/oppBase: diziliş tabanı (3D çapaları)
-  if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d,
+  if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d,shots:shots3d,oppStr:fixture.str,
     half:minute>45?2:1,myBase:baseDotsRef.current,oppBase:baseOppDotsRef.current};
   else live3dRef.current=null;
 
@@ -402,12 +434,35 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             const p3=pitch3dApiRef.current;
             const notRendering=(typeof document!=="undefined"&&document.hidden)
               ||!p3||(p3.isDisposed&&p3.isDisposed())||(p3.isRendering&&!p3.isRendering());
-            const ready=!alive||notRendering||viewModeRef.current!=="3d"||(ac.inFinalThird&&ac.inFinalThird(bu.team))
-              ||Date.now()-bu.t0>MATCH3D_BUILDUP_MAX_MS;
+            // BÖLGE SENKRONU: topun 3D akıştaki yeri + sahibi. Planlı türün bölgesine varınca (ya da geçince)
+            //   hemen; süre dolunca topun o an bulunduğu bölgeye uygun türle açılır. Serbest/duran top beklenir.
+            const sp=alive&&ac.getPlaySpot?ac.getPlaySpot():null, waited=Date.now()-bu.t0;
+            const pr=sp?{own:0,mid:1,final:2}[momentRegion(sp.x)]:-1;
+            const want=bu.mo.type==="counter"||bu.mo.type==="tackle"?0:MOMENT_REGION.mid.includes(bu.mo.type)?1:2;
+            const fit=!!sp&&sp.team===bu.team&&(bu.team==="away"?sp.x<50:pr>want||pr===want&&(waited>5000||momentTypeAt(sp,bu.mo.type)===bu.mo.type));
+            // Rakip kendi sahasında topla oynuyorsa bize uygun an yoktur: en çok 2× süre top kazanılması beklenir
+            const late=waited>MATCH3D_BUILDUP_MAX_MS&&(!!sp&&(sp.team==="home"||sp.x<50)||waited>MATCH3D_BUILDUP_MAX_MS*2);
+            if(waited>MATCH3D_BUILDUP_MAX_MS&&bu.team==="away"&&alive&&ac.buildUp&&!bu.flip){ bu.flip=true; bu.team="home"; ac.buildUp("home",MATCH3D_BUILDUP_MAX_MS/1000+4); }
+            const ready=!alive||notRendering||viewModeRef.current!=="3d"||fit||late;
             if(!ready) return;
             buildUpRef.current=null;
             if(alive&&ac.buildUp) ac.buildUp(null);
             bu.mo.view3D=use3DMoment(); // görünüm kilit an başında sabitlenir
+            if(alive&&bu.mo.view3D){
+              let s=sp||(ac.getPlaySpot&&ac.getPlaySpot(true));
+              if(s){
+                // Süre sonunda top hâlâ rakipte ve bizim yarının dışındaysa: top bizde kabul edilir (orta saha anı)
+                if(s.team!=="home"&&s.x>=50) s={...s,team:"home",idx:-1};
+                const used=new Set(momentsRef.current.filter(q=>q.resolved&&q!==bu.mo).map(q=>q.type));
+                const ty=momentTypeAt(s,bu.mo.type,used);
+                if(ty!==bu.mo.type){ bu.mo.type=ty; bu.mo.config=MOMENT_TYPES[ty]; }
+                bu.mo.spot={x:s.x,y:s.y};
+                // Topa sahip gerçek oyuncu (duran top ve savunma anında planlı oyuncu kalır)
+                const pool=(lineupRef.current||[]).length>0?lineupRef.current.map(i=>squad[i]):squad;
+                if(ty==="tackle"){ if(bu.mo.player&&!["CB","LB","RB","CDM"].includes(bu.mo.player.pos)) bu.mo.player=pool.slice(0,11).find(p=>p&&["CB","CDM","LB","RB"].includes(p.pos))||bu.mo.player; }
+                else if(s.idx>=0&&!["corner","freekick","penalty"].includes(ty)){ const o=pool[s.idx]; if(o&&o.n&&o.pos!=="GK") bu.mo.player=o; }
+              }
+            }
             pausedRef.current=true;
             clearInterval(ivRef.current);
             setActiveMoment(bu.mo);
@@ -428,7 +483,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           nextMoment.resolved=true;
           const ac=actors3dRef.current;
           if(use3DMoment()&&ac&&ac.isAlive&&ac.isAlive()&&ac.buildUp){
-            // Savunma anı (tackle): rakip bizim son üçte birimize gelir; diğerleri: biz rakibinkine
+            // Savunma anı (tackle): rakip bizim yarımıza gelir; diğerleri: topu biz oynarız
             const team=nextMoment.type==="tackle"?"away":"home";
             buildUpRef.current={mo:nextMoment,team,t0:Date.now()};
             ac.buildUp(team,MATCH3D_BUILDUP_MAX_MS/1000+2);

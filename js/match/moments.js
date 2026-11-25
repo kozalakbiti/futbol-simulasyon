@@ -120,7 +120,7 @@ function planMoments(myStr, oppStr, squad){
     return m;
   };
 
-  // ROTASYON + COOLDOWN: maçta 5 an; aynı tür bir maçta en çok bir kez, art arda iki an
+  // ROTASYON + COOLDOWN: maçta 4 an; aynı tür bir maçta en çok bir kez, art arda iki an
   //   aynı türden olamaz ve son maçlarda görülen türler (MOMENT_RECENT, oturum boyu) bekletilir.
   //   Ağırlık: hücum türleri; penaltı nadir; savunma (tackle) maçta en çok bir kez, 2. yarıda.
   const atkPool=[...atk,...mid];
@@ -139,7 +139,7 @@ function planMoments(myStr, oppStr, squad){
     for(const [t,w] of cand){ if((r-=w)<=0) return t; }
     return cand.length?cand[cand.length-1][0]:"counter";
   };
-  const mins=[pickMin(10,24),pickMin(27,44),pickMin(50,64),pickMin(66,78),pickMin(80,88)].sort((x,y)=>x-y);
+  const mins=[pickMin(12,30),pickMin(33,44),pickMin(52,68),pickMin(72,87)].sort((x,y)=>x-y);
   const tackleSlot=Math.random()<0.6?(2+Math.floor(Math.random()*2)):-1;   // 2. yarıda en çok bir savunma anı
   const used=new Set(); let prev=null;
   const plan=mins.map((min,i)=>{
@@ -184,13 +184,40 @@ function getMomentMsg(type,optId,success,name){
   return msgSet?(success?msgSet.ok:msgSet.fail):(success?"Başarılı!":"Başarısız!");
 }
 
+// ── SAHA BÖLGESİ ↔ KİLİT AN (3D canlı akış) ──
+//   Top konumu 0–100 (x: 100 = rakip kale). own: kendi yarımız · mid: orta saha · final: rakip 3. bölge.
+const MOMENT_REGION={own:["tackle","counter"],mid:["through","counter","cross"],
+  final:["oneonone","scramble","longshot","freekick","corner","penalty"]};
+function momentRegion(x){ return x<50?"own":x<66.7?"mid":"final"; }
+// spot {x,y,team}: 3D akışta topun yeri ve sahibi (home|away). planned bölgeye (ve noktaya) uyuyorsa
+//   korunur, yoksa bölgenin uygun türlerinden ağırlıkla seçilir (used: maçta oynanan türler, az tercih).
+function momentTypeAt(spot,planned,used){
+  const reg=momentRegion(spot.x), wide=Math.abs(spot.y-50);
+  // Rakipteki top kendi yarımızdaysa müdahale; rakip kendi sahasındayken savunma anı açılmaz
+  if(reg==="own"&&spot.team==="away") return "tackle";
+  const w={};
+  if(reg==="own") w.counter=1;
+  else if(reg==="mid"){ w.through=wide<26?1.2:0.4; w.counter=0.8; if(wide>18) w.cross=1.4; }
+  else {
+    const deep=spot.x>=82;
+    if(wide<24){ w.oneonone=1; if(deep) w.scramble=1.3; else { w.longshot=0.7; w.freekick=1; } if(deep&&wide<14) w.penalty=0.35; }
+    else if(deep) w.corner=1; else { w.freekick=1; w.oneonone=0.5; }
+  }
+  if(w[planned]&&!(used&&used.has(planned))) return planned;
+  let tot=0; for(const k in w){ if(used&&used.has(k)) w[k]*=0.05; tot+=w[k]; }
+  let r=Math.random()*tot;
+  for(const k in w){ if((r-=w[k])<=0) return k; }
+  return Object.keys(w)[0];
+}
+
 // Kilit an başarı şansı (2D ve 3D ortak). extra: 3D rota kalitesi terimi (2D'de 0).
 // Math.random çağrı sırası eski satırla aynı (önce şans gürültüsü, sonra başarı zarı).
 function calcMomentChance(player,opt,power,extra=0){
   const baseOvr=(player.ovr||65)/100;
   const statVal=(player[opt.stat]||60)/100;
   const powerBonus=power>=40&&power<=80?0.12:power>=25&&power<=90?0.04:-0.08;
-  return Math.min(0.92,Math.max(0.08,baseOvr*0.35+statVal*0.35+opt.bonus*0.25+powerBonus+(Math.random()*0.10-0.05)+(Number.isFinite(extra)?extra:0)));
+  // −0.2 / tavan 0.75: kaleci ve savunma daha dirençli (gerçekçi skorlar)
+  return Math.min(0.75,Math.max(0.08,baseOvr*0.35+statVal*0.35+opt.bonus*0.25-0.2+powerBonus+(Math.random()*0.10-0.05)+(Number.isFinite(extra)?extra:0)));
 }
 
 // İnteraktif An Overlay bileşeni

@@ -3,9 +3,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 const GOL_TYPES=[
-  {act:"sert sol ayak vuruşu",         pos:"ceza sahası sol köşesinden",  icon:"💥", zone:[75,40]},
+  {act:"sert sol ayak vuruşu",         pos:"ceza sahası sol köşesinden",  icon:"💥", zone:[84,42]},
   {act:"köşe vuruşu sonrası kafa",      pos:"altı pas içinde",             icon:"🎯", zone:[92,45]},
-  {act:"uzak mesafe füze şutu",         pos:"yarı sahadan",                icon:"🚀", zone:[65,50]},
+  {act:"uzak mesafe füze şutu",         pos:"yarı sahadan",                icon:"🚀", zone:[78,50]},
   {act:"penaltı",                       pos:"penaltı noktasından",         icon:"⚽", zone:[88,50]},
   {act:"bireysel dripling sonrası vole",pos:"ceza sahası ortasından",      icon:"🌪️", zone:[82,52]},
   {act:"serbest vuruş",                 pos:"ceza sahası dışından",        icon:"🎯", zone:[72,35]},
@@ -15,8 +15,8 @@ const GOL_TYPES=[
   {act:"ikinci direğe koşu + vole",     pos:"ikinci direkte",              icon:"💫", zone:[93,72]},
   {act:"baskı sonrası top kapma",       pos:"savunma arkasında",           icon:"💨", zone:[78,50]},
   {act:"çapraz sert şut",              pos:"sağ kanattan içeri keserek",   icon:"🔥", zone:[84,68]},
-  {act:"loblu vole",                    pos:"ceza sahası girişinden",      icon:"🌟", zone:[70,50]},
-  {act:"ikinci topa giriş + sert şut", pos:"ceza sahası kenarından",      icon:"💪", zone:[76,44]},
+  {act:"loblu vole",                    pos:"ceza sahası girişinden",      icon:"🌟", zone:[82,50]},
+  {act:"ikinci topa giriş + sert şut", pos:"ceza sahası kenarından",      icon:"💪", zone:[83,45]},
   {act:"kaleciyi şaşırtan çalım",       pos:"birebir pozisyonda",          icon:"🎭", zone:[89,50]},
   {act:"topukla gol",                   pos:"arka bölgeden",               icon:"👟", zone:[88,54]},
   {act:"kaleci çıkışında lob",          pos:"sol kanattan",                icon:"🌈", zone:[82,22]},
@@ -119,7 +119,7 @@ function simulateMatch(myStr,oppStr,home,coachBonus=0,squad=[]){
 
   // Expected goals based on OVR ratio — Poisson distribution
   // Average top-flight match has ~2.6 goals; TFF matches ~2.2
-  const avgTotalG=2.3;
+  const avgTotalG=1.95;
   const strRatio=eff/(eff+oppStr);
   const myLambda=Math.max(0.25,avgTotalG*strRatio*(home?1.05:0.95));
   const opLambda=Math.max(0.25,avgTotalG*(1-strRatio)*(home?0.95:1.05));
@@ -130,24 +130,30 @@ function simulateMatch(myStr,oppStr,home,coachBonus=0,squad=[]){
   // Reconcile result with score — margin depends on strength difference
   if(res==="W"&&myG<=opG){
     const absDiff=Math.abs(diff);
-    const p1=Math.max(0.20,0.52-absDiff*0.015); // büyük fark → +1 daha az olası
-    const p2=Math.min(0.50,0.30+absDiff*0.010); // büyük fark → +2 daha olası
+    const p1=Math.max(0.35,0.70-absDiff*0.015); // büyük fark → +1 daha az olası
+    const p2=Math.min(0.50,0.24+absDiff*0.010); // büyük fark → +2 daha olası
     const mr=Math.random();
     if(mr<p1) myG=opG+1;
     else if(mr<p1+p2) myG=opG+2;
     else myG=opG+3;
   } else if(res==="L"&&opG<=myG){
     const absDiff=Math.abs(diff);
-    const p1=Math.max(0.20,0.52-absDiff*0.015);
-    const p2=Math.min(0.50,0.30+absDiff*0.010);
+    const p1=Math.max(0.35,0.70-absDiff*0.015);
+    const p2=Math.min(0.50,0.24+absDiff*0.010);
     const mr=Math.random();
     if(mr<p1) opG=myG+1;
     else if(mr<p1+p2) opG=myG+2;
     else opG=myG+3;
   } else if(res==="D"){
-    // Berabere: 0-0, 1-1, 2-2 dağılımı için Poisson(1.1)
-    const eq=poissonRandom(1.1);
+    // Berabere: 0-0, 1-1, 2-2 dağılımı için Poisson(0.9)
+    const eq=Math.min(3,poissonRandom(0.9));
     myG=eq; opG=eq;
+  }
+  // Gerçekçi skor: 5+ gollü maçların çoğu kısılır (kurtarış/blok); sonuç (G/B/M) değişmez
+  while(myG+opG>=4&&Math.random()<(myG+opG>=5?0.75:0.45)){
+    if(myG===opG){ myG--; opG--; }
+    else if(myG>opG){ if(opG>0&&(myG-opG<2||Math.random()<0.5)) opG--; if(myG-opG>1) myG--; }
+    else { if(myG>0&&(opG-myG<2||Math.random()<0.5)) myG--; if(opG-myG>1) opG--; }
   }
   // Cap at reasonable max
   myG=Math.min(myG,7);opG=Math.min(opG,7);
@@ -216,25 +222,27 @@ function simulateMatch(myStr,oppStr,home,coachBonus=0,squad=[]){
   });
 
   // ── KAÇIRILAN GOLLER ──────────────────────────────────
-  const missCnt=rnd(2,5);
+  const missCnt=rnd(1,3);
   for(let i=0;i<missCnt;i++){
     const p=scorerPoolFull[rnd(0,scorerPoolFull.length-1)];
     const mt=MISS_TYPES[rnd(0,MISS_TYPES.length-1)];
     evs.push({min:rnd(5,89),type:"miss",team:"me",player:p.n,desc:mt.desc,icon:mt.icon,
-      zone:[rnd(75,95),rnd(20,80)]});
+      zone:[rnd(83,95),rnd(28,72)]});
   }
-  for(let i=0;i<rnd(1,3);i++){
+  const oppMissCnt=rnd(1,2);
+  for(let i=0;i<oppMissCnt;i++){
     const mt=MISS_TYPES[rnd(0,MISS_TYPES.length-1)];
     evs.push({min:rnd(5,89),type:"miss",team:"opp",desc:mt.desc,icon:mt.icon,
       zone:[rnd(5,25),rnd(20,80)]});
   }
 
   // ── KURTARIŞLAR ──────────────────────────────────────
-  for(let i=0;i<rnd(1,4);i++){
+  const mySaves=rnd(2,4), oppSaves=rnd(1,3);
+  for(let i=0;i<mySaves;i++){
     evs.push({min:rnd(5,89),type:"save",team:"me",player:gk.n,
       zone:[rnd(5,15),rnd(20,80)]});
   }
-  for(let i=0;i<rnd(0,2);i++){
+  for(let i=0;i<oppSaves;i++){
     evs.push({min:rnd(5,89),type:"save",team:"opp",zone:[rnd(85,95),rnd(20,80)]});
   }
 
@@ -295,8 +303,8 @@ function simulateMatch(myStr,oppStr,home,coachBonus=0,squad=[]){
 
   // İstatistikler
   const stats={
-    myShots:   myG*2+rnd(4,10), opShots:   opG*2+rnd(3,8),
-    myOnTarget:myG+rnd(1,4),    opOnTarget:opG+rnd(1,3),
+    myShots:   myG*2+rnd(4,9),  opShots:   opG*2+rnd(5,8),
+    myOnTarget:myG+oppSaves,    opOnTarget:opG+mySaves,
     myCorners: rnd(3,10),       opCorners: rnd(1,7),
     myFouls:   rnd(6,16),       opFouls:   rnd(5,15),
     myOffsides:rnd(0,4),        opOffsides:rnd(0,3),
