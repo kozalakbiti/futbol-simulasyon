@@ -34,7 +34,7 @@ Grouped by folder. This is **not** the exact load order: `index.html` is the sou
 | `js/data/youth-staff.js` | `INIT_YOUTH`, `genYouthPlayer`, `genFreeAgent`, `COACHES` |
 | `js/match/scouting.js` | Opponent analysis: `TEAM_STYLES`, `getScoutReport`, `ScoutReportCard`, `PreMatchModal` |
 | `js/match/engine.js` | `simulateMatch` (Poisson-based) and the goal/event/commentary tables |
-| `js/match/moments.js` | `planMoments`, `InteractiveMoment` |
+| `js/match/moments.js` | `planMoments`, `calcMomentChance`, `getMomentMsg` (key moments are always played in 3D) |
 | `js/ui/primitives.js` | Shared UI bits: `PosTag`, `STitle`, `Chip`, `Btn`, `Modal`, `StatBar` |
 | `js/match/halftime.js` | `HalftimeSpeech` |
 | `js/match/three3d.js` … `hud3d.js` | 3D match view (Three.js r128, lazy-loaded from cdnjs; see `PLAN-3D.md`): `three3d` (`loadThreeJs`, coordinates, `mergeGeos3D`, `disposeObject3D`), `rig3d` (articulated low-poly player + animations), `stadium3d` (stands, instanced crowd, floodlights, ad boards, benches), `pitch3d` (`Pitch3D`, cameras), `players3d` (`createMatchActors3D`: players, ball physics, play director, event FX), `moment3d` (`InteractiveMoment3D`), `hud3d` (`Scoreboard3D`), `landscape3d` (surroundings outside the stadium: ground, wall, buildings, trees, hills), `day3d` (day scene: sky, lights, grass/crowd/AO canvases), `assets3d` (`loadModel()` + GLTFLoader from `js/vendor/`, applies `assets/models/*.glb`; credits in `assets/CREDITS.md`) |

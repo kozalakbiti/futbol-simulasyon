@@ -5,23 +5,7 @@
 //   Takım kısaltmaları + küçük rozet, skor, dakika, devre ve gol atanların kısa
 //   listesi. Gol olunca skor yanıp söner, tabela atan takımın forma renginde parlar.
 //   pointer-events:none → altındaki 3D sahneye dokunmayı engellemez.
-// • Maç görünümü tercihi ("2d" | "3d") ayrı localStorage anahtarında saklanır
-//   (kayıt dosyası şekli değişmez). Varsayılan "2d" (eski davranış, düşük güçlü cihaz).
 // ═══════════════════════════════════════════════════════════════
-
-const MATCH_VIEW_LS_KEY="fcym_match_view";
-
-// Kayıtlı maç görünümü: "2d" | "3d" (bilinmeyen/eksik değer → "2d")
-function getMatchViewPref(){
-  try{ return safeLsGet(MATCH_VIEW_LS_KEY,"2d")==="3d"?"3d":"2d"; }
-  catch(e){ return "2d"; }
-}
-// Not: safeLsSet kullanılmaz — kota dolunca en eski kayıt slotunu siliyor; küçük bir görünüm
-// tercihi için kayıt kaybı riski alınmaz. Yazılamazsa tercih sessizce kaybolur.
-function setMatchViewPref(v){
-  try{ localStorage.setItem(MATCH_VIEW_LS_KEY,JSON.stringify(v==="3d"?"3d":"2d")); return true; }
-  catch(e){ return false; }
-}
 
 // Forma renkleri (players3d.js ACTORS3D_COLORS ile aynı mavi/kırmızı)
 const SCOREBOARD3D_KIT={me:"#2485ff",opp:"#d93a3a"};

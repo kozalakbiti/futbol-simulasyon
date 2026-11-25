@@ -43,29 +43,20 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const [oppFormChangedAt,setOppFormChangedAt]=useState(null); // taktik değişim dakikası
   // ── CANLI SAHA ANİMASYONU ──
   const [ballEvents,setBallEvents]=useState([]); // aktif saha efektleri [{id,x,y,type,team}]
-  // ── MAÇ GÖRÜNÜMÜ: 2D / 3D ── kalıcı tercih (fcym_match_view, varsayılan "2d").
-  // WebGL testi maç başına bir kez (olumlu sonuç three3d.js'te önbellekte).
-  const [view3dInit]=useState(()=>{
-    let ok=false; try{ ok=hasWebGLSupport(); }catch(e){ ok=false; }
-    return {ok,mode:ok&&getMatchViewPref()==="3d"?"3d":"2d"};
-  });
-  const webgl3dOk=view3dInit.ok;
-  const [viewMode,setViewMode]=useState(view3dInit.mode);
-  const [view3dNotice,setView3dNotice]=useState("");
-  const is3D=viewMode==="3d";
+  // ── MAÇ GÖRÜNÜMÜ ── her zaman 3D (eski 2D radar kaldırıldı). Sahne açılamazsa metin akışı sürer,
+  //   sahne birkaç kez kendiliğinden yeniden denenir (pitch3dTry → yeni Pitch3D örneği).
+  const viewMode="3d", is3D=true;
+  const [pitch3dTry,setPitch3dTry]=useState(0);
+  const [pitch3dFail,setPitch3dFail]=useState(false);
+  // Kilit anda gol oldu: 3D akış santrayla (golü yiyen takım) başlar
+  const kickTeamRef=useRef(null);
   const [cam3D,setCam3D]=useState("top"); // varsayılan: kuşbakışı 2.5D (tribün sahayı kapatmaz)
   const pitch3dApiRef=useRef(null);
   const viewModeRef=useRef(viewMode);
-  viewModeRef.current=viewMode;
-  // Kilit an 3D mi oynansın? 3D görünümdeyse evet (kilit an başında sabitlenir)
-  const use3DMoment=()=>viewModeRef.current==="3d";
+  // Kilit anlar her zaman 3D
+  const use3DMoment=()=>true;
   // Gol atanlar (skor tabelası için; motor sonucu değişmez): [{min,team,name}]
   const [goalList,setGoalList]=useState([]);
-  useEffect(()=>{
-    if(!view3dNotice) return;
-    const t=setTimeout(()=>setView3dNotice(""),4500);
-    return()=>clearTimeout(t);
-  },[view3dNotice]);
   // 3D olay kuyruğu: ballEvents'e eklenen her olayın kopyası (son 30). 2D ballEvents
   // olayları 1.1–2.2 sn sonra siler; 3D duraklatılmışken (devre arası, maç sonu)
   // gelen olaylar böylece kaybolmaz. players3d görülen id'leri kendisi ayıklar.
@@ -213,6 +204,14 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const handleMomentResolve=(res)=>{
     const momentMin=activeMoment?.min||minute;
     setActiveMoment(null);
+    // Gol → 3D akış santrayla sürer: golü yiyen takım ortadan başlar, oyuncular mevkilerinde
+    if(res.goalScored||res.goalConceded){
+      kickTeamRef.current=res.goalScored?"away":"home";
+      setTimeout(()=>{ kickTeamRef.current=null; },8000);
+      const back=(base)=>(prev)=>prev.map(p=>{ const b=base.find(q=>q.id===p.id); return b?{...p,x:b.bx,y:b.by,vx:0,vy:0,pulse:false}:p; });
+      setPlayerDots(back(baseDotsRef.current)); setOppDots(back(baseOppDotsRef.current));
+      setBallPos([50,50]);
+    }
     // Skor tabelası listesi (yalnız görsel)
     if(res.goalScored) setGoalList(g=>[...g,{min:momentMin,team:"me",name:res.player||""}]);
     else if(res.goalConceded) setGoalList(g=>[...g,{min:momentMin,team:"opp",name:""}]);
@@ -393,7 +392,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const minuteRef3d=useRef(0); minuteRef3d.current=minute;
   // half: 3D'de 2. yarı taraf değişimi (2D yönü değişmez) · myBase/oppBase: diziliş tabanı (3D çapaları)
   if(is3D) live3dRef.current={my:playerDots,opp:oppDots,ball:ballPos,events:events3dQueueRef.current,labels:labels3d,shots:shots3d,oppStr:fixture.str,
-    half:minute>45?2:1,myBase:baseDotsRef.current,oppBase:baseOppDotsRef.current};
+    kick:kickTeamRef.current,half:minute>45?2:1,myBase:baseDotsRef.current,oppBase:baseOppDotsRef.current};
   else live3dRef.current=null;
 
   useEffect(()=>{
@@ -801,19 +800,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
   const isHT=minute>=45&&minute<47;
   const devre=minute<45?"1. DEVRE":"2. DEVRE";
 
-  // Top ısısına göre renk
-  const ballCol=ballPos[0]>60?C.grn2:ballPos[0]<40?C.red2:C.gd;
 
-  // ── 2D/3D geçişi: maç akışına (interval, skor, kilit anlar, devre arası) dokunmaz ──
-  const pickView=(next)=>{
-    if(next==="3d"&&!webgl3dOk){ setView3dNotice("Cihazın 3D desteklemiyor; maç 2D görünümde devam ediyor."); return; }
-    if(next===viewModeRef.current) return;
-    if(next!=="3d"){ pitch3dApiRef.current=null; flush3d(); }   // 3D animasyonu beklenmez: bekleyen metin/skor hemen
-    setViewMode(next);
-    setMatchViewPref(next);
-    setView3dNotice("");
-    if(next==="3d"&&tab==="pitch") setTab("log"); // 3D'de "Saha" sekmesi yok
-  };
   // 3D modda sonuç paneli kısa ekranda alta taşabilir → maç bitince "DEVAM ET" görünür olsun
   const resultPanelRef=useRef(null);
   useEffect(()=>{
@@ -823,13 +810,14 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     },150);
     return()=>clearTimeout(t);
   },[phase,viewMode]);
-  // Three yüklenemedi / Pitch3D hata verdi → bu maç için 2D (tercih kalıcı olarak değişmez)
+  // Three yüklenemedi / Pitch3D hata verdi → 2 kez kendiliğinden yeniden dene; olmazsa "Tekrar dene" paneli
+  //   (maç metin akışıyla sürer, 2D saha yok)
+  const retry3d=()=>{ setPitch3dFail(false); setPitch3dTry(n=>n+1); };
   const on3dViewError=()=>{
     pitch3dApiRef.current=null;
     flush3d();
-    if(viewModeRef.current!=="3d") return;
-    setViewMode("2d");
-    setView3dNotice("3D görünüm açılamadı; maç 2D görünümde devam ediyor.");
+    setPitch3dFail(true);
+    if(pitch3dTry<2) setTimeout(()=>{ if(mountedRef.current) retry3d(); },1200);
   };
   const view3dH=(()=>{
     const vh=(typeof window!=="undefined"&&window.innerHeight)||640;
@@ -843,7 +831,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.93)",zIndex:200,
       display:"flex",alignItems:"center",justifyContent:"center",padding:6}}>
       {/* ── İNTERAKTİF AN OVERLAY ── */}
-      {activeMoment&&(activeMoment.view3D?(
+      {activeMoment&&(
         <InteractiveMoment3D
           moment={activeMoment}
           mates={moment3dMates}
@@ -852,16 +840,8 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           myStr={myStr}
           oppStr={fixture.str}
           onResolve={handleMomentResolve}
-          onFallback={on3dViewError}
         />
-      ):(
-        <InteractiveMoment
-          moment={activeMoment}
-          myStr={myStr}
-          oppStr={fixture.str}
-          onResolve={handleMomentResolve}
-        />
-      ))}
+      )}
       {/* ── DEVRE ARASI KONUŞMASI ── */}
       {showHalftime&&(
         <HalftimeSpeech
@@ -905,21 +885,6 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             {fixture.home?"🏠 EV":"✈️ DEP"} · {fixture.comp||"SL"} · Hafta {fixture.w}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
-            {/* Maç görünümü: 2D / 3D */}
-            <div style={{display:"flex",gap:1,background:"rgba(0,0,0,.4)",borderRadius:4,padding:2,border:`1px solid rgba(77,166,255,0.1)`}}>
-              {[["2d","2D"],["3d","3D"]].map(([k,l])=>{
-                const on=viewMode===k, off=k==="3d"&&!webgl3dOk;
-                return(
-                  <button key={k} onClick={()=>pickView(k)} aria-disabled={off}
-                    title={off?"Cihazın 3D desteklemiyor":k==="3d"?"3D maç görünümü":"2D maç görünümü"}
-                    style={{padding:"2px 6px",borderRadius:3,fontFamily:"inherit",border:"none",
-                      fontSize:".46rem",fontWeight:on?800:500,letterSpacing:.3,
-                      cursor:off?"not-allowed":"pointer",opacity:off?0.4:1,
-                      background:on?"linear-gradient(135deg,#6b3fd1,#8e5cf7)":"transparent",
-                      color:on?"#fff":C.dmr,transition:"all .15s"}}>{l}</button>
-                );
-              })}
-            </div>
             {/* Müdahale anı sayacı */}
             {phase==="playing"&&speed==="slow"&&(()=>{
               const total=momentsRef.current.length;
@@ -977,76 +942,6 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           </div>
         </div>
 
-        {/* ── 2D/3D bildirimi (WebGL yok / 3D açılamadı) ── */}
-        {view3dNotice&&<div style={{margin:"5px 10px 0",padding:"4px 10px",borderRadius:5,flexShrink:0,
-          fontSize:".52rem",fontWeight:700,color:"#f5c26b",background:"rgba(245,194,107,.08)",
-          border:"1px solid rgba(245,194,107,.35)",textAlign:"center",animation:"fadeSlide .2s ease"}}>
-          ⚠️ {view3dNotice}
-        </div>}
-
-        {/* ── SKOR PANELİ ── (3D'de skor tabelası 3D görünümün üstünde) */}
-        {!is3D&&<div style={{padding:"8px 14px 4px",background:"linear-gradient(180deg,#091728,transparent)",
-          display:"flex",alignItems:"center",flexShrink:0}}>
-          <div style={{textAlign:"center",flex:1,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:3}}>
-              <TeamBadge name={clubName} size="md"/>
-            </div>
-            <div style={{fontSize:clubName.length>10?".38rem":".5rem",letterSpacing:clubName.length>10?0:2,color:C.ac2,fontWeight:700,marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{clubName.toUpperCase()}</div>
-            <div style={{fontSize:"2.8rem",fontWeight:900,lineHeight:1,
-              color:phase==="result"?resCol:C.wh,
-              textShadow:myScore>oppScore?"0 0 24px rgba(39,174,96,.6)":"none",
-              transition:"all .3s"}}>{myScore}</div>
-          </div>
-          <div style={{textAlign:"center",padding:"0 10px"}}>
-            <div style={{fontSize:".5rem",color:C.dmr,letterSpacing:2,marginBottom:3}}>vs</div>
-            {phase==="playing"&&<div style={{fontSize:".42rem",color:C.dim,letterSpacing:1,
-              background:"rgba(26,110,216,.08)",border:`1px solid rgba(77,166,255,0.1)`,borderRadius:2,padding:"1px 5px"}}>
-              {devre}
-            </div>}
-          </div>
-          <div style={{textAlign:"center",flex:1,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:3}}>
-              <TeamBadge name={fixture.opp} size="md"/>
-            </div>
-            <div style={{fontSize:fixture.opp.length>10?".38rem":".5rem",letterSpacing:fixture.opp.length>10?0:2,color:C.red2,fontWeight:700,marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fixture.opp.toUpperCase()}</div>
-            <div style={{fontSize:"2.8rem",fontWeight:900,lineHeight:1,
-              color:phase==="result"?(finalRes==="L"?C.grn2:finalRes==="W"?C.red2:C.gd):C.wh,
-              transition:"all .3s"}}>{oppScore}</div>
-          </div>
-        </div>}
-
-        {/* ── PROGRESS BAR ── */}
-        {phase==="playing"&&<div style={{padding:"0 12px 5px",flexShrink:0}}>
-          <div style={{height:3,background:"#0d1a2d",borderRadius:2,overflow:"hidden",marginBottom:2}}>
-            <div style={{height:"100%",width:`${(minute/90)*100}%`,
-              background:`linear-gradient(90deg,${C.ac},${C.grn2})`,transition:"width .1s"}}/>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:".4rem",color:C.dmr}}>
-            <span>0'</span>
-            <span style={{color:C.gd}}>45' HT</span>
-            <span>90'</span>
-          </div>
-        </div>}
-
-        {/* ── TOP KONTROLÜ ── */}
-        {phase==="playing"&&<div style={{padding:"0 12px 6px",flexShrink:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:5}}>
-            <span style={{fontSize:".52rem",color:C.ac2,fontWeight:700,minWidth:26}}>{poss}%</span>
-            <div style={{flex:1,height:7,background:"#0a1520",borderRadius:3,overflow:"hidden",
-              display:"flex",position:"relative"}}>
-              <div style={{width:`${poss}%`,background:`linear-gradient(90deg,${C.ac},${C.ac2})`,
-                borderRadius:"3px 0 0 3px",transition:"width .3s"}}/>
-              <div style={{width:`${100-poss}%`,background:`linear-gradient(90deg,#c0392b,${C.red2})`,
-                borderRadius:"0 3px 3px 0"}}/>
-              {/* Top indikatörü */}
-              <div style={{position:"absolute",top:"50%",left:`${poss}%`,transform:"translate(-50%,-50%)",
-                width:10,height:10,borderRadius:"50%",background:"#fff",
-                boxShadow:"0 0 8px #fff",border:`2px solid ${ballCol}`,
-                transition:"left .3s, border-color .3s"}}/>
-            </div>
-            <span style={{fontSize:".52rem",color:C.red2,fontWeight:700,minWidth:26,textAlign:"right"}}>{100-poss}%</span>
-          </div>
-        </div>}
 
         {/* ── 3D MAÇ GÖRÜNÜMÜ (tek örnek) + SKOR TABELASI ── */}
         {is3D&&<div style={{flexShrink:0,padding:"0 8px 6px"}}>
@@ -1055,8 +950,16 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
               <div style={{height:"100%",borderRadius:6,border:"1px solid rgba(77,166,255,.25)",
                 background:"#0b1220",display:"flex",alignItems:"center",justifyContent:"center",
                 fontSize:".6rem",color:"#9fb3c8"}}>🎮 Kilit an oynanıyor…</div>
+            ):pitch3dFail?(
+              <div style={{height:"100%",borderRadius:6,border:"1px solid rgba(77,166,255,.25)",gap:8,
+                background:"#0b1220",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                fontSize:".6rem",color:"#9fb3c8"}}>
+                <span>⚠️ 3D stadyum açılamadı — maç akışı sürüyor</span>
+                <button onClick={retry3d} style={{padding:"8px 16px",minHeight:40,borderRadius:8,border:"none",fontFamily:"inherit",
+                  fontSize:".6rem",fontWeight:800,cursor:"pointer",background:"#6b3fd1",color:"#fff"}}>Tekrar dene</button>
+              </div>
             ):(
-              <Pitch3D camera={cam3D} onCameraChange={setCam3D} height={view3dH} controlsAt="bottom" venue={venue3d}
+              <Pitch3D key={pitch3dTry} camera={cam3D} onCameraChange={setCam3D} height={view3dH} controlsAt="bottom" venue={venue3d}
                 paused={showHalftime||(phase!=="playing"&&(phase!=="result"||result3dFrozen))}
                 onReady={api=>{
                   pitch3dApiRef.current=api;
@@ -1100,7 +1003,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
 
         {/* ── SEKMELER ── */}
         <div style={{display:"flex",borderBottom:`1px solid rgba(77,166,255,0.1)`,flexShrink:0}}>
-          {[["log","📋 Olaylar"],["pitch","⚽ Saha"],["stats","📊 Stats"],["ratings","⭐ Puanlar"]].filter(([t])=>!(is3D&&t==="pitch")).map(([t,l])=>(
+          {[["log","📋 Olaylar"],["stats","📊 Stats"],["ratings","⭐ Puanlar"]].map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t)} style={{
               flex:1,padding:"5px 2px",border:"none",fontFamily:"inherit",cursor:"pointer",
               fontSize:".5rem",letterSpacing:.3,
@@ -1109,113 +1012,6 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
               borderBottom:`2px solid ${tab===t?C.ac2:"transparent"}`}}>{l}</button>
           ))}
         </div>
-
-        {/* ── HER ZAMAN GÖRÜNÜR MİNİ SAHA — Sekme bağımsız ── */}
-        {phase==="playing"&&!is3D&&<div style={{flexShrink:0,padding:"6px 8px 0"}}>
-          <div style={{position:"relative",borderRadius:5,overflow:"hidden",
-            height:90,border:"1.5px solid #2a6a2a",
-            background:"linear-gradient(180deg,#1a5c1a 0%,#1e6b1e 45%,#1a5c1a 100%)"}}>
-            {/* Saha SVG çizgileri — basit */}
-            <svg width="100%" height="100%" style={{position:"absolute",inset:0,zIndex:1}} viewBox="0 0 700 260" preserveAspectRatio="none">
-              <rect x="18" y="6" width="664" height="248" stroke="rgba(255,255,255,0.45)" strokeWidth="2" fill="none"/>
-              <line x1="350" y1="6" x2="350" y2="254" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5"/>
-              <circle cx="350" cy="130" r="48" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" fill="none"/>
-              <rect x="18" y="77" width="90" height="106" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="rgba(255,255,255,0.02)"/>
-              <rect x="592" y="77" width="90" height="106" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="rgba(255,255,255,0.02)"/>
-              <rect x="0" y="103" width="18" height="54" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="rgba(192,57,43,0.2)"/>
-              <rect x="682" y="103" width="18" height="54" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="rgba(45,143,255,0.2)"/>
-            </svg>
-            {/* Isı haritası */}
-            {heatDots.slice(-20).map((d,i)=>(
-              <div key={i} style={{position:"absolute",
-                left:`${d.x}%`,top:`${d.y}%`,
-                width:6,height:6,borderRadius:"50%",
-                background:d.x>50?"rgba(39,174,96,.2)":"rgba(192,57,43,.2)",
-                transform:"translate(-50%,-50%)",
-                opacity:0.15+((i/20)*0.4),filter:"blur(1px)",zIndex:2}}/>
-            ))}
-            {/* FCY Oyuncu noktaları — NSM tarzı */}
-            {playerDots.map(p=>(
-              <div key={p.id} style={{
-                position:"absolute",left:`${p.x}%`,top:`${p.y}%`,
-                width:p.pulse?11:8,height:p.pulse?11:8,borderRadius:"50%",
-                background:"#2485ff",border:`1.5px solid ${p.pulse?"#fff":"rgba(255,255,255,.85)"}`,
-                transform:"translate(-50%,-50%)",
-                boxShadow:p.pulse?`0 0 10px #2485ff,0 0 18px rgba(36,133,255,.5)`:"0 1px 3px rgba(0,0,0,.5)",
-                transition:"left 0.12s linear,top 0.12s linear,width .12s,height .12s",zIndex:3}}/>
-            ))}
-            {/* Rakip oyuncu noktaları */}
-            {oppDots.map(p=>(
-              <div key={"m"+p.id} style={{
-                position:"absolute",left:`${p.x}%`,top:`${p.y}%`,
-                width:p.pulse?10:7,height:p.pulse?10:7,borderRadius:"50%",
-                background:C.red2,border:"1.5px solid rgba(255,255,255,.75)",
-                transform:"translate(-50%,-50%)",
-                boxShadow:p.pulse?`0 0 8px ${C.red2}`:"0 1px 2px rgba(0,0,0,.5)",
-                transition:"left 0.12s linear,top 0.12s linear,width .12s,height .12s",
-                zIndex:3}}/>
-            ))}
-            {/* Top — NSM parlak */}
-            <div style={{position:"absolute",
-              left:`${ballPos[0]}%`,top:`${ballPos[1]}%`,
-              width:11,height:11,borderRadius:"50%",
-              background:"#fff",
-              boxShadow:`0 0 12px ${ballCol},0 0 5px rgba(255,255,255,.8)`,
-              transform:"translate(-50%,-50%)",
-              transition:"left .16s cubic-bezier(.25,.46,.45,.94),top .16s cubic-bezier(.25,.46,.45,.94)",
-              zIndex:6,border:"1.5px solid rgba(0,0,0,0.2)"}}/>
-            {/* Olay efektleri — mini versiyonu */}
-            {ballEvents.map(ev=>{
-              if(ev.type==="goal") return(
-                <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,transform:"translate(-50%,-50%)",zIndex:8}}>
-                  <div style={{position:"absolute",width:50,height:50,borderRadius:"50%",
-                    background:ev.team==="me"?"rgba(39,174,96,0.3)":"rgba(220,50,50,0.3)",
-                    border:`2px solid ${ev.team==="me"?C.grn2:C.red2}`,
-                    transform:"translate(-50%,-50%)",animation:"goalBurst 0.6s ease-out forwards"}}/>
-                  <div style={{position:"absolute",
-                    background:ev.team==="me"?"rgba(39,174,96,0.95)":"rgba(200,40,40,0.95)",
-                    color:"#fff",fontWeight:900,fontSize:".62rem",
-                    padding:"2px 6px",borderRadius:3,
-                    transform:"translate(-50%,-160%)",whiteSpace:"nowrap",
-                    boxShadow:"0 2px 6px rgba(0,0,0,0.5)",
-                    animation:"goalLabel 2s ease-out forwards",letterSpacing:1}}>
-                    {ev.team==="me"?"⚽ GOL!":"⚽ GOL YEDİK"}
-                  </div>
-                </div>
-              );
-              if(ev.type==="miss") return(
-                <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,transform:"translate(-50%,-50%)",zIndex:8}}>
-                  <div style={{position:"absolute",width:24,height:24,borderRadius:"50%",
-                    border:"2px dashed rgba(200,153,42,0.8)",transform:"translate(-50%,-50%)",
-                    animation:"missPulse 1s ease-out forwards"}}/>
-                </div>
-              );
-              if(ev.type==="save") return(
-                <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,transform:"translate(-50%,-50%)",zIndex:8}}>
-                  <div style={{position:"absolute",width:22,height:22,borderRadius:"50%",
-                    background:"rgba(45,143,255,0.25)",border:"2px solid rgba(45,143,255,0.8)",
-                    transform:"translate(-50%,-50%)",animation:"savePulse 1s ease-out forwards"}}/>
-                </div>
-              );
-              if(ev.type==="yellow"||ev.type==="red"||ev.type==="yellow2red") return(
-                <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,transform:"translate(-50%,-50%)",zIndex:8}}>
-                  <div style={{position:"absolute",width:9,height:12,borderRadius:1,
-                    background:ev.type==="red"?"#e74c3c":"#f1c40f",
-                    transform:"translate(-50%,-50%) rotate(-8deg)",
-                    animation:"cardPop 1s ease-out forwards"}}/>
-                </div>
-              );
-              return null;
-            })}
-            {/* Kale etiketleri */}
-            <div style={{position:"absolute",left:2,top:"50%",transform:"translateY(-50%)",zIndex:8,
-              fontSize:".38rem",color:C.red2,fontWeight:700,background:"rgba(0,0,0,.7)",
-              padding:"1px 3px",borderRadius:2}}>OPP</div>
-            <div style={{position:"absolute",right:2,top:"50%",transform:"translateY(-50%)",zIndex:8,
-              fontSize:".38rem",color:C.ac2,fontWeight:700,background:"rgba(0,0,0,.7)",
-              padding:"1px 3px",borderRadius:2}}>FCY</div>
-          </div>
-        </div>}
 
         {/* ── LOG SEKMESİ ── */}
         {tab==="log"&&<div ref={logRef} style={{flex:1,overflowY:"auto",padding:"5px 10px",minHeight:120,maxHeight:180}}>
@@ -1237,299 +1033,6 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
           ))}
         </div>}
 
-        {/* ── SAHA SEKMESİ — Canlı Animasyonlu ── */}
-        {tab==="pitch"&&!is3D&&<div style={{flex:1,padding:"6px 8px",display:"flex",flexDirection:"column",gap:5,overflowY:"auto"}}>
-
-          {/* ═══ CANLI SAHA ═══ */}
-          <div style={{position:"relative",borderRadius:6,overflow:"hidden",
-            aspectRatio:"7/5",border:"2px solid #2a6a2a",
-            background:"linear-gradient(180deg,#1a5c1a 0%,#1e6b1e 45%,#1a5c1a 100%)"}}>
-
-            {/* Saha çizgileri SVG */}
-            <svg width="100%" height="100%" style={{position:"absolute",inset:0,zIndex:1}} viewBox="0 0 700 500" preserveAspectRatio="none">
-              {/* Zemin bantları */}
-              {[0,1,2,3,4,5,6].map(i=>(
-                <rect key={i} x={i*100} y="0" width="100" height="500"
-                  fill={i%2===0?"rgba(0,0,0,0.04)":"rgba(255,255,255,0.02)"}/>
-              ))}
-              {/* Dış çizgi */}
-              <rect x="18" y="12" width="664" height="476" stroke="rgba(255,255,255,0.55)" strokeWidth="2" fill="none" rx="2"/>
-              {/* Orta çizgi */}
-              <line x1="350" y1="12" x2="350" y2="488" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5"/>
-              {/* Orta daire */}
-              <circle cx="350" cy="250" r="70" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
-              <circle cx="350" cy="250" r="3" fill="rgba(255,255,255,0.7)"/>
-              {/* Sol ceza sahası */}
-              <rect x="18" y="148" width="108" height="204" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="rgba(255,255,255,0.02)"/>
-              {/* Sol 6 yarda */}
-              <rect x="18" y="198" width="40" height="104" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none"/>
-              {/* Sol penaltı noktası */}
-              <circle cx="102" cy="250" r="3" fill="rgba(255,255,255,0.6)"/>
-              {/* Sol yay */}
-              <path d="M 126,192 A 70,70 0 0,1 126,308" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none"/>
-              {/* Sağ ceza sahası */}
-              <rect x="574" y="148" width="108" height="204" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="rgba(255,255,255,0.02)"/>
-              {/* Sağ 6 yarda */}
-              <rect x="642" y="198" width="40" height="104" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none"/>
-              {/* Sağ penaltı noktası */}
-              <circle cx="598" cy="250" r="3" fill="rgba(255,255,255,0.6)"/>
-              {/* Sağ yay */}
-              <path d="M 574,192 A 70,70 0 0,0 574,308" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none"/>
-              {/* Kale soldaki */}
-              <rect x="0" y="210" width="18" height="80" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="rgba(192,57,43,0.15)"/>
-              {/* Kale sağdaki */}
-              <rect x="682" y="210" width="18" height="80" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="rgba(45,143,255,0.15)"/>
-            </svg>
-
-            {/* Isı haritası noktaları */}
-            <div style={{position:"absolute",inset:0,zIndex:2}}>
-              {heatDots.slice(-25).map((d,i)=>(
-                <div key={i} style={{position:"absolute",
-                  left:`${d.x}%`,top:`${d.y}%`,
-                  width:8,height:8,borderRadius:"50%",
-                  background:d.x>50?"rgba(39,174,96,.22)":"rgba(192,57,43,.22)",
-                  transform:"translate(-50%,-50%)",
-                  opacity:0.2+((i/25)*0.5),
-                  filter:"blur(1.5px)"}}/>
-              ))}
-            </div>
-
-            {/* Oyuncu noktaları — NSM tarzı isim etiketli */}
-            <div style={{position:"absolute",inset:0,zIndex:3}}>
-              {playerDots.map((p,i)=>{
-                const pl=lineup.length>0?squad[lineup[i]]:squad[i];
-                const speed=Math.sqrt((p.vx||0)**2+(p.vy||0)**2);
-                const sz=p.pulse?15:Math.max(9,11-Math.min(2,speed*0.3));
-                return(
-                  <div key={p.id} style={{position:"absolute",left:`${p.x}%`,top:`${p.y}%`,
-                    transform:"translate(-50%,-50%)",zIndex:3,transition:"left 0.12s linear,top 0.12s linear"}}>
-                    {/* Nokta */}
-                    <div style={{width:sz,height:sz,borderRadius:"50%",background:"#2485ff",
-                      border:`2px solid ${p.pulse?"#fff":"rgba(255,255,255,.85)"}`,
-                      boxShadow:p.pulse?`0 0 12px #2485ff,0 0 24px rgba(36,133,255,.6)`:"0 2px 4px rgba(0,0,0,.6)",
-                      transition:"width .12s,height .12s,box-shadow .12s"}}/>
-                    {/* İsim etiketi */}
-                    {pl&&<div style={{position:"absolute",top:sz+1,left:"50%",transform:"translateX(-50%)",
-                      fontSize:".3rem",color:"#fff",fontWeight:700,whiteSpace:"nowrap",
-                      background:"rgba(0,0,0,.72)",padding:"0px 3px",borderRadius:2,
-                      letterSpacing:.3,pointerEvents:"none"}}>
-                      {matchLabelName3D(pl.n)}
-                    </div>}
-                  </div>
-                );
-              })}
-              {/* Rakip oyuncu noktaları */}
-              {oppDots.map(p=>{
-                const speed=Math.sqrt((p.vx||0)**2+(p.vy||0)**2);
-                const sz=p.pulse?14:Math.max(8,10-Math.min(2,speed*0.3));
-                return(
-                  <div key={"opp"+p.id} style={{position:"absolute",left:`${p.x}%`,top:`${p.y}%`,
-                    transform:"translate(-50%,-50%)",zIndex:3,
-                    transition:"left 0.12s linear,top 0.12s linear"}}>
-                    <div style={{width:sz,height:sz,borderRadius:"50%",background:C.red2,
-                      border:"2px solid rgba(255,255,255,.8)",
-                      boxShadow:p.pulse?`0 0 10px ${C.red2}`:"0 2px 4px rgba(0,0,0,.5)",
-                      transition:"width .12s,height .12s"}}/>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Top — NSM tarzı parlak */}
-            <div style={{position:"absolute",
-              left:`${ballPos[0]}%`,top:`${ballPos[1]}%`,
-              width:13,height:13,borderRadius:"50%",
-              background:"#fff",
-              boxShadow:`0 0 16px ${ballCol},0 0 8px rgba(255,255,255,.9),0 2px 5px rgba(0,0,0,.7)`,
-              transform:"translate(-50%,-50%)",
-              transition:"left .16s cubic-bezier(.25,.46,.45,.94),top .16s cubic-bezier(.25,.46,.45,.94)",
-              zIndex:6,border:"1.5px solid rgba(0,0,0,0.25)"
-            }}/>
-
-            {/* ═══ CANLI OLAY EFEKTLERİ ═══ */}
-            <div style={{position:"absolute",inset:0,zIndex:7,pointerEvents:"none"}}>
-              {ballEvents.map(ev=>{
-                if(ev.type==="goal"){
-                  return(
-                    <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,
-                      transform:"translate(-50%,-50%)",zIndex:8}}>
-                      {/* Patlama daire */}
-                      <div style={{
-                        position:"absolute",
-                        width:60,height:60,borderRadius:"50%",
-                        background:ev.team==="me"?"rgba(39,174,96,0.35)":"rgba(220,50,50,0.35)",
-                        border:`3px solid ${ev.team==="me"?C.grn2:C.red2}`,
-                        transform:"translate(-50%,-50%)",
-                        animation:"goalBurst 0.6s ease-out forwards"
-                      }}/>
-                      {/* İkinci dalga */}
-                      <div style={{
-                        position:"absolute",
-                        width:90,height:90,borderRadius:"50%",
-                        border:`2px solid ${ev.team==="me"?"rgba(39,174,96,0.5)":"rgba(220,50,50,0.5)"}`,
-                        transform:"translate(-50%,-50%)",
-                        animation:"goalBurst2 0.9s ease-out 0.15s forwards"
-                      }}/>
-                      {/* Gol etiketi */}
-                      <div style={{
-                        position:"absolute",
-                        background:ev.team==="me"?"rgba(39,174,96,0.95)":"rgba(200,40,40,0.95)",
-                        color:"#fff",fontWeight:900,fontSize:".7rem",
-                        padding:"3px 8px",borderRadius:4,
-                        transform:"translate(-50%,-150%)",
-                        whiteSpace:"nowrap",
-                        boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
-                        animation:"goalLabel 2s ease-out forwards",
-                        letterSpacing:1
-                      }}>{ev.team==="me"?"⚽ GOL!":"⚽ GOL YEDİK"}</div>
-                    </div>
-                  );
-                }
-                if(ev.type==="miss"){
-                  return(
-                    <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,
-                      transform:"translate(-50%,-50%)",zIndex:8}}>
-                      <div style={{
-                        position:"absolute",width:30,height:30,borderRadius:"50%",
-                        border:"2px dashed rgba(200,153,42,0.7)",
-                        transform:"translate(-50%,-50%)",
-                        animation:"missPulse 1s ease-out forwards"
-                      }}/>
-                      <div style={{
-                        position:"absolute",
-                        background:"rgba(200,153,42,0.85)",color:"#fff",
-                        fontWeight:700,fontSize:".52rem",padding:"1px 5px",borderRadius:3,
-                        transform:"translate(-50%,-180%)",whiteSpace:"nowrap",
-                        animation:"goalLabel 1s ease-out forwards"
-                      }}>KAÇIRILDI</div>
-                    </div>
-                  );
-                }
-                if(ev.type==="save"){
-                  return(
-                    <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,
-                      transform:"translate(-50%,-50%)",zIndex:8}}>
-                      <div style={{
-                        position:"absolute",width:28,height:28,borderRadius:"50%",
-                        background:"rgba(45,143,255,0.3)",
-                        border:"2px solid rgba(45,143,255,0.8)",
-                        transform:"translate(-50%,-50%)",
-                        animation:"savePulse 1s ease-out forwards"
-                      }}/>
-                      <div style={{
-                        position:"absolute",
-                        background:"rgba(45,143,255,0.9)",color:"#fff",
-                        fontWeight:700,fontSize:".5rem",padding:"1px 5px",borderRadius:3,
-                        transform:"translate(-50%,-180%)",whiteSpace:"nowrap",
-                        animation:"goalLabel 1s ease-out forwards"
-                      }}>🧤 KURTARIŞ</div>
-                    </div>
-                  );
-                }
-                if(ev.type==="yellow"||ev.type==="yellow2red"||ev.type==="red"){
-                  const cardCol=ev.type==="red"?"#e74c3c":ev.type==="yellow2red"?"#e67e22":"#f1c40f";
-                  return(
-                    <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,
-                      transform:"translate(-50%,-50%)",zIndex:8}}>
-                      <div style={{
-                        position:"absolute",
-                        width:12,height:16,borderRadius:2,
-                        background:cardCol,
-                        border:"1px solid rgba(255,255,255,0.6)",
-                        transform:"translate(-50%,-50%) rotate(-10deg)",
-                        boxShadow:`0 0 8px ${cardCol}`,
-                        animation:"cardPop 1s ease-out forwards"
-                      }}/>
-                    </div>
-                  );
-                }
-                if(ev.type==="chance"||ev.type==="counter"){
-                  return(
-                    <div key={ev.id} style={{position:"absolute",left:`${ev.x}%`,top:`${ev.y}%`,
-                      transform:"translate(-50%,-50%)",zIndex:8}}>
-                      <div style={{
-                        position:"absolute",width:22,height:22,borderRadius:"50%",
-                        border:`2px solid ${ev.team==="me"?C.grn2:C.red2}`,
-                        transform:"translate(-50%,-50%)",
-                        animation:"chancePulse 1s ease-out forwards"
-                      }}/>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-
-            {/* Kale etiketleri */}
-            <div style={{position:"absolute",left:3,top:"50%",transform:"translateY(-50%)",zIndex:8,
-              fontSize:".42rem",color:C.red2,fontWeight:700,
-              background:"rgba(0,0,0,.75)",padding:"2px 4px",borderRadius:2,letterSpacing:1}}>OPP</div>
-            <div style={{position:"absolute",right:3,top:"50%",transform:"translateY(-50%)",zIndex:8,
-              fontSize:".42rem",color:C.ac2,fontWeight:700,
-              background:"rgba(0,0,0,.75)",padding:"2px 4px",borderRadius:2,letterSpacing:1}}>FCY</div>
-
-            {/* Bölge etiketi */}
-            <div style={{position:"absolute",bottom:4,left:"50%",transform:"translateX(-50%)",zIndex:8,
-              fontSize:".4rem",color:"rgba(255,255,255,.7)",
-              background:"rgba(0,0,0,.5)",padding:"1px 8px",borderRadius:10,whiteSpace:"nowrap",
-              letterSpacing:.5}}>
-              {ballPos[0]>78?"🔥 Rakip Ceza Sahası":ballPos[0]>58?"Rakip Yarısı":ballPos[0]>42?"Orta Saha":ballPos[0]>22?"Kendi Yarısı":"🛡️ Kendi Ceza Sahası"}
-            </div>
-
-            {/* Dakika göstergesi saha üzerinde */}
-            {phase==="playing"&&<div style={{position:"absolute",top:5,left:"50%",transform:"translateX(-50%)",zIndex:8,
-              fontSize:".48rem",color:"rgba(255,255,255,.85)",fontWeight:700,
-              background:"rgba(0,0,0,.55)",padding:"1px 7px",borderRadius:8,letterSpacing:1}}>
-              {minute}'
-            </div>}
-          </div>
-
-          {/* Formasyon bilgisi */}
-          <div style={{display:"flex",gap:5}}>
-            <div style={{flex:1,padding:"5px 8px",background:"rgba(45,143,255,.08)",
-              border:"1px solid rgba(45,143,255,.2)",borderRadius:4,display:"flex",alignItems:"center",gap:6}}>
-              <div style={{width:9,height:9,borderRadius:"50%",background:C.ac,flexShrink:0,
-                boxShadow:`0 0 6px ${C.ac2}`}}/>
-              <div>
-                <div style={{fontSize:".36rem",color:C.dmr,letterSpacing:.8}}>SİZİN DİZİLİŞ</div>
-                <div style={{fontSize:".65rem",fontWeight:900,color:C.ac2,letterSpacing:2}}>{formation||"4-4-2"}</div>
-              </div>
-            </div>
-            <div style={{flex:1,padding:"5px 8px",
-              background:oppFormChangedAt?"rgba(232,146,42,.1)":"rgba(192,57,43,.08)",
-              border:`1px solid ${oppFormChangedAt?"rgba(232,146,42,.4)":"rgba(192,57,43,.2)"}`,borderRadius:4,
-              display:"flex",alignItems:"center",gap:6}}>
-              <div style={{width:9,height:9,borderRadius:"50%",background:C.red2,flexShrink:0}}/>
-              <div>
-                <div style={{fontSize:".36rem",color:C.dmr,letterSpacing:.8,display:"flex",gap:4,alignItems:"center"}}>
-                  RAKİP DİZİLİŞ
-                  {oppFormChangedAt&&<span style={{color:"#e8922a",fontSize:".34rem"}}>⚡{Math.round(oppFormChangedAt)}'</span>}
-                </div>
-                <div style={{fontSize:".65rem",fontWeight:900,color:oppFormChangedAt?"#e8922a":C.red2,letterSpacing:2}}>{oppFormation}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Top kontrolü özet */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-            {[
-              ["Top Kontrolü",`${poss}%`,`${100-poss}%`,C.ac2,C.red2],
-              ["Aktif Bölge",ballPos[0]>58?"Hücum":ballPos[0]>42?"Orta":"Defans",
-                ballPos[0]<42?"Hücum":ballPos[0]<58?"Orta":"Defans",
-                ballPos[0]>58?C.grn2:C.gd,ballPos[0]<42?C.red2:C.gd],
-            ].map(([l,my,op,mc,oc])=>(
-              <div key={l} style={{padding:"4px 7px",background:"rgba(0,0,0,.2)",
-                border:"1px solid rgba(77,166,255,0.1)",borderRadius:3,textAlign:"center"}}>
-                <div style={{fontSize:".38rem",color:C.dmr,marginBottom:2}}>{l}</div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:".56rem",fontWeight:700,color:mc}}>{my}</span>
-                  <span style={{fontSize:".38rem",color:"#445"}}>/</span>
-                  <span style={{fontSize:".56rem",fontWeight:700,color:oc}}>{op}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>}
 
         {/* ── İSTATİSTİK SEKMESİ ── */}
         {tab==="stats"&&r&&<div style={{flex:1,overflowY:"auto",padding:"8px 12px",minHeight:160}}>

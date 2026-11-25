@@ -174,7 +174,7 @@ const ACTORS3D_BADGE_M=3.0;
 function createMatchActors3D(api,opts={}){
   const noop={update(){},triggerEvent(){},resetKickoff(){},dispose(){},
     movePlayer(){},getPlayerPos(){return null;},setBall(){},playBallScript(){},
-    goalFx(){},ringFx(){},shakeGoal(){},getBall(){return null;},
+    goalFx(){},ringFx(){},confettiFx(){},shakeGoal(){},getBall(){return null;},
     drivePlayer(){},setOwner(){},getOwner(){return null;},kickTo(){return 0;},kickBall(){},
     getBallVel(){return null;},isBallFree(){return false;},getPlayer(){return null;},poseFx(){},
     actionFx(){},diveFx(){},faceToward(){},setPlayerFade(){},setPlayerHidden(){},setBallIdleFx(){},setBallIdleOffset(){},ballR:0.2};
@@ -691,7 +691,8 @@ function createMatchActors3D(api,opts={}){
     if(!Number.isFinite(x)||!Number.isFinite(y)) return; // NaN koruması
     toW(x,y,tmpV);
     if(!ballInit){ ballInit=true; bpos.set(tmpV.x,0,tmpV.z); if(!manual){ bt.on=true; bt.x=tmpV.x; bt.z=tmpV.z; anc.on=true; anc.x=tmpV.x; anc.z=tmpV.z;
-      if(Math.hypot(tmpV.x,tmpV.z)<2){ rsNext.kind="kickoff"; rsNext.team=hs<0?"away":"home"; rsNext.x=0; rsNext.z=0; } } return; }   // devre başı: santra
+      if(last.kick) bpos.set(0,0,0);   // kilit an golü: santra golü yiyen takımın
+      if(last.kick||Math.hypot(tmpV.x,tmpV.z)<2){ rsNext.kind="kickoff"; rsNext.team=last.kick||(hs<0?"away":"home"); rsNext.x=0; rsNext.z=0; } } return; }   // devre başı: santra
     if(manual) return;
     bt.on=true; bt.x=tmpV.x; bt.z=tmpV.z; btSeq++;
     if(!anc.on){ anc.on=true; anc.x=tmpV.x; anc.z=tmpV.z; }
@@ -1994,6 +1995,7 @@ function createMatchActors3D(api,opts={}){
     if(p&&nearD<35) rigAction3D(p.rig,"celebrate",{});
   };
   const ringFx=(x,z,color,dur,maxS)=>{ if(!disposed) spawnRing(x,0.06,z,color,dur||0.8,maxS||4); };
+  const confettiFx=(x,y,z,n)=>{ if(!disposed) spawnBurst(x,y,z,0xffffff,n||60); };
   const shakeGoal=(s)=>{ if(!disposed) shakeNet(s); };
   const getBall=()=>bpos; // salt okunur
   // Vuruş ekranı canlı topu (yalnız görsel; bpos/fizik değişmez): spin = kendi ekseninde dönüş (rad/sn),
@@ -2066,6 +2068,7 @@ function createMatchActors3D(api,opts={}){
     if(disposed||!snap) return;
     // Devre değişti (2. yarı başı): taraflar 180° döner → herkes yeni yerine ışınlanır
     const nh=(!manual&&snap.half===2)?-1:1;
+    last.kick=firstSnap?snap.kick||null:null;
     if(nh!==hs){ hs=nh; swapSides(); }
     if(snap.myBase!==baseArr.home) baseArr.home=snap.myBase||null;
     if(snap.oppBase!==baseArr.away) baseArr.away=snap.oppBase||null;
@@ -2361,7 +2364,7 @@ function createMatchActors3D(api,opts={}){
   if(api.addDisposeHook) removeDisposeHook=api.addDisposeHook(dispose);
 
   return {update,triggerEvent,resetKickoff,dispose,getRestart:()=>rs.on?rs.kind:"",
-    movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,shakeGoal,getBall,
+    movePlayer,getPlayerPos,setBall,playBallScript,goalFx,ringFx,confettiFx,shakeGoal,getBall,
     drivePlayer,setOwner,getOwner,kickTo,kickBall,getBallVel:()=>bvel,isBallFree:()=>freeBall,
     getPlayer,poseFx,actionFx,diveFx,faceToward,setPlayerFade,setPlayerHidden,setBallIdleFx,setBallIdleOffset,passTime,ballR:BR,
     buildUp,inFinalThird,getPlaySpot,isAlive:()=>!disposed,kickTime};

@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
 // 3D KİLİT AN — InteractiveMoment3D (serbest kontrol: top sür, pas, şut/orta)
 // ═══════════════════════════════════════════════════════════════
-// Kullanım (overlay.js): <InteractiveMoment3D moment myStr oppStr mates onResolve onFallback/>
-//   onResolve sözleşmesi 2D InteractiveMoment ile BİREBİR aynıdır:
+// Kullanım (overlay.js): <InteractiveMoment3D moment myStr oppStr mates onResolve/>
+//   onResolve sözleşmesi:
 //   onResolve({success,goalScored,goalConceded,optionId,player,momentType,msg})
 //   mates (isteğe bağlı): sahadaki kadro oyuncuları → takım arkadaşlarının adları.
 // Akış: kısa kamera girişi (~0.6 sn) → topa sahip oyuncumuz (moment.player)
@@ -47,7 +47,7 @@
 //   3D yalnızca konum kalitesi terimini (+0.05 / −0.12) ve dribling/pas kesilme
 //   riskini ekler. Görsel yörünge sonuca uyar ve çizilen oka olabildiğince yakındır.
 // Geri dönüş: WebGL yoksa, Three.js yüklenemezse veya Pitch3D hata verirse
-//   aynı props ile 2D InteractiveMoment gösterilir; "2D'ye geç" düğmesi de var.
+//   sahne bir kez yeniden denenir; yine olmazsa an otomatik sonuçlanır (2D kart yok).
 // Koordinat: 3D yardımcılarla aynı (x=0 bizim kale, x=100 rakip kale).
 // Bellek: kilit an kapanınca kendi Pitch3D'si (ayrı WebGL bağlamı) unmount olur;
 //   denetleyici pointer/klavye dinleyicilerini, kare kancasını, oyuncuları ve
@@ -57,6 +57,7 @@
 const MOMENT3D_TIME_SEC=20;        // kilit an süresi (oyun zamanı; ağır çekimde yavaşlar) — Adım 15: ×2
 // Top sürme süreyi kısmen yeniler: koşulan her metre +MOMENT3D_DRIB_REFILL sn (anda toplam en çok _MAX)
 const MOMENT3D_DRIB_REFILL=0.12, MOMENT3D_DRIB_REFILL_MAX=6;
+const MOMENT3D_CELEB_SEC=2.0;      // kilit an golü: 3D sevinç süresi (sn)
 const MOMENT3D_INTRO_SEC=0.6;      // kamera girişi (gerçek zaman)
 // Pas sınırı YOK (Adım 12). Başarılı pas süreye REFILL·DECAY^(pas−1) ekler (tavan
 //   MOMENT3D_TIME_SEC) → sınırsız pasla da kilit an sonsuza uzamaz (toplam ek ≤ 24 sn).
@@ -1155,7 +1156,12 @@ function createMoment3DController(api,cfg){
   // ── Sonuç ──
   const tl=[]; let animT=0;
   const later=(sec,fn)=>{ const t=animT+sec; let i=tl.length; while(i>0&&tl[i-1].t>t) i--; tl.splice(i,0,{t,fn}); };
-  const finish=()=>{ if(ended) return; ended=true; phase="done"; hud(); try{ cfg.onAnimEnd&&cfg.onAnimEnd(); }catch(e){ console.error(e); } };
+  // Gol sevinci (kullanıcı golü): sonuç kartı MOMENT3D_CELEB_SEC sn sonra gelir
+  const celeb={on:false,t:0,idx:-1,ux:1,uz:0,mates:[],n:0};
+  let scorerIdx=-1;
+  const finish=()=>{ if(ended) return;
+    if(celeb.on&&celeb.t<MOMENT3D_CELEB_SEC){ later(MOMENT3D_CELEB_SEC-celeb.t+0.03,finish); return; }
+    ended=true; phase="done"; hud(); try{ cfg.onAnimEnd&&cfg.onAnimEnd(); }catch(e){ console.error(e); } };
   const finishSoon=(s)=>later(s==null?1:s,finish);
   let nextDist=NaN;   // vuruş noktası → kale mesafesi (m); orta/kafada kafa noktası (emit öncesi ayarlanır)
   const emit=(o)=>{
@@ -1298,11 +1304,40 @@ function createMoment3DController(api,cfg){
   };
   // Yaklaşık normal dağılımlı sapma (−1…1 üç örneğin ortalaması ×√3 değil: hafif, kuyruksuz)
   const devN=()=>(Math.random()+Math.random()+Math.random()-1.5)/0.5;
+  // ── GOL SEVİNCİ ── golcü kolları açık köşe gönderine koşar, en yakın 4 arkadaş peşinden gelir;
+  //   tribünden konfeti; kamera golcüye yaklaşır (updateCamera celeb dalı)
+  const startCeleb=()=>{
+    if(celeb.on||!outcome||!outcome.goalScored) return;
+    const i=home[scorerIdx]?scorerIdx:ctl, p=home[i]; if(!p) return;
+    showField();
+    const sz=sgn(p.z||Math.random()-0.5), dx=L-3-p.x, dz=sz*(H-3)-p.z, d=Math.hypot(dx,dz)||1;
+    celeb.on=true; celeb.t=0; celeb.n=0; celeb.idx=i; celeb.ux=dx/d; celeb.uz=dz/d; celeb.gx=p.x+dx; celeb.gz=p.z+dz;
+    celeb.mates=home.filter((m,k)=>k!==i&&m.kind!=="gk").sort((a,b)=>dist(a,p)-dist(b,p)).slice(0,4);
+    actors.actionFx("home",p.idx,"cheerrun",{dur:MOMENT3D_CELEB_SEC+1.2});
+  };
+  const stepCeleb=(dt)=>{
+    if(!celeb.on) return;
+    celeb.t+=dt;
+    const p=home[celeb.idx];
+    override(p,celeb.gx,celeb.gz,6.2);
+    for(let k=0;k<celeb.mates.length;k++){
+      const m=celeb.mates[k], s=k%2?1:-1, back=1.8+(k>>1)*1.4;
+      override(m,p.x-celeb.ux*back-celeb.uz*s*1.7,p.z-celeb.uz*back+celeb.ux*s*1.7,9.6);
+      if(dist(m,p)<4.5&&!m.cheered){ m.cheered=true; actors.actionFx("home",m.idx,"celebrate",{}); }
+    }
+    // Konfeti: golcünün arkasında (tribün tarafı) ve önünde üç dalga
+    if(celeb.n<3&&celeb.t>=0.1+celeb.n*0.55){
+      const o=(celeb.n-1)*9; celeb.n++;
+      let vx=-celeb.uz, vz=celeb.ux; if(vx<0){ vx=-vx; vz=-vz; }
+      actors.confettiFx(clamp(p.x+vx*7+celeb.ux*o*0.6,-L,L+6),4,clamp(p.z+vz*7+celeb.uz*o*0.6,-H-6,H+6),70);   // golcünün arkasında
+      actors.confettiFx(p.x+celeb.ux*3,4.5,p.z+celeb.uz*3,40);
+    }
+  };
   const fxEvent=(e)=>{
     if(e.type==="block"){ actors.ringFx(e.x,e.z,0xe74c3c,0.7,4); flash("Savunma bloke etti!"); }
     else if(e.type==="post"){ actors.shakeGoal(1); actors.ringFx(e.x,e.z,0xffffff,0.6,3); }
     else if(e.type==="save") actors.ringFx(e.x,e.z,0xffffff,0.6,3);
-    else if(e.type==="goal"){ actors.goalFx(1,e.z,"home"); try{ cfg.onGoalFx&&cfg.onGoalFx(); }catch(_){} }
+    else if(e.type==="goal"){ actors.goalFx(1,e.z,"home"); startCeleb(); try{ cfg.onGoalFx&&cfg.onGoalFx(); }catch(_){} }
     try{ cfg.onSfx&&cfg.onSfx(e.type); }catch(_){}
   };
   // Engeller: tüm saha oyuncuları (vuran ve skip hariç) — vuruş anındaki yerleriyle.
@@ -1718,6 +1753,7 @@ function createMoment3DController(api,cfg){
       const ev=evalCross(c.lx,c.lz), m=home[ev.mate]||a, hd=cornerHeader(c.lx,c.lz,ev.mate);
       const d=Math.hypot(c.lx-B.x,c.lz-B.z), T=cAim.on?cornerT(d):clamp(d/19,0.8,2.2);
       const reach=Math.hypot(m.x-c.lx,m.z-c.lz)/T<=8;
+      scorerIdx=ev.mate;
       const cr=physCross(c.lx,c.lz,ev.mate,hd.want==="goal",side,spin.y*0.5,{want:hd.want,T,reach});
       nextDist=Math.hypot(L-c.lx,c.lz);
       emit(mk(cr.goal,passes>0?"pass_cross":"cross",reach?cr.kind:"block",m.name||pname,power,ev.q,hd.chance,cr.goal,false));
@@ -1743,6 +1779,7 @@ function createMoment3DController(api,cfg){
       const rl=roll(key,power,ev.q,false);
       const m=home[ev.mate]||a;
       const hName=m.name||pname;
+      scorerIdx=ev.mate;
       // Orta + kafa vuruşu fizikle: yoldaki savunmacıya çarparsa uzaklaştırma, değilse
       // kafa vuruşu (kaleci/direk/aut fizikten); zar yalnız kalecinin okumasını belirler
       const cr=physCross(c.lx,c.lz,ev.mate,rl.success,side,spin.y*0.5);
@@ -3389,7 +3426,7 @@ function createMoment3DController(api,cfg){
     }
     // Kontrol halkası (nabız) + faul basış göstergesi
     const c=ctlA();
-    ctlRing.visible=(!outcome||phase==="anim")&&phase!=="strike"&&!keepHidden;
+    ctlRing.visible=!celeb.on&&(!outcome||phase==="anim")&&phase!=="strike"&&!keepHidden;
     ctlRing.position.set(c.x,0.07,c.z);
     ctlDisc.visible=ctlRing.visible; ctlDisc.position.set(c.x,0.06,c.z);
     const k=1+0.08*Math.sin(realT*5);
@@ -3461,6 +3498,7 @@ function createMoment3DController(api,cfg){
     }
     if(hold.on&&!aim.on){ hold.t+=dt; }
     if(phase==="press"){ stepPress(dt); driveAll(); return; }   // geri kazanım: kendi yapay zekâsı, kilit an süresi durur
+    stepCeleb(dt);
     stepCtl(dt);
     if(!isTimeFrozen) separateBodies();
     // Zaman donukken (Adım 16): rakip/arkadaş yapay zekâsı, top kapma ve süre işlemez → pozisyon sabit
@@ -3479,6 +3517,18 @@ function createMoment3DController(api,cfg){
   };
   // Hibrit kamera: vuruş ekranı ve şut animasyonu çim seviyesinde, geri kalan her şey kuşbakışı
   const updateCamera=(c,rdt)=>{
+    if(celeb.on){   // golcünün yan-önü: kendi yumuşak geçişi (0,75 sn), sonra golcüye kilitli yaklaşma (arkada kale arkası tribün)
+      const p=home[celeb.idx], u=clamp(celeb.t/MOMENT3D_CELEB_SEC,0,1), cam=api.camera.position;
+      if(!celeb.c0){
+        const dir=api.camera.getWorldDirection(new THREE.Vector3()), d=Math.max(6,Math.hypot(cam.x-p.x,cam.y,cam.z-p.z));
+        celeb.c0=[cam.x,cam.y,cam.z,cam.x+dir.x*d,cam.y+dir.y*d,cam.z+dir.z*d];
+      }
+      const c0=celeb.c0, e=clamp(celeb.t/0.75,0,1), k=e*e*(3-2*e), m=(a,b)=>a+(b-a)*k;
+      let vx=-celeb.uz, vz=celeb.ux; if(vx<0){ vx=-vx; vz=-vz; }            // yan yön: kale çizgisi tarafı
+      const near=14-4.5*u*(2-u), px=p.x+celeb.ux*near*0.5-vx*near*0.85, pz=p.z+celeb.uz*near*0.5-vz*near*0.85;
+      setCam(m(c0[0],px),m(c0[1],3.4-0.6*u),m(c0[2],pz),m(c0[3],p.x-celeb.ux*1.7),m(c0[4],2.3),m(c0[5],p.z-celeb.uz*1.7),true,true,46);
+      return;
+    }
     if(isCorner&&!outcome&&(phase==="intro"||phase==="set")){
       strikePose(B.x,B.z,L-10,0,"cross",strikeTmp);
       setCam(strikeTmp.px,strikeTmp.py,strikeTmp.pz,strikeTmp.lx,strikeTmp.ly,strikeTmp.lz,true,true,strikeTmp.fov);
@@ -3614,7 +3664,7 @@ function createMoment3DController(api,cfg){
     evalCross,classify:(bx,bz,dx,dz,p)=>{ const c=classify(bx,bz,dx,dz,p); return {kind:c.kind,zHit:c.zHit,lx:c.lx,lz:c.lz}; }};
 }
 
-// 3D kilit an sahnesi + arayüz. onFallback(msg): 2D'ye geç (sonuç hesaplanmadan önce).
+// 3D kilit an sahnesi + arayüz. onFallback(msg): sahne açılamadı (sonuç hesaplanmadan önce).
 function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onResolve,onFallback}){
   const {config,player,min}=moment;
   const coarse=(()=>{ try{ return !!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches); }catch(e){ return false; } })();
@@ -3636,7 +3686,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
     // Güvenlik: kilit an 150 sn'de bitmediyse otomatik eylem, 170 sn'de hâlâ sonuç yoksa 2D
     //   (pas sınırı kalktı: uzun paslaşma + ağır çekimli koşu yolu çizimi 40 sn'yi aşabilir)
     later(150000,()=>{ if(!outcomeRef.current&&ctrlRef.current) ctrlRef.current.forceTimeout(); }); // Adım 15: süre ×2 + yenileme
-    later(170000,()=>{ if(!outcomeRef.current) fallback("3D kilit an yanıt vermedi; 2D görünüme geçildi."); });
+    later(170000,()=>{ if(!outcomeRef.current) fallback("3D kilit an yanıt vermedi."); });
     return()=>{
       timersRef.current.forEach(clearTimeout); timersRef.current=[];
       if(ctrlRef.current){ ctrlRef.current.dispose(); ctrlRef.current=null; }
@@ -3669,7 +3719,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
   handlersRef.current={showResult,setHud};
 
   const fallback=(msg)=>{
-    if(outcomeRef.current) return; // sonuç hesaplandıysa 2D'ye dönülmez
+    if(outcomeRef.current) return; // sonuç hesaplandıysa geri dönülmez
     try{ cbRef.current.onFallback&&cbRef.current.onFallback(msg||""); }catch(e){}
   };
 
@@ -3721,19 +3771,19 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
           try{ if(typeof MATCH_SFX!=="undefined") MATCH_SFX.goal(); }catch(_){} },
         onSfx:(t)=>{ try{ if(typeof MATCH_SFX==="undefined") return;
           if(t==="whistle") MATCH_SFX.whistle("short"); else if(t==="post") MATCH_SFX.post(); else if(t==="save") MATCH_SFX.save(); }catch(_){} },
-        onOutcome:(o)=>{ outcomeRef.current=o; if(o&&o.act==="offside") setOffBanner(true); later(6500,()=>handlersRef.current.showResult()); },
+        onOutcome:(o)=>{ outcomeRef.current=o; if(o&&o.act==="offside") setOffBanner(true); later(o&&o.goalScored?8500:6500,()=>handlersRef.current.showResult()); },
         onAnimEnd:()=>handlersRef.current.showResult(),
       });
       setReady(true);
     }catch(e){
       console.error("[3D kilit an] kurulum hatası",e);
-      fallback("3D kilit an kurulamadı; 2D görünüme geçildi.");
+      fallback("3D kilit an kurulamadı.");
     }
   };
   const onErr=()=>{
     ctrlRef.current=null; // sahne silinirken denetleyici kendini temizledi
     if(outcomeRef.current) showResult();
-    else fallback("3D görünüm açılamadı; kilit an 2D olarak devam ediyor.");
+    else fallback("3D görünüm açılamadı.");
   };
 
   const locked=!!outcomeRef.current||hud.phase==="anim"||hud.phase==="done";
@@ -3774,13 +3824,6 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
               background:"rgba(0,0,0,.3)",borderRadius:6,padding:"3px 7px",fontFamily:"'Barlow Condensed',sans-serif"}}>
               PAS {hud.passes}
             </div>
-          )}
-          {!locked&&(
-            <button onClick={()=>fallback("")} title="Bu kilit anı 2D görünümde oyna"
-              style={{...btnBase,fontSize:".52rem",padding:"0 10px",minHeight:44,minWidth:44,color:"#fff",
-                background:"rgba(0,0,0,.28)",border:"1px solid rgba(255,255,255,.3)",touchAction:"manipulation"}}>
-              2D'ye geç
-            </button>
           )}
         </div>
         {/* İnce süre çubuğu */}
@@ -3885,8 +3928,8 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
           {goalFlash&&!result&&(
             // Top ağlara girdi: büyük GOL! + vuruş mesafesi
             <div style={{position:"absolute",inset:0,zIndex:6,pointerEvents:"none",display:"flex",flexDirection:"column",
-              alignItems:"center",justifyContent:"center",animation:"m3dBounce .5s cubic-bezier(.36,.07,.19,.97)"}}>
-              <div style={{fontSize:"3.4rem",fontWeight:900,letterSpacing:6,color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",
+              alignItems:"center",justifyContent:"flex-start",paddingTop:18,animation:"m3dBounce .5s cubic-bezier(.36,.07,.19,.97)"}}>
+              <div style={{fontSize:"2.6rem",fontWeight:900,letterSpacing:6,color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",
                 textShadow:"0 0 24px rgba(46,204,113,.95),0 4px 10px rgba(0,0,0,.7)"}}>GOL!</div>
               {goalFlash.dist!=null&&(
                 <div style={{marginTop:2,fontSize:"1.1rem",fontWeight:900,letterSpacing:2,color:"#2ecc71",fontFamily:"'Barlow Condensed',sans-serif",
@@ -4008,45 +4051,30 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
   );
 }
 
-// Dış bileşen: 3D mümkünse Moment3DStage, değilse (veya geri dönüşte) 2D InteractiveMoment
+// Dış bileşen: sahne açılamazsa bir kez yeniden dener; yine olmazsa (WebGL yok vb.) an, 2D kart
+//   açılmadan calcMomentChance ile otomatik sonuçlanır → maç takılmaz.
 function InteractiveMoment3D(props){
-  // İlk karar tek seferde (WebGL testi geçici bir bağlam açar, iki kez çağırma)
-  const [init]=useState(()=>{
-    const known=!!(props.moment&&MOMENT3D_LAYOUTS[props.moment.type]);
-    if(!known) return {mode:"2d",notice:""};
-    return hasWebGLSupport()?{mode:"3d",notice:""}
-      :{mode:"2d",notice:"Bu cihaz WebGL desteklemiyor; kilit an 2D olarak oynanıyor."};
-  });
-  const [mode,setMode]=useState(init.mode);
-  const [notice,setNotice]=useState(init.notice);
+  const [st,setSt]=useState(()=>({n:0,ok:!!(props.moment&&MOMENT3D_LAYOUTS[props.moment.type])&&hasWebGLSupport()}));
+  const resRef=useRef(null); resRef.current=props.onResolve;
   useEffect(()=>{
-    if(!notice) return;
-    const t=setTimeout(()=>setNotice(""),3500);
+    if(st.ok) return;
+    const t=setTimeout(()=>{
+      const mo=props.moment, p=mo.player||{}, opt=mo.config.options[0], tk=mo.type==="tackle";
+      const success=Math.random()<calcMomentChance(p,opt,60,0);
+      resRef.current({success,goalScored:success&&!tk,goalConceded:tk&&!success&&Math.random()>0.4,
+        optionId:opt.id,player:p.n,momentType:mo.type,msg:getMomentMsg(mo.type,opt.id,success,p.n||"Oyuncumuz")});
+    },1400);
     return()=>clearTimeout(t);
-  },[notice]);
-  if(mode==="2d"){
-    return(
-      <>
-        <InteractiveMoment moment={props.moment} myStr={props.myStr} oppStr={props.oppStr} onResolve={props.onResolve}/>
-        {notice&&(
-          <div style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",zIndex:501,
-            maxWidth:"92vw",textAlign:"center",fontSize:".56rem",fontWeight:700,color:"#f5c26b",
-            background:"rgba(11,18,32,.95)",border:"1px solid rgba(245,194,107,.4)",
-            padding:"6px 12px",borderRadius:8,pointerEvents:"none"}}>
-            ⚠️ {notice}
-          </div>
-        )}
-      </>
-    );
-  }
+  },[st.ok]);
+  if(!st.ok) return(
+    <div style={{position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,.9)",display:"flex",alignItems:"center",
+      justifyContent:"center",textAlign:"center",padding:20,fontSize:".7rem",fontWeight:700,color:"#f5c26b"}}>
+      ⚠️ 3D sahne bu cihazda açılamadı — pozisyon otomatik oynanıyor…
+    </div>
+  );
   return(
-    <Moment3DStage moment={props.moment} mates={props.mates} myStr={props.myStr} oppStr={props.oppStr} homeShare={props.homeShare}
-      kitColors={props.kitColors} venue={props.venue}
-      onResolve={props.onResolve}
-      onFallback={(msg)=>{
-        setNotice(msg||""); setMode("2d");
-        // Gerçek hata (mesaj dolu) → üst bileşen maç görünümünü de 2D'ye alsın; "2D'ye geç" düğmesi (boş mesaj) yalnız bu anı etkiler
-        if(msg&&props.onFallback){ try{ props.onFallback(msg); }catch(e){} }
-      }}/>
+    <Moment3DStage key={st.n} moment={props.moment} mates={props.mates} myStr={props.myStr} oppStr={props.oppStr} homeShare={props.homeShare}
+      kitColors={props.kitColors} venue={props.venue} onResolve={props.onResolve}
+      onFallback={()=>setSt(s=>s.n<1?{n:s.n+1,ok:true}:{n:s.n,ok:false})}/>
   );
 }
