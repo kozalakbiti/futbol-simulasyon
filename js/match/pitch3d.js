@@ -515,7 +515,7 @@ function createPitch3DScene(THREE,container,opts){
     const camState={goalSide:1};
     const closeUp={until:0,x:0,z:0}; // gol vb. için kısa yakın plan
     const poseOut={pos:tPos,look:tLook};           // pitch3dCameraPose buraya yazar (tahsis yok)
-    const customCam={on:false,low:false,fov:PITCH3D_FOV,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
+    const customCam={on:false,low:false,free:false,fov:PITCH3D_FOV,pos:new THREE.Vector3(),look:new THREE.Vector3()}; // "custom" kamera (kilit an)
     let first=true, lastT=0, clock=0, visibleOnScreen=true, paused=!!opts.paused;
     let timeScale=1, hookClock=0; // ağır çekim: kancalar ölçekli dt/saat alır
     // Kare kancaları: dizi (closure'sız döngü). Kaldırma yeni dizi atar, böylece
@@ -539,7 +539,8 @@ function createPitch3DScene(THREE,container,opts){
         tLook.copy(customCam.look);
         tPos.copy(customCam.pos);
         // Kamera saha kutusunda kalır: tribün/çatı görüşü kapatmaz
-        pitch3dSafeCam(tPos.x,tPos.y,tPos.z,tPos,0.55,customCam.low?PITCH3D_CAM_LOW_Y:undefined,
+        //   (free: yörünge kamerası sınırını çağıran hesaplar, yön bozulmasın diye kırpılmaz)
+        if(!customCam.free) pitch3dSafeCam(tPos.x,tPos.y,tPos.z,tPos,0.55,customCam.low?PITCH3D_CAM_LOW_Y:undefined,
           customCam.low?undefined:PITCH3D_CAM_TOP_MAX_Y);
         if(tLook.y<0) tLook.y=0;
         if(!Number.isFinite(tLook.x+tLook.y+tLook.z)) tLook.set(0,0,0);
@@ -555,7 +556,7 @@ function createPitch3DScene(THREE,container,opts){
       const wantFov=(mode==="custom"&&customCam.on)?customCam.fov:PITCH3D_FOV;
       let nf=camera.fov; const snapCam=first;
       if(first){camPos.copy(tPos);camLook.copy(tLook);nf=wantFov;first=false;}
-      else{const kc=1-Math.exp(-dt*2.8);camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);nf+=(wantFov-nf)*kc;}
+      else{const kc=1-Math.exp(-dt*(mode==="custom"&&customCam.on&&customCam.free?14:2.8));camPos.lerp(tPos,kc);camLook.lerp(tLook,kc);nf+=(wantFov-nf)*kc;}
       if(Math.abs(nf-wantFov)<0.01) nf=wantFov;
       if(nf!==camera.fov){ camera.fov=nf; camera.updateProjectionMatrix(); }
       // Pus: yalnız çim seviyesi özel kamerada (vuruş ekranı) yaklaşır; geçişi kamerayla aynı hızda
@@ -654,8 +655,8 @@ function createPitch3DScene(THREE,container,opts){
       closeUp:(wx,wz,sec=1.6)=>{closeUp.x=wx;closeUp.z=wz;closeUp.until=clock+sec;},
       // camera="custom" modunda kullanılacak sabit poz (dünya). snap: geçişsiz atla
       //   fov (isteğe bağlı): dikey görüş açısı (derece, 30–75); verilmezse PITCH3D_FOV
-      setCustomCamera:(px,py,pz,lx,ly,lz,snap,low,fov)=>{
-        customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true; customCam.low=!!low;
+      setCustomCamera:(px,py,pz,lx,ly,lz,snap,low,fov,free)=>{
+        customCam.pos.set(px,py,pz); customCam.look.set(lx,ly,lz); customCam.on=true; customCam.low=!!low; customCam.free=!!free;
         customCam.fov=Number.isFinite(fov)?Math.max(30,Math.min(75,fov)):PITCH3D_FOV;
         if(snap) first=true;
       },

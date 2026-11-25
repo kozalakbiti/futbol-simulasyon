@@ -90,7 +90,7 @@ const MOMENT3D_PASS_SPEED=3.3*1.8;   // (Adım 17: yalnız havadan pas çarpanı
 const MOMENT3D_PASS_V0=13, MOMENT3D_PASS_VK=0.5, MOMENT3D_PASS_VMIN=15, MOMENT3D_PASS_VMAX=26;
 // Adım 17 — kuşbakışı yörünge kamerası: varsayılan eğim (rad; eski sabit poz: geri 0.2h → ~78.7°),
 //   kullanıcı sınırları (25°–79°) ve sürükleme duyarlılığı (ekran genişliği = 180° yaw, yüksekliği = 70° eğim)
-const MOMENT3D_ORBIT_EL0=Math.atan2(1,0.2), MOMENT3D_ORBIT_EL_MIN=25*Math.PI/180, MOMENT3D_ORBIT_EL_MAX=79*Math.PI/180;
+const MOMENT3D_ORBIT_EL0=Math.atan2(1,0.2), MOMENT3D_ORBIT_EL_MIN=18*Math.PI/180, MOMENT3D_ORBIT_EL_MAX=86*Math.PI/180;
 // Arcade tempo: şutun ekrandaki hızı (×; yörünge ve gol/kurtarış sonucu değişmez, oynatma sıkışır) ve
 //   kaleci dalış animasyonunun en çok hızlanma katı (hızlı topa da tam uzanma zamanında yetişsin)
 const MOMENT3D_ARCADE_SHOT=2.2, MOMENT3D_DIVE_K_MAX=RIG3D_DIVE_K_MAX;   // (rig3d.js daha önce yüklenir)
@@ -118,7 +118,7 @@ const MOMENT3D_DRIB_MIN=3, MOMENT3D_DRIB_MAX=12;   // yeşil ok = top sürme mes
 // Orta inişinde topun alt yüksekliği (m): gerçek boydaki oyuncunun kafa vuruşu (sıçramayla ~2 m)
 const MOMENT3D_CROSS_Y=1.6;
 // KORNER: doğrudan 3D vuruş ekranı — süre (sn), kamera gerisi/yüksekliği (m), en çok dönüş (rad), tam güç çekişi (kısa kenar oranı)
-const MOMENT3D_CORNER_SEC=10, MOMENT3D_CORNER_BACK=2.7, MOMENT3D_CORNER_UP=1.45, MOMENT3D_CORNER_BALL_NDC=-0.76, MOMENT3D_CORNER_YAW=1.1;
+const MOMENT3D_CORNER_SEC=10, MOMENT3D_CORNER_BACK=2.7, MOMENT3D_CORNER_UP=1.45, MOMENT3D_CORNER_BALL_NDC=-0.76, MOMENT3D_CORNER_YAW=1.1, MOMENT3D_CORNER_PULL=0.25;
 const MOMENT3D_STRIKE_SEC=4;       // vuruş ekranında dokunulmazsa düz vuruş (gerçek zaman, sn)
 const MOMENT3D_SPIN_CURL=0.32;     // vuruş ekranı: topun kenarı → kavis (rad, + = sağa)
 // NSM tarzı dinamik hedef: vuruş noktası yalnız kavisi değil NİHAİ HEDEFİ de değiştirir. Topun sağına
@@ -141,8 +141,8 @@ const MOMENT3D_SAFE_R="max(10px, env(safe-area-inset-right, 0px))", MOMENT3D_SAF
 // Vuruş ekranı yörünge önizlemesinin nokta sayısı
 const MOMENT3D_PREVIEW_N=96;
 // Vuruş ekranı sürüklemesinde pointercancel'ın vuruş sayılması için en az basılı tutma süresi (sn)
-const MOMENT3D_STRIKE_CANCEL_SEC=0.3;
-const MOMENT3D_HOLD_MIN=20, MOMENT3D_HOLD_SEC=0.8;   // vuruş ekranı: dokunup bırakınca güç (plase) · güç halkasının dolma süresi (sn)
+const MOMENT3D_STRIKE_CANCEL_SEC=1, MOMENT3D_TAP_CANCEL_SEC=0.3;
+const MOMENT3D_PULL_MIN=20, MOMENT3D_PULL_DEAD=14;   // duran top vuruş ekranı: en kısa okun gücü · çekiş ölü bölgesi (px)
 // Orta vuruş ekranı bakış hedefi: kale çizgisinden bu kadar (m) önde, kale ile penaltı noktası arası
 const MOMENT3D_CROSS_LOOK=6;
 // Kavis önizleme şeridi: yarı genişlik (m) ve örnek aralığı (m)
@@ -359,8 +359,10 @@ function moment3dPlace(type,lay,spot){
   });
   // Kendi yarıdan kontra: rakip yarı boş kalmasın → 4'lü savunma hattı (3. öğe 1 = hat oyuncusu)
   if(type==="counter"&&tx<50) [[70,19],[73,40],[73,60],[70,81]].forEach(p=>o.opps.push([p[0],cl(p[1]+dy*0.15,8,92),1]));
+  // …ve ileri uçta pas alacak 3 arkadaş (iki kanat + santrfor; savunma hattının önünde, 3. öğe 1)
+  if(type==="counter"&&tx<50) [[60,19],[65,50],[60,81]].forEach(p=>o.mates.push([p[0],p[1],1]));
   // Arkadaş ofsaytta başlamasın: sondan ikinci rakipten (kaleci dahil değil: en gerideki saha oyuncusu) geride
-  if(type!=="tackle"&&o.opps.length){ const ln=Math.max(tx,50,Math.max(...o.opps.map(p=>p[0]))-0.8); o.mates=o.mates.map(p=>[Math.min(p[0],ln),p[1]]); }
+  if(type!=="tackle"&&o.opps.length){ const ln=Math.max(tx,50,Math.max(...o.opps.map(p=>p[0]))-0.8); o.mates=o.mates.map(p=>[Math.min(p[0],ln),p[1],p[2]]); }
   const kx=PITCH3D_LEN/100, kz=PITCH3D_WID/100, lk=lay.cam.look;
   o.cam=Object.assign({},lay.cam,{look:[lk[0]+dx*kx,lk[1]+dy*kz]});
   return o;
@@ -543,7 +545,8 @@ function createMoment3DController(api,cfg){
     return src.map(m=>m.n);
   })();
   add(home,my,"home",lay.carrier,isTackle?"CB":"ST","mate",pname);
-  lay.mates.forEach((m,k)=>add(home,my,"home",m,"CM","mate",mateNames[k]||""));
+  const fwdN=lay.mates.filter(m=>m[2]).length;   // ileri uçtakiler önce: en iyi hücumcu adları
+  lay.mates.forEach((m,k)=>{ add(home,my,"home",m,m[2]?"ST":"CM","mate",mateNames[m[2]?k-(lay.mates.length-fwdN):k+fwdN]||"").fwd=!!m[2]; });
   let myGk=null;
   if(lay.myGk) myGk=add(home,my,"home",lay.myGk,"GK","gk","");
   let att=null, runW=null;
@@ -599,8 +602,12 @@ function createMoment3DController(api,cfg){
     }
     // Varsayılanla aynı uzaklık (h·√1.04); alçak eğimde yaklaşır (saha kutusu kırpması az, izometrik his)
     const t=clamp((el-MOMENT3D_ORBIT_EL_MIN)/(MOMENT3D_ORBIT_EL0-MOMENT3D_ORBIT_EL_MIN),0,1);
-    const R=h*1.0198*(0.62+0.38*t), ce=Math.cos(el)*R;
-    setCam(fx-Math.cos(yaw)*ce,Math.sin(el)*R,fz-Math.sin(yaw)*ce,fx,0,fz,!!snap,false);
+    const R=h*1.0198*(0.62+0.38*t), cy=Math.cos(yaw), sy=Math.sin(yaw), hor=Math.cos(el)*R;
+    // Saha kutusuna sığmayan eğimde yön (yaw) korunur, kamera yalnız dikleşir. (Eskiden konum x/z ayrı ayrı
+    //   kırpılıyordu: yaw bozulup görüntü kilitleniyor/ters dönüyordu.) Kamera odaktan (−cos, −sin) yönünde.
+    const rx=(L+3+sgn(cy)*fx)/Math.max(1e-3,Math.abs(cy)), rz=(H+3+sgn(sy)*fz)/Math.max(1e-3,Math.abs(sy));
+    const ce=Math.min(hor,Math.max(R*0.2,Math.min(rx,rz)));
+    setCam(fx-cy*ce,Math.sqrt(R*R-ce*ce),fz-sy*ce,fx,0,fz,!!snap,false,undefined,true);
   };
   // Kadraj: verilen noktaları (dünya x,z) ekranda tutacak odak + yükseklik (orta mesafe, en çok MOMENT3D_CAM_MAX_H).
   //   Yatay ekranda saha boyu (x) yatay eksende, dikeyde z yatay eksende. %12 kenar payı.
@@ -653,7 +660,7 @@ function createMoment3DController(api,cfg){
     frameMust.z0=Math.min(B.z,c.z); frameMust.z1=Math.max(B.z,c.z); frameMust.n=2;
     if(isTackle&&att){ frameAdd(att.x,att.z); if(runW) frameAdd(runW.x*0.5+att.x*0.5,runW.z); }
     // Kadraj: topa MOMENT3D_FRAME_MATE_R m içindeki (pas verilebilir) arkadaşlar (pasta alıcı ve iniş noktası her zaman)
-    for(let i=0;i<home.length;i++){ const m=home[i]; if(m.kind==="gk") continue; if(Math.hypot(m.x-B.x,m.z-B.z)<MOMENT3D_FRAME_MATE_R) frameAdd(m.x,m.z); }
+    for(let i=0;i<home.length;i++){ const m=home[i]; if(m.kind==="gk") continue; if(Math.hypot(m.x-B.x,m.z-B.z)<(m.fwd&&!passes?62:MOMENT3D_FRAME_MATE_R)) frameAdd(m.x,m.z); }
     if(phase==="pass"&&home[passInfo.r]){ frameAdd(passInfo.px,passInfo.pz); frameAdd(home[passInfo.r].x,home[passInfo.r].z); }
     if(run.idx>=0&&run.pts.length) { const e=run.pts[run.pts.length-1]; frameAdd(e.x,e.z); }
     // Hücumda rakip kale ağzı da kadrajda (top kaleye MOMENT3D_FRAME_GOAL_D m'den yakınsa): nereye
@@ -891,10 +898,10 @@ function createMoment3DController(api,cfg){
   };
   const hintBase=()=>{
     if(phase==="intro") return "Hazırlan…";
-    if(phase==="strike"&&isCorner) return "Topa bas = falso noktası · basılı tut: kısa = ön direk, orta = penaltı, uzun = arka direk · boş alan: kamera";
+    if(phase==="strike"&&isCorner) return "Topa bas = falso noktası · geri çek: kısa = ön direk, orta = penaltı, uzun = arka direk · boş alan: kamera";
     if(phase==="strike") return pend.kind==="cross"?"Topa dokun: orta = düz · sağdan vur = sola kavis · soldan = sağa · alt = yüksek orta"
       :pend.kind==="lpass"?"Topa dokun: havadan uzun pas"
-      :"Topa bas ve basılı tut (halka = şiddet): orta = düz · sağdan vur = sola kavis · soldan = sağa · alt = aşırtma · üst = sert";
+      :(setPiece&&pend.prev==="set"?"Topa bas, geri çek (ok = şiddet): ":"Topa dokun: ")+"orta = düz · sağdan vur = sola kavis · soldan = sağa · alt = aşırtma · üst = sert";
     if(aim.on){
       if(isTackle) return aim.len>MOMENT3D_SLIDE_LEN?"Bırak: kayarak müdahale · geri getir: iptal"
         :"Bırak: ayakta müdahale · uzat: kayarak";
@@ -918,12 +925,12 @@ function createMoment3DController(api,cfg){
   };
   const sdrag={on:false,id:null,sx:0,sy:0,t0:0};   // vuruş ekranı önizleme sürüklemesi (hud okur)
   // Yörünge sürüklemesi durumu: pan = sürükleme sürüyor, lx/ly = son parmak konumu, tapT = çift dokunma
-  const camPan={pan:false,lx:0,ly:0,tapT:-9,hinted:false};
-  const resetPan=()=>{ camOrbit.tyaw=0; camOrbit.tel=MOMENT3D_ORBIT_EL0; };
+  const camPan={vy:0,ve:0,mt:0,pan:false,lx:0,ly:0,tapT:-9,hinted:false};
+  const resetPan=()=>{ camPan.vy=camPan.ve=0; camOrbit.yaw-=Math.round(camOrbit.yaw/(Math.PI*2))*Math.PI*2; camOrbit.tyaw=0; camOrbit.tel=MOMENT3D_ORBIT_EL0; };
   const hud=()=>{
     const h={phase,hint:flashT>0?flashMsg:hintFor(),passes,
       touchUi,aiming:aim.on||draw.on,tackle:isTackle,strikeKind:pend.kind,passMode,setPiece:!!setPiece,shotOk,crossOk,
-      strikeHold:sdrag.on||cOrb.on,press:phase==="press"?Math.max(1,Math.ceil(press.t)):0,
+      strikeHold:sdrag.on||cOrb.on,strikeSet:phase==="strike"&&setPiece&&pend.prev==="set",press:phase==="press"?Math.max(1,Math.ceil(press.t)):0,
       defPlan:defPlan.kind,def:isTackle?defPct.slide+","+defPct.contain+","+defPct.gkout:""};
     const k=h.phase+"|"+h.hint+"|"+h.passes+"|"+h.touchUi+"|"+h.aiming+"|"+h.strikeKind+"|"+h.passMode+"|"+h.shotOk+"|"+h.crossOk+"|"+h.strikeHold+"|"+h.press+"|"+h.defPlan+"|"+h.def;
     if(k===hudKey) return;
@@ -1531,7 +1538,9 @@ function createMoment3DController(api,cfg){
     }
     smp.push({x:s.x,y:s.y,z:s.z,t});
     const m=home[mi];
-    if(m) override(m,s.x-0.4,s.z,Math.max(4,Math.hypot(m.x-s.x,m.z-s.z)/Math.max(0.5,t)*1.05)); // kafa noktasına koş
+    // Korner oynatma hızı (fizik/sonuç aynı): ok gücüyle artar; kafaya koşan da aynı oranda hızlanır
+    const kP=cn?0.90+0.27*clamp(cAim.power,0,100)/100:1;
+    if(m) override(m,s.x-0.4,s.z,Math.max(4,Math.hypot(m.x-s.x,m.z-s.z)/Math.max(0.5,t)*1.05*kP)); // kafa noktasına koş
     // Hava topu düellosu (zar): kazanılırsa kafa noktasındaki markajcı (≤2.6 m) kafa hattının
     //   dışına itilir (o konumla simüle edilir → içinden geçilmez); kaybedilirse yerinde kalır
     //   ve kafa vuruşu gövdesine çarpar (uzaklaştırma).
@@ -1549,7 +1558,7 @@ function createMoment3DController(api,cfg){
     }
     const hd=arrived?headerShot(s.x,s.z,s.y,mi,success,moved,cn?cn.want:null):null;
     return {kind:hd?hd.kind:(ev.length?"block":"wide"),goal:!!(hd&&hd.goal),
-      play:()=>actors.playBallScript(toLegs(smp,ev,()=>{ if(hd) hd.play(); else finishSoon(0.8); }),0)};
+      play:()=>actors.playBallScript(toLegs(smp,ev,()=>{ if(hd) hd.play(); else finishSoon(0.8); },kP,!!cn),0)};
   };
 
   // ── Eylemler ──
@@ -3071,10 +3080,10 @@ function createMoment3DController(api,cfg){
         hud(); return;
       }
       if(!p.near){ flash("Vuruş için topun üzerine dokun"); return; }
-      sdrag.on=true; sdrag.id=e.pointerId; sdrag.sx=p.sx; sdrag.sy=p.sy; sdrag.t0=nowS(); sdrag.px=e.clientX; sdrag.py=e.clientY; pend.power=MOMENT3D_HOLD_MIN;
+      sdrag.pull=setStrike(); sdrag.on=true; sdrag.id=e.pointerId; sdrag.sx=p.sx; sdrag.sy=p.sy; sdrag.t0=nowS(); sdrag.px=e.clientX; sdrag.py=e.clientY; pend.power=landPow;
       if(isCorner){ cAim.power=0; cAim.ang=0; }
       try{ cv.setPointerCapture(e.pointerId); }catch(_){}
-      holdStep(); hud();
+      updatePreview(p.sx,p.sy); hud();
       return;
     }
     if(phase==="press"){
@@ -3097,29 +3106,39 @@ function createMoment3DController(api,cfg){
     if(isTackle){ hold.on=near||(!!att&&nearScreen(att,e.clientX,e.clientY,46)); hold.t=0; } // faul: savunmacıda/rakipte uzun bas
     try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   };
-  // Basılı tutma gücü: basılan nokta = falso/yükseklik (sabit), basılı tutma süresi = şiddet (halka
-  //   MOMENT3D_HOLD_SEC'te dolar, dolunca tam güçte kalır). Parmağın kayması hedefi/falsoyu değiştirmez.
-  //   Yalnız kornerde (duran top) güç aynı zamanda menzildir, yana kaydırma yönü ters tarafa çevirir;
-  //   ok yönü yalnız ileri 180° içindedir.
+  // DURAN TOP (penaltı/serbest vuruş/korner): ilk basılan nokta = falso/yükseklik, geriye çekilen okun
+  //   uzunluğu = şiddet. Kornerde aynı zamanda menzil; yana çekiş yönü ters tarafa çevirir (ok yalnız ileri 180°).
+  // AKAN OYUN: güç ayarı yok — dokunulan noktanın falso/yüksekliğiyle standart hız, parmak kayması yok sayılır.
+  const setStrike=()=>setPiece&&pend.prev==="set";
   const pullEnd={x:0,y:0,z:0};
-  const holdStep=()=>{
-    const t=clamp((nowS()-sdrag.t0)/MOMENT3D_HOLD_SEC,0,1), r=rectOf();
-    if(isCorner) cAim.power=t*100;
-    else pend.power=MOMENT3D_HOLD_MIN+t*(100-MOMENT3D_HOLD_MIN);
+  const pullTo=(x,y)=>{
+    if(!sdrag.pull) return;
+    const dx=x-sdrag.px, dy=Math.max(0,y-sdrag.py), d=Math.hypot(dx,dy), r=rectOf();
+    const room=Math.max(48,(window.innerHeight||600)-sdrag.py-MOMENT3D_PULL_DEAD-10);
+    const full=Math.min(room,Math.max(90,Math.min((r&&r.width)||400,(r&&r.height)||600)*MOMENT3D_CORNER_PULL));
+    const t=d<MOMENT3D_PULL_DEAD?0:clamp((d-MOMENT3D_PULL_DEAD)/full,0,1);
+    if(isCorner){
+      cAim.power=t*100;
+      cAim.ang=t>0?clamp(Math.atan2(-dx,Math.max(24,dy))*0.28,-0.2,0.2):0;
+    } else pend.power=t>0?MOMENT3D_PULL_MIN+t*(100-MOMENT3D_PULL_MIN):landPow;   // çekmeden: sahadaki okun gücü
     const p=isCorner?cAim.power:pend.power, b=strikeBallScreen(sbTmp);
     if(b&&r&&cfg.onPull) try{
-      const q={x:b.x-r.left,y:b.y-r.top,r:b.r,len:0,ang:-Math.PI/2,p,t,col:moment3dPullColor(p),tx:sdrag.px-r.left,ty:sdrag.py-r.top};
-      if(isCorner){
-        const bx=b.x, by=b.y, c=cornerTarget(), l=Math.hypot(c.lx-B.x,c.lz-B.z)||1;
-        const s=api.worldToScreen(B.x+(c.lx-B.x)/l*6,BALL_R,B.z+(c.lz-B.z)/l*6,pullEnd);
-        if(s) q.ang=clamp(Math.atan2(s.y-by,s.x-bx),-Math.PI,0);
-        q.len=40+t*70;
+      let q=null;
+      if(t>0){
+        const bx=b.x, by=b.y, br=b.r;
+        let ang=-Math.PI/2;
+        if(isCorner){
+          const c=cornerTarget(), l=Math.hypot(c.lx-B.x,c.lz-B.z)||1;
+          const s=api.worldToScreen(B.x+(c.lx-B.x)/l*6,BALL_R,B.z+(c.lz-B.z)/l*6,pullEnd);
+          if(s) ang=clamp(Math.atan2(s.y-by,s.x-bx),-Math.PI,0);
+        }
+        q={x:bx-r.left,y:by-r.top,r:br,len:Math.min(d,full+MOMENT3D_PULL_DEAD),ang,p,col:moment3dPullColor(p),
+          tx:sdrag.px-r.left,ty:sdrag.py-r.top,tang:Math.atan2(dy,dx)};
       }
       cfg.onPull(q);
     }catch(_){}
     updatePreview(sdrag.sx,sdrag.sy);
   };
-  const cornerSteer=(x)=>{ if(isCorner){ const dx=x-sdrag.px; cAim.ang=Math.abs(dx)<10?0:clamp(-(dx-sgn(dx)*10)/110*0.2,-0.2,0.2); } };
   const endPull=()=>{ try{ cfg.onPull&&cfg.onPull(null); }catch(_){} };
   const onMove=(e)=>{
     if(disposed) return;
@@ -3133,7 +3152,7 @@ function createMoment3DController(api,cfg){
     }
     if(sdrag.on&&e.pointerId===sdrag.id){
       e.preventDefault&&e.preventDefault();
-      cornerSteer(e.clientX);           // açık oyunda parmak kayması yok sayılır (güç = basılı tutma süresi)
+      pullTo(e.clientX,e.clientY);      // yalnız duran top: ok uzunluğu = şiddet
       return;
     }
     if(e.pointerId!==act.id) return;
@@ -3156,7 +3175,7 @@ function createMoment3DController(api,cfg){
         startDraw(act.mate);                    // takım arkadaşından koşu yolu
       } else if(!act.near&&act.mate<0&&!camPan.pan&&phase!=="strike"&&phase!=="intro"&&!hold.on){
         // Boş alandan sürükleme: yörünge kamerası (sağa-sola dönüş, yukarı-aşağı eğim)
-        camPan.pan=true; camPan.lx=e.clientX; camPan.ly=e.clientY;
+        camPan.pan=true; camPan.vy=camPan.ve=0; camPan.mt=nowS(); camPan.lx=e.clientX; camPan.ly=e.clientY;
         if(!camPan.hinted){ camPan.hinted=true; flash("Kamera döndü — varsayılana dönmek için boş alana çift dokun"); }
       }
     }
@@ -3165,10 +3184,11 @@ function createMoment3DController(api,cfg){
       // Yukarı-aşağı: eğim (yukarı = daha yatay/izometrik, aşağı = daha tepeden; 25°–79°)
       const r=rectOf(), wpx=r&&r.width>0?r.width:400, hpx=r&&r.height>0?r.height:600;
       const dx=e.clientX-camPan.lx, dy=e.clientY-camPan.ly; camPan.lx=e.clientX; camPan.ly=e.clientY;
-      let y=camOrbit.tyaw+dx/wpx*Math.PI; if(y>Math.PI) y-=Math.PI*2; else if(y<-Math.PI) y+=Math.PI*2;
-      if(Math.abs(y-camOrbit.yaw)>Math.PI){ camOrbit.yaw+=y>camOrbit.yaw?Math.PI*2:-Math.PI*2; } // sarmada kısa yoldan izle
-      camOrbit.tyaw=y;
-      camOrbit.tel=clamp(camOrbit.tel+dy/hpx*(70*Math.PI/180),MOMENT3D_ORBIT_EL_MIN,MOMENT3D_ORBIT_EL_MAX);
+      // Açı sarılmaz (kesintisiz döner); bırakınca hız sönümlenerek sürer (updateCamera)
+      const da=dx/wpx*Math.PI, de=dy/hpx*(60*Math.PI/180), mt=nowS(), idt=clamp(mt-camPan.mt,0.008,0.1); camPan.mt=mt;
+      camPan.vy+=(clamp(da/idt,-5,5)-camPan.vy)*0.4; camPan.ve+=(clamp(de/idt,-2.5,2.5)-camPan.ve)*0.4;
+      camOrbit.tyaw+=da;
+      camOrbit.tel=clamp(camOrbit.tel+de,MOMENT3D_ORBIT_EL_MIN,MOMENT3D_ORBIT_EL_MAX);
       return;
     }
     if(aim.on) updateAim(e.clientX,e.clientY);
@@ -3185,11 +3205,10 @@ function createMoment3DController(api,cfg){
       //   WebView örüntüsü için: sürükleme ≥ MOMENT3D_STRIKE_CANCEL_SEC sürdüyse iptal de vuruştur.
       const id=sdrag.id, held=nowS()-(sdrag.t0||0); let sx=sdrag.sx, sy=sdrag.sy;
       const up=e.type==="pointerup";
-      if(up&&Number.isFinite(e.clientX)) cornerSteer(e.clientX);
-      holdStep();
+      if(up&&Number.isFinite(e.clientX)) pullTo(e.clientX,e.clientY);
       endPull();
       hidePreview(); release(id); hud();
-      if((up||held>=MOMENT3D_STRIKE_CANCEL_SEC)&&phase==="strike"&&pend.on&&!outcome) confirmStrike(sx,sy);
+      if((up||held>=(sdrag.pull?MOMENT3D_STRIKE_CANCEL_SEC:MOMENT3D_TAP_CANCEL_SEC))&&phase==="strike"&&pend.on&&!outcome) confirmStrike(sx,sy);
       else if(phase==="strike"&&pend.on&&!outcome){ pend.power=landPow; if(isCorner){ cAim.power=50; cAim.ang=0; } updatePreview(0,0); }   // iptal: düz yol geri gelir
       return;
     }
@@ -3230,7 +3249,7 @@ function createMoment3DController(api,cfg){
     }
     if(cancelled||outcome) return;
     if(isTackle&&wasHold&&ht>=0.5&&act.moved<=12){ foul(ht); return; }
-    if(camPan.pan){ camPan.pan=false; hud(); return; }   // kaydırma bitti (eylem yok)
+    if(camPan.pan){ camPan.pan=false; if(nowS()-camPan.mt>0.08) camPan.vy=camPan.ve=0; hud(); return; }   // kaydırma bitti (eylem yok)
     // Boş alana çift dokunma: kamera varsayılanına (kale üstte, oyuncu ortada) döner
     if(act.moved<12&&dur<0.6&&!act.near&&act.mate<0&&phase!=="strike"){
       const t=nowS();
@@ -3288,7 +3307,6 @@ function createMoment3DController(api,cfg){
       //   (önizleme) süre DURUR — arayüzdeki geri sayım çubuğu da (strikeHold) duraklar.
       if(!sdrag.on&&!cOrb.on) pend.t+=rdt;
       stepStrikeBall(rdt);
-      if(sdrag.on&&pend.on&&!outcome) holdStep();   // güç halkası dolar
       if(pend.t>=strikeSec&&!outcome) confirmStrike(0,0);
     }
     if(phase!=="strike") simStep(dt,rdt);
@@ -3348,7 +3366,7 @@ function createMoment3DController(api,cfg){
       const b=strikeBallScreen(sbTmp), r=rectOf();
       if(b&&r){ sbShown=true; try{ cfg.onStrikeBall&&cfg.onStrikeBall(b.x-r.left,b.y-r.top,b.r); }catch(e){} }
     } else if(sbShown){ sbShown=false; try{ cfg.onStrikeBall&&cfg.onStrikeBall(null); }catch(e){} }
-    const cPw=sdrag.on&&phase==="strike", showPw=cPw||aim.on&&aim.mode==="kick", pwV=cPw?(isCorner?cAim.power:pend.power):aim.power;
+    const cPw=sdrag.on&&sdrag.pull&&phase==="strike", showPw=cPw||aim.on&&aim.mode==="kick", pwV=cPw?(isCorner?cAim.power:pend.power):aim.power;
     try{ cfg.onFrame&&cfg.onFrame(timeLeft/MOMENT3D_TIME_SEC,showPw?pwV:-1,showPw?moment3dPullColor(pwV):0,cPw); }catch(e){}
     // Ajan geçersiz kılmaları yalnızca animasyon boyunca
     if(!outcome) for(let i=0;i<home.length;i++) if(home[i].ovr&&phase!=="pass") home[i].ovr=false;
@@ -3437,6 +3455,11 @@ function createMoment3DController(api,cfg){
       focus.x+=(fx-focus.x)*kf; focus.z+=(fz-focus.z)*kf; focus.h+=(fitTmp.h-focus.h)*kf;
     }
     // Yörünge (boş alandan sürükleme): hedefe hızlı yaklaşır; çift dokunmada varsayılana döner
+    if(!camPan.pan&&(camPan.vy||camPan.ve)){   // bırakınca sönümlü devam
+      camOrbit.tyaw+=camPan.vy*rdt; camOrbit.tel=clamp(camOrbit.tel+camPan.ve*rdt,MOMENT3D_ORBIT_EL_MIN,MOMENT3D_ORBIT_EL_MAX);
+      const kd=Math.exp(-rdt*6); camPan.vy*=kd; camPan.ve*=kd;
+      if(Math.abs(camPan.vy)<0.02&&Math.abs(camPan.ve)<0.02) camPan.vy=camPan.ve=0;
+    }
     { const ko=Math.min(1,rdt*12); camOrbit.yaw+=(camOrbit.tyaw-camOrbit.yaw)*ko; camOrbit.el+=(camOrbit.tel-camOrbit.el)*ko;
       if(Math.abs(camOrbit.tyaw-camOrbit.yaw)<1e-4) camOrbit.yaw=camOrbit.tyaw;
       if(Math.abs(camOrbit.tel-camOrbit.el)<1e-4) camOrbit.el=camOrbit.tel; }
@@ -3586,16 +3609,15 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
         type:moment.type, spot:moment.spot||null, player, oppStr, myStr, mates, touch:coarse, colors:kitColors||null,
         onHud:(h)=>handlersRef.current.setHud(h),
         onPull:(q)=>{
-          // Güç halkası (DOM): basılan noktada dolar, yeşil → sarı → kırmızı · korner: toptan çıkan yön oku
-          const el=pullRef.current, tl=tailRef.current; if(!el||!tl) return;
-          if(!q){ el.style.opacity="0"; tl.style.opacity="0"; return; }
-          const c="#"+q.col.toString(16).padStart(6,"0");
-          tl.style.opacity="1"; tl.style.left=q.tx+"px"; tl.style.top=q.ty+"px";
-          tl.style.background="conic-gradient("+c+" "+(q.t*100).toFixed(1)+"%,rgba(255,255,255,.28) 0)";
-          if(q.len>0){
-            el.style.opacity="0.92"; el.style.left=q.x+"px"; el.style.top=q.y+"px"; el.style.width=(q.r+q.len)+"px"; el.style.height=(10+q.p*0.1)+"px";
-            el.style.transform="translateY(-50%) rotate("+q.ang+"rad)"; el.style.color=c;
-          } else el.style.opacity="0";
+          // Şiddet oku (DOM): toptan vuruş yönüne; uzunluk = çekiş, renk yeşil → kırmızı
+          const el=pullRef.current; if(!el) return;
+          const tl=tailRef.current;   // geriye uzayan güç çubuğu: basılan noktadan parmağa
+          if(!q){ el.style.opacity="0"; if(tl) tl.style.opacity="0"; return; }
+          const c="#"+q.col.toString(16).padStart(6,"0"), w=10+q.p*0.1;
+          el.style.opacity="0.92"; el.style.left=q.x+"px"; el.style.top=q.y+"px"; el.style.width=(q.r+q.len)+"px"; el.style.height=w+"px";
+          el.style.transform="translateY(-50%) rotate("+q.ang+"rad)"; el.style.color=c;
+          if(tl){ tl.style.opacity="1"; tl.style.left=q.tx+"px"; tl.style.top=q.ty+"px"; tl.style.width=q.len+"px"; tl.style.height=(w+4)+"px";
+            tl.style.transform="translateY(-50%) rotate("+q.tang+"rad)"; tl.style.color=c; }
         },
         onFrame:(frac,power,col,pull)=>{
           // Yalnızca değişince DOM'a yaz (her karede React state'i yok)
@@ -3806,7 +3828,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
               <div style={{...MOMENT3D_GLASS,position:"absolute",top:38,left:"50%",transform:"translateX(-50%)",fontSize:".56rem",fontWeight:900,
                 letterSpacing:1.5,color:"#fff",padding:"3px 11px",borderRadius:8,
                 fontFamily:"'Barlow Condensed',sans-serif",whiteSpace:"nowrap"}}>
-                {moment.type==="corner"?"KORNER — TOPA BASILI TUT, BIRAK":hud.strikeKind==="cross"?"ORTA — TOPA BASILI TUT, BIRAK":hud.strikeKind==="lpass"?"UZUN PAS — TOPA DOKUN":"ŞUT — TOPA BASILI TUT, BIRAK"}
+                {moment.type==="corner"?"KORNER — TOPA BAS, GERİ ÇEK, BIRAK":hud.strikeKind==="cross"?hud.strikeSet?"ORTA — TOPA BAS, GERİ ÇEK, BIRAK":"ORTA — TOPA DOKUN":hud.strikeKind==="lpass"?"UZUN PAS — TOPA DOKUN":hud.strikeSet?"ŞUT — TOPA BAS, GERİ ÇEK, BIRAK":"ŞUT — TOPA DOKUN"}
               </div>
               {/* İPTAL: vuruş yapmadan 2.5D sahaya dön (katman pointerEvents:none; düğme tıklanabilir) */}
               <button onClick={(e)=>{ e.stopPropagation(); if(ctrlRef.current&&ctrlRef.current.cancelStrike) ctrlRef.current.cancelStrike(); }}
@@ -3823,9 +3845,9 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
               <div ref={pullRef} style={{position:"absolute",left:0,top:0,width:0,height:12,opacity:0,transformOrigin:"0 50%",
                 background:"linear-gradient(90deg,transparent 0,currentColor 45%,currentColor 100%)",filter:"drop-shadow(0 0 5px rgba(0,0,0,.6))",
                 clipPath:"polygon(0 34%,calc(100% - 22px) 34%,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,calc(100% - 22px) 66%,0 66%)"}}/>
-              {/* Güç halkası: parmağın çevresinde görünsün diye geniş */}
-              <div ref={tailRef} style={{position:"absolute",left:0,top:0,width:104,height:104,opacity:0,transform:"translate(-50%,-50%)",pointerEvents:"none",borderRadius:"50%",
-                WebkitMask:"radial-gradient(circle,transparent 39px,#000 40px)",mask:"radial-gradient(circle,transparent 39px,#000 40px)"}}/>
+              <div ref={tailRef} style={{position:"absolute",left:0,top:0,width:0,height:14,opacity:0,transformOrigin:"0 50%",pointerEvents:"none",
+                background:"linear-gradient(90deg,rgba(255,255,255,.35),currentColor 60%)",filter:"drop-shadow(0 0 5px rgba(0,0,0,.6))",
+                borderRadius:8,clipPath:"polygon(0 42%,100% 0,100% 100%,0 58%)"}}/>
               <div ref={sbRef} style={{position:"absolute",left:0,top:0,width:0,height:0,opacity:0,borderRadius:"50%",
                 border:"1px solid rgba(255,255,255,.28)",transition:"opacity .15s"}}>
                 {/* Vuruş noktası (sweet-spot): parlak yeşil iç içe halkalar + merkez nokta; parmakla kayar */}
@@ -3842,7 +3864,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
                 <div style={{fontSize:".44rem",color:"rgba(255,255,255,.92)",textAlign:"center",lineHeight:1.3,
                   padding:"2px 8px",borderRadius:6,background:"rgba(8,14,22,.45)",whiteSpace:"nowrap",overflow:"hidden",
                   textOverflow:"ellipsis",maxWidth:"calc(100vw - 150px)"}}>
-                  {moment.type==="corner"?"Nokta = falso · kısa tut = ön direk · uzun = arka direk · yana kaydır = yön":hud.strikeKind==="lpass"?"Topa dokun: havadan uzun pas":"Basılan nokta = falso/yükseklik · basılı tut = şiddet (yeşil: plase, kırmızı: füze)"}
+                  {moment.type==="corner"?"Nokta = falso · kısa çek = ön direk · uzun = arka direk":hud.strikeKind==="lpass"?"Topa dokun: havadan uzun pas":hud.strikeSet?"Basılan nokta = falso/yükseklik · geri çek = şiddet (kısa ok: yumuşak, uzun: sert)":"Dokunulan nokta = falso/yükseklik (kenar: kavis · alt: aşırtma · üst: sert)"}
                 </div>
                 {/* Geri sayım: dolunca düz vuruş (MOMENT3D_STRIKE_SEC) */}
                 <div style={{width:"min(46vw,210px)",height:4,borderRadius:2,background:"rgba(255,255,255,.15)",marginTop:5,overflow:"hidden"}}>
@@ -3862,7 +3884,7 @@ function Moment3DStage({moment,mates,myStr,oppStr,homeShare,kitColors,venue,onRe
               {hud.tackle
                 ?"KAYARAK: kapma şansı yüksek, kaçarsa faul/kart · ALAN KAPAT: açıyı daraltır, pas yolunu keser · KALECİ ÇIK: rakip kaleye yakınsa. İstersen ok çizerek de müdahale et."
                 :moment.type==="corner"
-                  ?"Topun bir noktasına bas (falso/yükseklik), basılı tut ve bırak: halka doldukça ön direk → penaltı noktası → arka direk, yana kaydırmak yönü değiştirir. Boş alandan sürükle: kamera topun çevresinde döner."
+                  ?"Topun bir noktasına bas (falso/yükseklik), geri çek ve bırak: çekiş gücü ön direk → penaltı noktası → arka direk, yana çekiş yönü değiştirir. Boş alandan sürükle: kamera topun çevresinde döner."
                 :moment.type==="penalty"
                   ?"Kaleci bir tarafa kaymış — açık köşeye çek. Güç 40–80 ideal, 90 üstü isabetsiz; sonra topa dokunarak vuruş şeklini seç."
                   :"Oyuncuya bas, geri çek: kırmızı ok = yön seç (zaman duruk), daha çok çekince yeşil ok = koş. Rakibe çarpma, top gider! Sağ alt: PAS (arkadaşa dokun / koşu yolu çiz, sınırsız pas) · ŞUT (doğrudan vuruş ekranı)."}
