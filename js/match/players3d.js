@@ -665,7 +665,7 @@ function createMatchActors3D(api,opts={}){
   const anc={x:0,z:0,on:false};                  // yumuşatılmış ballPos (çapa)
   const passPt={x:0,z:0};                        // öngörülü hedef (tahsis yok)
   const pk={on:false,t:0,x:0,z:0,lofted:false,team:null,i:-1}; // gecikmeli pas (önce vuruş animasyonu)
-  const scr={p:null,x:0,z:0,until:0};            // senaryo oyuncusu (olayda topa koşan)
+  const scr={p:null,x:0,z:0,until:0,relay:null,rx:0,rz:0,rUntil:0};            // senaryo oyuncusu (olayda topa koşan)
   let chaser=null, chaseT=0, postScript=false, farT=0, lastPoss=null;
   // Hücum kurulumu (kilit an öncesi, overlay buildUp): team öne dönük oynar (pas puanında ilerleme
   //   ağırlığı yüksek, 2D bölge bağı kapalı); son üçte bire varış GARANTİ değil — overlay en çok
@@ -965,8 +965,10 @@ function createMatchActors3D(api,opts={}){
 
   // ── Oyun yönetmeni (yalnızca normal akış) ──
   // Pas başlat: önce vuruş animasyonu (gerilme), ~0.2 sn sonra top çıkar
-  // Kaleci dağıtımı: top en çok orta saha çizgisi civarına (rakip yarıda 2 m) gider
-  const gkX=(p,x)=>p&&p.gk&&!manual?Math.min(x*atkDir(p.team),2)*atkDir(p.team):x;
+  // Kaleci dağıtımı / kendi üçte birinden uzaklaştırma: top en çok orta saha çizgisine gider
+  //   (iniş sonrası kısa yuvarlanma için 3 m pay) → tek vuruşta rakip ceza sahasına top gitmez
+  const deepP=(p)=>!!p&&!manual&&(p.gk||p.pos.x*atkDir(p.team)<-L*0.45);
+  const gkX=(p,x)=>deepP(p)?Math.min(x*atkDir(p.team),-3)*atkDir(p.team):x;
   const startPass=(o,m,lofted)=>{
     const tp=tempo();
     leadPoint(m,lofted,passPt); passPt.x=gkX(o,passPt.x);
@@ -995,6 +997,7 @@ function createMatchActors3D(api,opts={}){
     for(let i=0;i<mates.length;i++){
       const m=mates[i]; if(m===o||!m.g.visible) continue;
       const d=Math.hypot(m.pos.x-o.pos.x,m.pos.z-o.pos.z);
+      if(o.gk&&!manual&&m.pos.x*dir>0) continue;           // kaleci rakip yarıdaki arkadaşı hedeflemez
       // KISA PASLAŞMA: en yakın uygun (pas yolu açık) arkadaş tercih edilir; uzun/havadan top
       //   yalnız kısa seçenek yoksa ve ağır cezayla (rastgele uzun top yok, kademeli ilerleme)
       if(d<4.5||d>ACTORS3D_PASS_MAX) continue;
@@ -1292,6 +1295,7 @@ function createMatchActors3D(api,opts={}){
     if(busy()){
       own.team=null; freeBall=false; rcv.team=null; postScript=true; pk.on=false;
       if(rsNext.go&&rsNext.kind==="kickoff") kickoffShape(rsNext.team,clk<scr.until+0.8?scr.p:null,Math.max(0.5,lockUntil-clk+0.6),PACE.run*0.8);
+      if(scr.relay&&clk<scr.rUntil&&scr.relay.g.visible){ const q=scr.relay; q.ovr=true; q.ox=scr.rx; q.oz=scr.rz; q.cap=PACE.chase*tempo(); }
       if(scr.p&&clk<scr.until&&scr.p.g.visible){ scr.p.ovr=true; scr.p.ox=scr.x; scr.p.oz=scr.z; scr.p.cap=PACE.chase*tempo(); }
       return;
     }
@@ -1322,7 +1326,7 @@ function createMatchActors3D(api,opts={}){
             // Oyun içi: yalnız topun yanındaki oyuncu (ayak erişimi) pas verebilir; yoksa en yakın
             //   oyuncu topa koşar ve oyun yönetmeni (çapa) akışı 2D top bölgesine taşır
             const k=kickerNear(ACTORS3D_REACH+0.9);
-            const px=gkX(k,pend.x), r=k&&k.gk?nearestTo(px,pend.z,k,k.team,true):q;
+            const px=gkX(k,pend.x), r=deepP(k)?nearestTo(px,pend.z,k,k.team,true):q;
             if(k&&r&&r!==k){
               const lof=Math.hypot(px-bpos.x,pend.z-bpos.z)>ACTORS3D_PASS_SHORT;
               const T=kickTo(px,pend.z,lof); setRcv(r,px,pend.z,T+0.8);
@@ -1440,7 +1444,7 @@ function createMatchActors3D(api,opts={}){
   // Senaryo başlat: mevcut uçuşu kes, sahipliği askıya al, kilitle
   const beginScript=(lockSec)=>{
     rs.on=false; rsNext.kind=""; rsNext.go=false;
-    legs.length=0; fl.on=false; fl.fn=null; pk.on=false;
+    legs.length=0; fl.on=false; fl.fn=null; pk.on=false; scr.relay=null;
     own.team=null; freeBall=false; bvel.set(0,0,0); curl.t=0; rcv.team=null;
     lockUntil=clk+lockSec;
     gkPend.on=false;                 // önceki olayın bekleyen kaleci dalışı yeni senaryoda oynamasın
@@ -1456,8 +1460,23 @@ function createMatchActors3D(api,opts={}){
   let zoneT=2.6;                                 // legToZone en uzun pas/koşu süresi (sn)
   const legToZone=(wx,wz,fn,out)=>{
     let tx=wx, tz=wz, d=Math.hypot(tx-bpos.x,tz-bpos.z);
+    const bx0=bpos.x, bz0=bpos.z;
     const runV=PACE.chase*tempo(), TMAX=zoneT;
     const sp=scr.p;
+    // Top kaleci/savunmadaysa (kendi üçte biri) ve olay rakip yarıdaysa tek vuruşla gitmez: orta
+    //   sahadaki arkadaşa (relay), oradan hücumcuya
+    let relay=null, rx=0, rz2=0, T1=0;
+    if(sp){
+      const dr=atkDir(sp.team);
+      if(bx0*dr<-L*0.45&&tx*dr>2){
+        relay=nearestTo(-4*dr,(bz0+tz)*0.5,sp,sp.team,true);
+        if(relay){
+          rx=clamp(relay.pos.x*dr,-L*0.35,-3)*dr; rz2=clamp(relay.pos.z,-H+3,H-3);
+          const d1=Math.hypot(rx-bx0,rz2-bz0);
+          T1=clamp(Math.max(passTime(d1,d1>ACTORS3D_PASS_SHORT),Math.hypot(rx-relay.pos.x,rz2-relay.pos.z)/(PACE.chase*tempo())),0.4,2.6);
+        }
+      }
+    }
     // Hücumcu vuruş noktasına en çok TMAX'ta yetişebilmeli: uzaksa nokta ona doğru kaydırılır
     if(sp){
       const ds=Math.hypot(tx-sp.pos.x,tz-sp.pos.z), reach=runV*TMAX+ACTORS3D_REACH;
@@ -1469,7 +1488,15 @@ function createMatchActors3D(api,opts={}){
     if(sp) T=Math.max(T,(Math.hypot(tx-sp.pos.x,tz-sp.pos.z)-ACTORS3D_REACH)/Math.max(1,runV));
     T=clamp(T,d>=1.2?0.3:0.08,TMAX);
     if(sp){ scr.x=tx; scr.z=tz; scr.until=Math.max(scr.until,clk+T+0.15); }
-    if(d>=1.2){
+    if(relay){
+      const d1=Math.hypot(rx-bx0,rz2-bz0), k=kickerNear(ACTORS3D_REACH+0.9);
+      if(k) kickAnim(k,rx-bx0,rz2-bz0,clamp(0.45+d1/50,0.45,0.95),0.4);
+      scr.relay=relay; scr.rx=rx; scr.rz=rz2; scr.rUntil=clk+T1+0.1;
+      d=Math.hypot(tx-rx,tz-rz2);
+      T=clamp(Math.max(passTime(d,d>ACTORS3D_PASS_SHORT),Math.hypot(tx-sp.pos.x,tz-sp.pos.z)/Math.max(1,runV)-T1),0.3,TMAX);
+      scr.until=Math.max(scr.until,clk+T1+T+0.15);
+      leg(rx,rz2,0,d1>ACTORS3D_PASS_SHORT?Math.min(7,d1*0.12):0,T1,()=>kickAnim(relay,tx-rx,tz-rz2,clamp(0.45+d/50,0.45,0.9),0.4));
+    } else if(d>=1.2){
       const k=kickerNear(ACTORS3D_REACH+0.9);          // topu ayağında tutan / yanındaki oyuncu
       // (hücumcunun kendisiyse: önüne uzun dokunuş — hafif vuruş)
       if(k) kickAnim(k,tx-bpos.x,tz-bpos.z,k===sp?0.35:clamp(0.45+d/50,0.45,0.9),0.4);
