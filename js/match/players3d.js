@@ -965,9 +965,11 @@ function createMatchActors3D(api,opts={}){
 
   // ── Oyun yönetmeni (yalnızca normal akış) ──
   // Pas başlat: önce vuruş animasyonu (gerilme), ~0.2 sn sonra top çıkar
+  // Kaleci dağıtımı: top en çok orta saha çizgisi civarına (rakip yarıda 2 m) gider
+  const gkX=(p,x)=>p&&p.gk&&!manual?Math.min(x*atkDir(p.team),2)*atkDir(p.team):x;
   const startPass=(o,m,lofted)=>{
     const tp=tempo();
-    leadPoint(m,lofted,passPt);
+    leadPoint(m,lofted,passPt); passPt.x=gkX(o,passPt.x);
     pk.on=true; pk.t=clk+0.08/tp; pk.x=passPt.x; pk.z=passPt.z; pk.lofted=lofted; pk.team=m.team; pk.i=m.idx; // Adım 14: vuruş gerilmesi kısa (seri pas)
     faceTo(o,passPt.x-o.pos.x,passPt.z-o.pos.z,0.6);
     const d=Math.hypot(passPt.x-bpos.x,passPt.z-bpos.z);
@@ -1143,7 +1145,7 @@ function createMatchActors3D(api,opts={}){
         if(gain>bg){ bg=gain; bm=m; }
       }
       if(bm){ farT=0.9; startPass(o,bm,false); o.ox=o.pos.x; o.oz=o.pos.z; o.cap=1.2; return; }
-      if(!own.dribble){
+      if(!own.dribble&&!o.gk){
         const ux=(anc.x-o.pos.x)/(farD||1), uz=(anc.z-o.pos.z)/(farD||1);
         own.dribble=true; own.drN++;
         own.px=clamp(o.pos.x+ux*9,-L+3,L-3); own.pz=clamp(o.pos.z+uz*9,-H+2,H-2);
@@ -1152,9 +1154,9 @@ function createMatchActors3D(api,opts={}){
     }
     if(farT>3.5&&farD>=45&&clk-own.since>0.5){
       farT=0;
-      const q=nearestTo(anc.x,anc.z,o,o.team,true);
+      const ax=gkX(o,anc.x), q=nearestTo(ax,anc.z,o,o.team,true);
       if(q){
-        const tx=clamp(anc.x,-L+2,L-2), tz=clamp(anc.z,-H+2,H-2);
+        const tx=clamp(ax,-L+2,L-2), tz=clamp(anc.z,-H+2,H-2);
         faceTo(o,tx-o.pos.x,tz-o.pos.z,0.6);
         rigAction3D(o.rig,"kick",{power:1,t0:0.25,side:1});
         const T=kickTo(tx,tz,true); setRcv(q,tx,tz,T+0.6);
@@ -1199,7 +1201,7 @@ function createMatchActors3D(api,opts={}){
     const p=rs.p, dir=atkDir(rs.team), s=sgn(rs.x), r=Math.random();
     const near=(x,z)=>nearestTo(clamp(x,-L+3,L-3),clamp(z,-H+3,H-3),p,rs.team,true);
     if(rs.kind==="kickoff") return {m:near(-dir*8,r<0.5?-6:6),lof:false};
-    if(rs.kind==="goal") return r<0.55?{m:near(dir*(2+r*12),(Math.random()*2-1)*20),lof:true}:{m:near(s*(L-19),(Math.random()<0.5?-1:1)*18),lof:false};
+    if(rs.kind==="goal") return r<0.4?{m:near(-dir*(2+r*25),(Math.random()*2-1)*20),lof:true}:{m:near(s*(L-19),(Math.random()<0.5?-1:1)*18),lof:false};
     if(rs.kind==="throw") return {m:near(rs.x+dir*3,rs.z-sgn(rs.z)*9),lof:true};
     if(rs.kind==="corner") return {m:near(s*(L-9),-sgn(rs.z)*2),lof:true};
     const m=near(rs.x+dir*12,rs.z*0.6);                        // serbest vuruş
@@ -1260,7 +1262,7 @@ function createMatchActors3D(api,opts={}){
     rs.on=false;
     if(!m){ setOwnerInternal(p.team,p.idx); return; }
     if(K==="kickoff"){ try{ if(typeof MATCH_SFX!=="undefined") MATCH_SFX.whistle("short"); }catch(_){} }
-    const tx=m.pos.x, tz=m.pos.z;
+    const tx=gkX(p,m.pos.x), tz=m.pos.z;
     if(K==="throw"){
       const dx=tx-bpos.x, dz=tz-bpos.z, d=Math.hypot(dx,dz)||1, reach=Math.min(d,16), T=clamp(0.45+reach*0.03,0.5,0.9);
       const ex=bpos.x+dx/d*reach, ez=bpos.z+dz/d*reach;
@@ -1320,9 +1322,10 @@ function createMatchActors3D(api,opts={}){
             // Oyun içi: yalnız topun yanındaki oyuncu (ayak erişimi) pas verebilir; yoksa en yakın
             //   oyuncu topa koşar ve oyun yönetmeni (çapa) akışı 2D top bölgesine taşır
             const k=kickerNear(ACTORS3D_REACH+0.9);
-            if(k&&q&&q!==k){
-              const lof=Math.hypot(pend.x-bpos.x,pend.z-bpos.z)>ACTORS3D_PASS_SHORT;
-              const T=kickTo(pend.x,pend.z,lof); setRcv(q,pend.x,pend.z,T+0.8);
+            const px=gkX(k,pend.x), r=k&&k.gk?nearestTo(px,pend.z,k,k.team,true):q;
+            if(k&&r&&r!==k){
+              const lof=Math.hypot(px-bpos.x,pend.z-bpos.z)>ACTORS3D_PASS_SHORT;
+              const T=kickTo(px,pend.z,lof); setRcv(r,px,pend.z,T+0.8);
             }
           }
           return;
