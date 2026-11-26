@@ -277,8 +277,47 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
       if(!mountedRef.current) return;
       clearInterval(ivRef.current);
       pausedRef.current=false;
+      if(fastDoneRef.current) return;
       runIntervalRef.current&&runIntervalRef.current();
     },300);
+  };
+
+  // ⚡ HIZLI: kalan süre anında oynatılır. Maç başında simulateMatch(myStr, rakip gücü, ev sahibi,
+  //   coachBonus+tacticBonus, ilk 11) ile üretilen sonucun (kilit an düzeltmeleri dahil) kalan olayları
+  //   tek seferde uygulanır; skor/golcü/asist/not/istatistik aynı result nesnesinden gelir → onFinish formatı aynı.
+  const fastDoneRef=useRef(false);
+  const finishNow=()=>{
+    if(fastDoneRef.current||!result.current) return;
+    fastDoneRef.current=true;
+    clearInterval(ivRef.current);
+    pausedRef.current=true;
+    // Bekleyen 3D kurulum / kilit an / devre arası beklemeleri kapat
+    if(buildUpRef.current){ const ac=actors3dRef.current; buildUpRef.current=null; try{ if(ac&&ac.isAlive&&ac.isAlive()&&ac.buildUp) ac.buildUp(null); }catch(_){} }
+    (momentsRef.current||[]).forEach(mo=>{ mo.resolved=true; });
+    setActiveMoment(null);
+    setShowHalftime(false);
+    // 3D animasyonunu bekleyen olaylar hemen sunulsun (skor/metin)
+    flush3d();
+    const from=minute;
+    const rest=(queue.current||[]).filter(e=>e.min>from&&e.min<=90);
+    const logs=[];
+    if(from<46&&!htShown.current){ htShown.current=true; logs.push({min:45,text:"⏸ ─────── DEVRE ARASI ───────",col:C.gd,half:true}); }
+    let me=0, op=0;
+    rest.forEach(e=>{
+      if(e.type==="goal"){ if(e.team==="me") me++; else op++; }
+      logs.push({min:e.min,...evToLog(e,fixture.opp)});
+    });
+    logs.sort((a,b)=>a.min-b.min);
+    if(me) setMyScore(s=>s+me);
+    if(op) setOppScore(s=>s+op);
+    const gl=rest.filter(e=>e.type==="goal").map(e=>({min:e.min,team:e.team==="me"?"me":"opp",name:e.team==="me"?(e.scorer||""):""}));
+    if(gl.length) setGoalList(g=>[...g,...gl]);
+    if(logs.length) setLog(l=>[...l,...logs]);
+    setFlash(null);
+    setSpeed("fast"); speedRef.current="fast";
+    setMinute(90);
+    setPhase("result");
+    setTimeout(()=>{ if(mountedRef.current) playFinalWhistle(); },120);
   };
   useEffect(()=>{
     // Maç başı düdüğü
@@ -409,7 +448,9 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
     const runInterval=()=>{
       const cfg=SPEED_CONFIGS[speedRef.current]||SPEED_CONFIGS.normal;
       const tickMs=matchTickMs(cfg,viewModeRef.current==="3d");
+      if(fastDoneRef.current) return;   // ⚡ Hızlı ile maç bitti: devre arası/kilit an dönüşü yeniden başlatmasın
       ivRef.current=setInterval(()=>{        // Hız ya da 2D/3D görünüm değiştiyse interval'i yeniden başlat
+        if(fastDoneRef.current){ clearInterval(ivRef.current); return; }
         const curCfg=SPEED_CONFIGS[speedRef.current]||SPEED_CONFIGS.normal;
         if(matchTickMs(curCfg,viewModeRef.current==="3d")!==tickMs){
           clearInterval(ivRef.current);
@@ -911,7 +952,7 @@ function MatchOverlay({fixture,coachBonus,tacticBonus=0,myStr=74,squad=[],lineup
             {phase==="playing"&&(
               <div style={{display:"flex",gap:2,background:"rgba(0,0,0,.4)",borderRadius:4,padding:2,border:`1px solid rgba(77,166,255,0.1)`}}>
                 {Object.entries(SPEED_CONFIGS).map(([k,v])=>(
-                  <button key={k} onClick={()=>{setSpeed(k);speedRef.current=k;}}
+                  <button key={k} onClick={()=>{ if(k==="fast"){ finishNow(); return; } setSpeed(k);speedRef.current=k;}}
                     style={{
                       padding:"2px 7px",borderRadius:3,cursor:"pointer",fontFamily:"inherit",
                       fontSize:".46rem",fontWeight:speed===k?800:400,letterSpacing:.3,

@@ -543,7 +543,7 @@ const sortFixture=(fixtures)=>{
   // Ay içindeki lig haftalarını topla
   const monthLigW={};
   fixtures.forEach(f=>{
-    if(f.comp==="HAZ"||f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="SUPERKUPA") return;
+    if(f.comp==="HAZ"||f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON"||f.comp==="SUPERKUPA") return;
     const m=f.month||"";
     if(!monthLigW[m]) monthLigW[m]=[];
     monthLigW[m].push(f.w||0);
@@ -552,7 +552,7 @@ const sortFixture=(fixtures)=>{
   // Ay içindeki kupa maçlarını w'ye göre sırala, sonra lig haftaları arasına dağıt
   const monthCupW={};
   fixtures.forEach(f=>{
-    if(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="SUPERKUPA") return;
+    if(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="CON"&&f.comp!=="SUPERKUPA") return;
     const m=f.month||"";
     if(!monthCupW[m]) monthCupW[m]=[];
     monthCupW[m].push(f.w||0);
@@ -564,14 +564,15 @@ const sortFixture=(fixtures)=>{
   const monthCupCounter={};
   const fixCupIdx=new Map();
   fixtures.forEach(f=>{
-    if(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="SUPERKUPA") return;
+    if(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="CON"&&f.comp!=="SUPERKUPA") return;
+    if((f.w||0)>=1000) return; // w>=1000 doğrudan konumlanır — slot sayacını kaydırmasın (Avrupa/ZTK çakışması)
     const m=f.month||"";
     if(monthCupCounter[m]===undefined) monthCupCounter[m]=0;
     fixCupIdx.set(f, monthCupCounter[m]++);
   });
   const effectiveW=(f)=>{
     if(f.comp==="HAZ") return (f.w||0)===0?-1:(f.w||0);
-    if(f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="SUPERKUPA"){
+    if(f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON"||f.comp==="SUPERKUPA"){
       const m=f.month||"";
       const ligWs=monthLigW[m]||[];
       const rawW=f.w||0;
@@ -823,3 +824,514 @@ function buildTeamLineup(players, formation){
   });
   return result;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// AVRUPA KUPALARI — UEFA 36 TAKIMLI SWISS MODEL (LİG AŞAMASI)
+// CL (Avrupa Şampiyonlar Kupası) · UEFA (Avrupa Ligi) · CON (Konferans Ligi)
+// CL/UEFA: 4 torba × 9, her torbadan 2 rakip → 8 maç (4 ev / 4 dep)
+// CON    : 6 torba × 6, her torbadan 1 rakip → 6 maç (3 ev / 3 dep)
+// Tek tablo: 1–8 Son 16, 9–24 Eleme Play-Off (çift maç), 25–36 elenir.
+// Tüm fonksiyonlar saf (state kopyası döner) ve seed ile deterministiktir.
+// ═══════════════════════════════════════════════════════════════
+const EURO_COMP_LIST=["CL","UEFA","CON"];
+const EURO_TABLE_KEY={CL:"clTable",UEFA:"uefaTable",CON:"conTable"};
+const EURO_META={
+  CL:  {name:"Avrupa Şampiyonlar Kupası",upper:"AVRUPA ŞAMPİYONLAR KUPASI",short:"ASK",icon:"⭐",color:"#ffd060",rgb:"232,184,58",md:8,pots:4},
+  UEFA:{name:"Avrupa Ligi",upper:"AVRUPA LİGİ",short:"AL",icon:"🇪🇺",color:"#e67e22",rgb:"230,126,34",md:8,pots:4},
+  CON: {name:"Konferans Ligi",upper:"KONFERANS LİGİ",short:"KL",icon:"🟢",color:"#2ecc71",rgb:"46,204,113",md:6,pots:6},
+};
+// Lig başına kontenjan [CL, UEFA, CON] — her kupa toplam 36 takım
+const EURO_QUOTA={
+  "İngiliz Ligi":[6,5,4],"İspanyol Ligi":[5,5,4],"İtalyan Ligi":[5,5,4],"Alman Ligi":[5,5,4],
+  "Fransız Ligi":[4,4,5],"Portekiz Ligi":[4,4,5],"Hollanda Ligi":[4,4,5],"Elit Lig":[3,4,5],
+};
+const EURO_KO_ROUNDS=["po","r16","qf","sf","fin"];
+const EURO_KO_LABEL={po:"Play-Off",r16:"Son 16",qf:"Çeyrek Final",sf:"Yarı Final",fin:"Final"};
+const EURO_CUP_COMPS=["HAZ","ZTK","CL","UEFA","CON","SUPERKUPA"];
+const isEuroComp=(c)=>c==="CL"||c==="UEFA"||c==="CON";
+
+const euroHash=(s)=>{let h=2166136261;const str=String(s);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
+const euroRng=(seed)=>{let a=(seed>>>0)||1;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};};
+const euroShuffle=(arr,rng)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+
+// ── Katılımcı seçimi: 8 ligin sıralaması (byStr=true → güç sıralaması) ──
+// force: kullanıcının girmesi gereken kupa ("CL"/"UEFA"/"CON") — eski kayıt uyumu
+const selectEuroQualifiers=(teams,opts={})=>{
+  const {byStr=false,force=null,noMe=false}=opts;
+  if(noMe) teams=(teams||[]).filter(t=>!t.me);
+  const out={CL:[],UEFA:[],CON:[]};
+  const used=new Set();
+  const rankLg=(lg)=>{
+    const ts=(teams||[]).filter(t=>t.lg===lg);
+    const played=!byStr&&ts.some(t=>(t.w||0)+(t.d||0)+(t.l||0)>0);
+    return [...ts].sort((a,b)=>played
+      ?((b.pts||0)-(a.pts||0)||(b.gd||0)-(a.gd||0)||(b.gf||0)-(a.gf||0)||(b.str||0)-(a.str||0))
+      :((b.str||0)-(a.str||0)||String(a.n).localeCompare(String(b.n))));
+  };
+  const mk=(t)=>({n:t.n,lg:t.lg,str:t.str||65,me:!!t.me});
+  Object.entries(EURO_QUOTA).forEach(([lg,q])=>{
+    const r=rankLg(lg);let i=0;
+    EURO_COMP_LIST.forEach((c,ci)=>{for(let k=0;k<q[ci]&&i<r.length;k++,i++){out[c].push(mk(r[i]));used.add(r[i].n);}});
+  });
+  // Eksik kalırsa (lig küçükse) en güçlü kalan takımlarla doldur — gerekirse 1. Lig
+  const rest=[...(teams||[])].filter(t=>!used.has(t.n)&&!t.me&&t.lg!=="İngiliz 2. Ligi").sort((a,b)=>(b.str||0)-(a.str||0));
+  EURO_COMP_LIST.forEach(c=>{while(out[c].length<36&&rest.length){const t=rest.shift();out[c].push(mk(t));used.add(t.n);}});
+  if(force&&out[force]){
+    const me=(teams||[]).find(t=>t.me);
+    if(me&&!out[force].some(t=>t.me)){
+      EURO_COMP_LIST.forEach(c=>{out[c]=out[c].filter(t=>!t.me);});
+      const list=out[force];
+      // Aynı ligden en zayıf takımı (yoksa genel en zayıfı) çıkar
+      const sameLg=list.filter(t=>t.lg===me.lg).sort((a,b)=>a.str-b.str);
+      const drop=sameLg[0]||[...list].sort((a,b)=>a.str-b.str)[0];
+      out[force]=list.filter(t=>t!==drop);
+      out[force].push(mk(me));
+      // Kullanıcının çıktığı kupadaki boşluğu düşen takımla doldur
+      EURO_COMP_LIST.forEach(c=>{if(c!==force&&out[c].length<36&&drop) {out[c].push(drop);}});
+    }
+  }
+  return out;
+};
+
+// ── Torbalar: güce göre sırala, aynı ligden torba başına en fazla cap takım ──
+const buildEuroPots=(list,comp)=>{
+  const nP=EURO_META[comp].pots, size=list.length/nP, cap=comp==="CON"?2:3;
+  const sorted=[...list].sort((a,b)=>b.str-a.str||String(a.n).localeCompare(String(b.n)));
+  const pots=Array.from({length:nP},()=>[]);
+  let queue=sorted;
+  for(let p=0;p<nP;p++){
+    const next=[];
+    for(const t of queue){
+      const cnt=pots[p].filter(x=>x.lg===t.lg).length;
+      if(pots[p].length<size&&(cnt<cap||p===nP-1)) pots[p].push(t); else next.push(t);
+    }
+    queue=next;
+  }
+  return pots;
+};
+
+// ── Eşleşme grafiği: aynı lig yok, tekrar eşleşme yok ──
+const buildSwissPairs=(pots,comp,rng)=>{
+  const per=comp==="CON"?1:2;
+  const ok=(a,b,strict)=>a.n!==b.n&&(!strict||a.lg!==b.lg);
+  // İki torba arası (veya torba içi) d-düzenli eşleşme — geri izlemeli
+  const matchPerfect=(A,B,forbid,strict)=>{ // A[i] ↔ B[perm[i]] mükemmel eşleşme
+    const n=A.length, usedB=new Array(n).fill(false), res=new Array(n);
+    const order=euroShuffle([...Array(n).keys()],rng);
+    let steps=0;
+    const go=(k)=>{
+      if(k===n) return true;
+      if(++steps>20000) return false;
+      const i=order[k];
+      for(const j of euroShuffle([...Array(n).keys()],rng)){
+        if(usedB[j]||!ok(A[i],B[j],strict)||forbid.has(A[i].n+"|"+B[j].n)) continue;
+        usedB[j]=true;res[i]=j;
+        if(go(k+1)) return true;
+        usedB[j]=false;
+      }
+      return false;
+    };
+    return go(0)?res:null;
+  };
+  const intraCycle=(P,strict)=>{ // torba içi: CL/UEFA → 2-düzenli (Hamilton çevrimi)
+    const n=P.length;let steps=0;
+    for(let tries=0;tries<200;tries++){
+      const order=[0];const used=new Set([0]);
+      const go=()=>{
+        if(++steps>40000) return false;
+        if(order.length===n) return ok(P[order[n-1]],P[order[0]],strict);
+        for(const j of euroShuffle([...Array(n).keys()],rng)){
+          if(used.has(j)||!ok(P[order[order.length-1]],P[j],strict)) continue;
+          used.add(j);order.push(j);
+          if(go()) return true;
+          used.delete(j);order.pop();
+        }
+        return false;
+      };
+      if(go()) return order.map((v,i)=>[P[v],P[order[(i+1)%n]]]);
+    }
+    return null;
+  };
+  const intraMatch=(P,strict)=>{ // torba içi: CON → mükemmel eşleşme (6 takım → 3 çift)
+    const n=P.length, used=new Array(n).fill(false), pairs=[];let steps=0;
+    const go=()=>{
+      if(++steps>20000) return false;
+      const i=used.indexOf(false); if(i<0) return true;
+      used[i]=true;
+      for(const j of euroShuffle([...Array(n).keys()],rng)){
+        if(used[j]||!ok(P[i],P[j],strict)) continue;
+        used[j]=true;pairs.push([P[i],P[j]]);
+        if(go()) return true;
+        used[j]=false;pairs.pop();
+      }
+      used[i]=false;return false;
+    };
+    return go()?pairs:null;
+  };
+  for(const strict of [true,false]){
+    for(let attempt=0;attempt<30;attempt++){
+      const edges=[];let fail=false;
+      for(let i=0;i<pots.length&&!fail;i++){
+        const intra=per===2?intraCycle(pots[i],strict):intraMatch(pots[i],strict);
+        if(!intra){fail=true;break;}
+        edges.push(...intra);
+        for(let j=i+1;j<pots.length&&!fail;j++){
+          const forbid=new Set();
+          for(let r=0;r<per;r++){
+            const m=matchPerfect(pots[i],pots[j],forbid,strict);
+            if(!m){fail=true;break;}
+            m.forEach((jj,ii)=>{edges.push([pots[i][ii],pots[j][jj]]);forbid.add(pots[i][ii].n+"|"+pots[j][jj].n);});
+          }
+        }
+      }
+      if(!fail) return edges.map(([a,b])=>[a.n,b.n]);
+    }
+  }
+  return [];
+};
+
+// ── Ev/deplasman: Euler çevrimi ile yönlendir → her takım yarı ev, yarı dep ──
+const orientEuroPairs=(pairs)=>{
+  const adj={};pairs.forEach(([a,b],i)=>{(adj[a]=adj[a]||[]).push(i);(adj[b]=adj[b]||[]).push(i);});
+  const usedE=new Array(pairs.length).fill(false), out=[], ptr={};
+  Object.keys(adj).forEach(start=>{
+    // Hierholzer: kenarları geçiş yönünde ev→dep olarak yaz
+    const stack=[[start,-1]];
+    while(stack.length){
+      const [v]=stack[stack.length-1];
+      ptr[v]=ptr[v]||0;
+      while(ptr[v]<adj[v].length&&usedE[adj[v][ptr[v]]]) ptr[v]++;
+      if(ptr[v]===adj[v].length){const [,e]=stack.pop();if(e>=0)out.push(e);continue;}
+      const e=adj[v][ptr[v]];usedE[e]=true;
+      const [a,b]=pairs[e];const w=a===v?b:a;
+      stack.push([w,e]);
+      pairs[e]=[v,w]; // v ev sahibi
+    }
+  });
+  return pairs.map(([h,a])=>({h,a}));
+};
+
+// ── Maç günü ataması: her takım her haftada tam 1 maç ──
+// Her maç günü için kalan maç grafiğinde mükemmel eşleşme (MRV geri izleme), çıkmazda yeniden dene
+const assignEuroMatchdays=(matches,nMd,rng)=>{
+  const names=[...new Set(matches.flatMap(m=>[m.h,m.a]))];
+  for(let attempt=0;attempt<60;attempt++){
+    const left=new Set(matches.map((_,i)=>i));
+    const md=new Array(matches.length).fill(0);
+    let ok=true;
+    for(let k=1;k<=nMd&&ok;k++){
+      const inc={};names.forEach(n=>inc[n]=[]);
+      left.forEach(i=>{inc[matches[i].h].push(i);inc[matches[i].a].push(i);});
+      const free=new Set(names), chosen=[];let steps=0;
+      const go=()=>{
+        if(!free.size) return true;
+        if(++steps>4000) return false;
+        let best=null,bo=null;
+        for(const n of free){const o=inc[n].filter(i=>free.has(matches[i].h)&&free.has(matches[i].a));if(!bo||o.length<bo.length){best=n;bo=o;if(!o.length)break;}}
+        if(!bo.length) return false;
+        for(const i of euroShuffle(bo,rng)){
+          const m=matches[i];free.delete(m.h);free.delete(m.a);chosen.push(i);
+          if(go()) return true;
+          chosen.pop();free.add(m.h);free.add(m.a);
+        }
+        return false;
+      };
+      if(!go()){ok=false;break;}
+      chosen.forEach(i=>{md[i]=k;left.delete(i);});
+    }
+    if(ok) return matches.map((m,i)=>({...m,md:md[i],hg:null,ag:null}));
+  }
+  // Son çare: sırayla dağıt (çok nadir)
+  return matches.map((m,i)=>({...m,md:(i%nMd)+1,hg:null,ag:null}));
+};
+
+// ── Takvim: kullanıcının lig haftaları arasına (w>=1000) ZTK/Kalkan ile çakışmadan yerleş ──
+const buildEuroCalendar=(allFix,comp)=>{
+  const MO=["Temmuz","Agustos","Eylul","Ekim","Kasim","Aralik","Ocak","Subat","Mart","Nisan","Mayis","Haziran"];
+  const lig=(allFix||[]).filter(f=>!EURO_CUP_COMPS.includes(f.comp)&&(f.w||0)>0&&(f.w||0)<1000);
+  const byM={};lig.forEach(f=>{(byM[f.month]=byM[f.month]||new Set()).add(f.w);});
+  Object.keys(byM).forEach(m=>{byM[m]=[...byM[m]].sort((a,b)=>a-b);});
+  const allW=[...new Set(lig.map(f=>f.w))].sort((a,b)=>a-b);
+  // ZTK / Kalkan maçlarının oturduğu ara haftaları işaretle
+  const busy=new Set();let last=0;
+  sortFixture((allFix||[]).filter(f=>f.comp!=="HAZ"&&!isEuroComp(f.comp))).forEach(f=>{
+    if(f.comp==="ZTK"||f.comp==="SUPERKUPA") busy.add(last); else if((f.w||0)<1000) last=f.w||last;
+  });
+  const taken=new Set();
+  const pick=(month,n,mode)=>{
+    let cand=(byM[month]||[]).slice();
+    if(mode==="early") cand=cand.slice(0,Math.max(1,cand.length-1));
+    if(mode==="last") cand=cand.slice(-1);
+    if(!cand.length){ // o ay lig yok: önceki ayların son haftasından sonra
+      const mi=MO.indexOf(month);let base=0;
+      for(let k=mi-1;k>=0&&!base;k--){const ws=byM[MO[k]];if(ws&&ws.length) base=ws[ws.length-1];}
+      if(!base) base=allW[0]||1;
+      return Array.from({length:n},(_,k)=>({w:base*100+45+k*5,month}));
+    }
+    const res=[];
+    for(let k=0;k<n;k++){
+      const ideal=Math.min(cand.length-1,Math.floor((k+0.5)*cand.length/n));
+      let g=null;
+      for(let d=0;d<cand.length&&g===null;d++){
+        for(const idx of [ideal+d,ideal-d]){
+          if(idx<0||idx>=cand.length) continue;
+          const w=cand[idx];
+          if(!taken.has(w)&&!busy.has(w)){g=w;break;}
+        }
+      }
+      if(g===null) for(const w of cand) if(!taken.has(w)){g=w;break;}
+      if(g===null){res.push({w:cand[cand.length-1]*100+46+k*2,month});continue;}
+      taken.add(g);
+      res.push({w:g*100+(mode==="last"?60:40),month});
+    }
+    return res.sort((a,b)=>a.w-b.w);
+  };
+  const mdMonths=comp==="CON"
+    ?["Ekim","Ekim","Kasim","Kasim","Aralik","Aralik"]
+    :["Eylul","Ekim","Ekim","Kasim","Kasim","Aralik","Ocak","Ocak"];
+  const mdCount={};mdMonths.forEach(m=>mdCount[m]=(mdCount[m]||0)+1);
+  const md=[];Object.keys(mdCount).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b)).forEach(m=>md.push(...pick(m,mdCount[m])));
+  // Eleme turları: Şubat'tan itibaren lig araları, her slot bir öncekinden sonra (monoton)
+  const gaps=allW.filter(w=>{const m=lig.find(f=>f.w===w).month;return MO.indexOf(m)>=MO.indexOf("Subat");});
+  const lastW=allW[allW.length-1]||38;
+  const monthOfW=(w)=>lig.find(f=>f.w===w).month;
+  let li=-1;
+  const koPick=(month,n)=>{
+    const res=[];
+    for(let k=0;k<n;k++){
+      let cand=gaps.map((w,i)=>({w,i})).filter(x=>x.i>li&&x.w<lastW&&!busy.has(x.w));
+      const inM=cand.filter(x=>monthOfW(x.w)===month);
+      const pickFrom=inM.length?inM:cand.filter(x=>MO.indexOf(monthOfW(x.w))>=MO.indexOf(month));
+      const c=pickFrom.length?pickFrom[(k===0||pickFrom.length<2)?0:Math.min(1,pickFrom.length-1)]:(cand[0]||null);
+      if(c){li=c.i;res.push({w:c.w*100+40,month:monthOfW(c.w)});}
+      else{const prev=res.length?res[res.length-1].w:(lastW*100+40);res.push({w:Math.max(prev+2,lastW*100+42+k*2),month});}
+    }
+    return res;
+  };
+  const po=koPick("Subat",2), r16=koPick("Mart",2), qf=koPick("Nisan",2), sf=koPick("Mayis",2);
+  const lastMonth=lig.length?monthOfW(lastW):"Mayis";
+  return {md,po,r16,qf,sf,fin:[{w:lastW*100+60,month:lastMonth}]};
+};
+const euroPos=(c)=>c?(c.w||0)/100:Infinity;
+
+// ── Maç simülasyonu (Poisson, güç farkı + iç saha) ──
+const euroSimScore=(hStr,aStr,rng)=>{
+  const d=(hStr||70)-(aStr||70);
+  const lh=Math.max(0.25,Math.min(3.6,1.38*Math.exp(d*0.045)));
+  const la=Math.max(0.2,Math.min(3.4,1.08*Math.exp(-d*0.045)));
+  const pois=(l)=>{const L=Math.exp(-l);let k=0,p=1;do{k++;p*=rng();}while(p>L&&k<10);return k-1;};
+  return [pois(lh),pois(la)];
+};
+const euroSortTable=(teams)=>[...(teams||[])].sort((a,b)=>
+  b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||b.w-a.w||(b.str||0)-(a.str||0)||String(a.n).localeCompare(String(b.n)));
+
+// ── Tablo oluştur (Eylül kurası) ──
+const createEuroTable=(comp,quals,allFix,seed)=>{
+  const rng=euroRng(euroHash(comp+":"+seed));
+  const list=(quals||[]).slice(0,36);
+  if(list.length<36) return null;
+  const pots=buildEuroPots(list,comp);
+  const potOf={};pots.forEach((p,i)=>p.forEach(t=>{potOf[t.n]=i+1;}));
+  const pairs=buildSwissPairs(pots,comp,rng);
+  const matches=assignEuroMatchdays(orientEuroPairs(pairs),EURO_META[comp].md,rng)
+    .sort((a,b)=>a.md-b.md);
+  return {
+    comp,seed:euroHash(comp+"#"+seed),phase:"league",champion:null,
+    teams:list.map(t=>({n:t.n,lg:t.lg,str:t.str,me:!!t.me,pot:potOf[t.n],pts:0,w:0,d:0,l:0,gf:0,ga:0})),
+    matches,cal:buildEuroCalendar(allFix,comp),
+    ko:{po:[],r16:[],qf:[],sf:[],fin:[]},
+  };
+};
+
+// Kullanıcının kupa fikstürleri (sw:true → w dinamik düzeltmeden muaf)
+const euroUserLeagueFixtures=(tbl,fromPos=-Infinity)=>{
+  if(!tbl) return [];
+  const me=tbl.teams.find(t=>t.me);if(!me) return [];
+  const strOf={};tbl.teams.forEach(t=>strOf[t.n]=t.str);
+  return tbl.matches.filter(m=>(m.h===me.n||m.a===me.n)&&m.hg===null&&euroPos(tbl.cal.md[m.md-1])>fromPos).map(m=>{
+    const c=tbl.cal.md[m.md-1]||{w:0,month:"Ekim"};
+    const opp=m.h===me.n?m.a:m.h;
+    return {w:c.w,month:c.month,opp,home:m.h===me.n,str:strOf[opp]||75,comp:tbl.comp,round:"Lig Aşaması",md:m.md,sw:true};
+  });
+};
+const euroTieFixtures=(tbl,round,tie)=>{
+  const me=tbl.teams.find(t=>t.me);if(!me) return [];
+  if(tie.a!==me.n&&tie.b!==me.n) return [];
+  const opp=tie.a===me.n?tie.b:tie.a;
+  const str=(tbl.teams.find(t=>t.n===opp)||{}).str||78;
+  return tie.legs.map((lg,i)=>{
+    const c=tbl.cal[round][i]||tbl.cal[round][0];
+    const label=round==="fin"?"Final":`${EURO_KO_LABEL[round]} — ${i+1}. Maç`;
+    return {w:c.w,month:c.month,opp,home:round==="fin"?false:lg.h===me.n,str,comp:tbl.comp,round:label,ko:round,leg:i,sw:true};
+  });
+};
+
+// ── Tabloyu P konumuna kadar ilerlet ──
+// um: kullanıcının az önce oynadığı maç {md}|{ko,leg} + {myG,opG,penWon}
+// Dönen: {tbl, ev:[{type,...}], fix:[yeni kullanıcı fikstürleri]}
+const advanceEuroTable=(tblIn,P,um=null)=>{
+  if(!tblIn) return {tbl:tblIn,ev:[],fix:[]};
+  const tbl=JSON.parse(JSON.stringify(tblIn));
+  const ev=[], fix=[];
+  const me=tbl.teams.find(t=>t.me);
+  const isMe=(n)=>!!me&&n===me.n;
+  const T={};tbl.teams.forEach(t=>T[t.n]=t);
+  const rngFor=(k)=>euroRng(euroHash(tbl.seed+":"+k));
+  const applyRes=(m,hg,ag)=>{
+    m.hg=hg;m.ag=ag;
+    const h=T[m.h],a=T[m.a];if(!h||!a) return;
+    h.gf+=hg;h.ga+=ag;a.gf+=ag;a.ga+=hg;
+    if(hg>ag){h.w++;h.pts+=3;a.l++;} else if(hg<ag){a.w++;a.pts+=3;h.l++;} else {h.d++;a.d++;h.pts++;a.pts++;}
+  };
+  // 1) Kullanıcı sonucu
+  if(um&&me){
+    if(um.md){
+      const m=tbl.matches.find(x=>x.md===um.md&&x.hg===null&&(isMe(x.h)||isMe(x.a)));
+      if(m){const home=isMe(m.h);applyRes(m,home?um.myG:um.opG,home?um.opG:um.myG);}
+    } else if(um.ko){
+      const tie=(tbl.ko[um.ko]||[]).find(t=>isMe(t.a)||isMe(t.b));
+      const leg=tie&&tie.legs[um.leg||0];
+      if(leg&&leg.hg===null){
+        const home=isMe(leg.h);leg.hg=home?um.myG:um.opG;leg.ag=home?um.opG:um.myG;
+        if(um.penWon!==undefined&&um.penWon!==null) tie.userPen=um.penWon;
+      }
+    }
+  }
+  // Çift maç sonucu
+  const decideTie=(tie,key)=>{
+    if(tie.win) return;
+    if(tie.legs.some(l=>l.hg===null)) return;
+    const g={[tie.a]:0,[tie.b]:0};
+    tie.legs.forEach(l=>{g[l.h]+=l.hg;g[l.h===tie.a?tie.b:tie.a]+=l.ag;});
+    if(g[tie.a]!==g[tie.b]){tie.win=g[tie.a]>g[tie.b]?tie.a:tie.b;return;}
+    // Penaltılar
+    let aWins;
+    if(tie.userPen!==undefined&&(isMe(tie.a)||isMe(tie.b))) aWins=isMe(tie.a)?tie.userPen:!tie.userPen;
+    else {const r=rngFor("pen"+key)();const sa=T[tie.a]?.str||70, sb=T[tie.b]?.str||70;aWins=r<0.5+(sa-sb)*0.01;}
+    const r2=rngFor("pens"+key)();const wp=4+Math.floor(r2*2), lp=Math.max(2,wp-1-Math.floor(r2*2));
+    tie.pen={a:aWins?wp:lp,b:aWins?lp:wp};
+    tie.win=aWins?tie.a:tie.b;
+  };
+  const mkTie=(a,b,legs)=>({a,b,legs:legs===1?[{h:a,a:b,hg:null,ag:null}]
+    :[{h:b,a:a,hg:null,ag:null},{h:a,a:b,hg:null,ag:null}],win:null,pen:null}); // seri başı rövanşı evinde
+  const startRound=(round,ties)=>{
+    tbl.ko[round]=ties;tbl.phase=round;
+    ties.forEach(t=>fix.push(...euroTieFixtures(tbl,round,t)));
+  };
+  for(let guard=0;guard<10;guard++){
+    if(tbl.phase==="league"){
+      tbl.matches.forEach((m,i)=>{
+        if(m.hg!==null) return;
+        if(euroPos(tbl.cal.md[m.md-1])>P) return;
+        if((isMe(m.h)||isMe(m.a))&&P!==Infinity&&!um?.catchUp&&euroPos(tbl.cal.md[m.md-1])>P-2) return; // kullanıcı maçını kendisi oynar
+        const [hg,ag]=euroSimScore(T[m.h]?.str,T[m.a]?.str,rngFor("m"+i));
+        applyRes(m,hg,ag);
+      });
+      if(tbl.matches.some(m=>m.hg===null)) break;
+      const srt=euroSortTable(tbl.teams);
+      srt.forEach((t,i)=>{T[t.n].rank=i+1;});
+      const myRank=me?T[me.n].rank:0;
+      ev.push({type:"league_end",comp:tbl.comp,myRank});
+      // Play-Off: 9↔24, 10↔23 … 16↔17 (seri başı 9–16 rövanşı evinde oynar)
+      startRound("po",Array.from({length:8},(_,t)=>mkTie(srt[8+t].n,srt[23-t].n,2)));
+      tbl.direct=srt.slice(0,8).map(t=>t.n);
+      continue;
+    }
+    if(tbl.phase==="done") break;
+    const round=tbl.phase, ties=tbl.ko[round]||[];
+    ties.forEach((tie,ti)=>{
+      tie.legs.forEach((l,li)=>{
+        if(l.hg!==null) return;
+        if(euroPos(tbl.cal[round][li])>P) return;
+        if((isMe(l.h)||isMe(l.a))&&P!==Infinity&&!um?.catchUp&&euroPos(tbl.cal[round][li])>P-2) return;
+        const [hg,ag]=euroSimScore(T[l.h]?.str,T[l.a]?.str,rngFor(round+ti+"_"+li));
+        l.hg=hg;l.ag=ag;
+      });
+      decideTie(tie,round+ti);
+    });
+    if(ties.some(t=>!t.win)) break;
+    // Kullanıcı tur sonucu
+    ties.forEach(t=>{if(isMe(t.a)||isMe(t.b)) ev.push({type:"tie_end",comp:tbl.comp,round,won:isMe(t.win),opp:isMe(t.a)?t.b:t.a,pen:t.pen});});
+    const W=ties.map(t=>t.win);
+    if(round==="po"){
+      // Son 16: k. seri başı ↔ Play-Off eşleşmesi (8-k) galibi → 1↔16/17, 8↔9/24
+      startRound("r16",tbl.direct.map((n,k)=>mkTie(n,W[7-k],2)));
+      ev.push({type:"round_start",comp:tbl.comp,round:"r16",tie:tbl.ko.r16.find(t=>isMe(t.a)||isMe(t.b))||null});
+    } else if(round==="r16"){
+      const order=[[0,7],[3,4],[1,6],[2,5]];
+      startRound("qf",order.map(([x,y])=>mkTie(W[x],W[y],2)));
+      ev.push({type:"round_start",comp:tbl.comp,round:"qf",tie:tbl.ko.qf.find(t=>isMe(t.a)||isMe(t.b))||null});
+    } else if(round==="qf"){
+      startRound("sf",[mkTie(W[0],W[1],2),mkTie(W[2],W[3],2)]);
+      ev.push({type:"round_start",comp:tbl.comp,round:"sf",tie:tbl.ko.sf.find(t=>isMe(t.a)||isMe(t.b))||null});
+    } else if(round==="sf"){
+      startRound("fin",[mkTie(W[0],W[1],1)]);
+      ev.push({type:"round_start",comp:tbl.comp,round:"fin",tie:tbl.ko.fin.find(t=>isMe(t.a)||isMe(t.b))||null});
+    } else if(round==="fin"){
+      tbl.champion=W[0];tbl.phase="done";
+      ev.push({type:"champion",comp:tbl.comp,champion:W[0],me:isMe(W[0])});
+    }
+  }
+  return {tbl,ev,fix};
+};
+
+// Kullanıcının bu kupadaki durumu (UI için)
+const euroMyStatus=(tbl)=>{
+  if(!tbl) return null;
+  const me=tbl.teams.find(t=>t.me);if(!me) return null;
+  const srt=euroSortTable(tbl.teams);
+  const rank=srt.findIndex(t=>t.me)+1;
+  let stage="league", out=false;
+  for(const r of EURO_KO_ROUNDS){
+    const tie=(tbl.ko[r]||[]).find(t=>t.a===me.n||t.b===me.n);
+    if(tie){stage=r;if(tie.win&&tie.win!==me.n) out=true;}
+  }
+  if(tbl.phase!=="league"&&stage==="league"&&!(tbl.direct||[]).includes(me.n)) out=true;
+  if(tbl.champion===me.n) stage="champion";
+  return {rank,stage,out,name:me.n};
+};
+// Avrupa primleri (K€) — tur atlama primleri o tura ulaşınca ödenir
+const EURO_PRIM={
+  CL:  {lig_galibiyet:800,lig_beraberlik:300,playoff:1500,son16:4000,ceyrek:6500,yari:10000,final:15000,finalist:8000,sampiyon:25000},
+  UEFA:{lig_galibiyet:300,lig_beraberlik:100,playoff:600, son16:1500,ceyrek:2500,yari:4000, final:6000, finalist:3000,sampiyon:10000},
+  CON: {lig_galibiyet:150,lig_beraberlik:50, playoff:300, son16:700, ceyrek:1200,yari:2000, final:3000, finalist:1500,sampiyon:5000},
+};
+// Tura ulaşma → prim anahtarı
+const EURO_PRIM_ROUND={po:"playoff",r16:"son16",qf:"ceyrek",sf:"yari",fin:"final"};
+
+// ── Sezonun Avrupa kurası: 3 tablo + kullanıcı fikstürü + kura modalı verisi ──
+// peg: {swiss:true, quals:{CL,UEFA,CON}|null, force?, seed?, rebuild?}
+// Geçmiş haftalar (yüklenen eski kayıt / geç kura) kullanıcı dahil simüle edilir.
+const buildEuroSeasonDraw=(season,peg)=>{
+  const teams=season.teams||[];
+  const byName={};teams.forEach(t=>{byName[t.n]=t;});
+  let quals=peg&&peg.quals;
+  if(quals){
+    // Sezon sonu kontenjanını güncel güç/me bilgisiyle tazele
+    quals={CL:[],UEFA:[],CON:[]};
+    EURO_COMP_LIST.forEach(c=>{quals[c]=(peg.quals[c]||[]).map(t=>{const cur=byName[t.n];return cur?{n:cur.n,lg:cur.lg,str:cur.str||t.str,me:!!cur.me}:{...t,me:false};});});
+  } else {
+    quals=selectEuroQualifiers(teams,{byStr:true,force:(peg&&peg.force)||null,noMe:!!(peg&&peg.rebuild&&!peg.force)});
+  }
+  const allFix=[...(season.results||[]),...(season.fixture||[])];
+  const seed=(peg&&peg.seed)||((season.played||0)*7919+teams.length*31+(Date.now()%1000003));
+  const lastLigW=Math.max(0,...(season.results||[]).filter(r=>!EURO_CUP_COMPS.includes(r.comp)&&(r.w||0)<1000).map(r=>r.w||0));
+  const tables={}, userFix=[];let kura=null;
+  EURO_COMP_LIST.forEach(c=>{
+    let tbl=createEuroTable(c,quals[c],allFix,seed);
+    if(!tbl){tables[EURO_TABLE_KEY[c]]=null;return;}
+    let koFix=[];
+    if(lastLigW>0){const r=advanceEuroTable(tbl,lastLigW,{catchUp:true});tbl=r.tbl;koFix=r.fix;}
+    tables[EURO_TABLE_KEY[c]]=tbl;
+    const me=tbl.teams.find(t=>t.me);
+    if(!me) return;
+    userFix.push(...euroUserLeagueFixtures(tbl,lastLigW),...koFix.filter(f=>f.w/100>lastLigW));
+    const lgOf={};tbl.teams.forEach(t=>{lgOf[t.n]=t;});
+    kura={comp:c,
+      pots:Array.from({length:EURO_META[c].pots},(_,i)=>tbl.teams.filter(t=>t.pot===i+1).map(t=>({n:t.n,lg:t.lg,me:!!t.me}))),
+      opps:tbl.matches.filter(m=>m.h===me.n||m.a===me.n).sort((a,b)=>a.md-b.md).map(m=>{const o=m.h===me.n?m.a:m.h;
+        return {n:o,lg:lgOf[o].lg,pot:lgOf[o].pot,home:m.h===me.n,md:m.md,month:(tbl.cal.md[m.md-1]||{}).month||""};}),
+    };
+  });
+  return {tables,userFix,kura};
+};

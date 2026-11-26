@@ -483,7 +483,7 @@ function App(){
     totalW:0,totalD:0,totalL:0,totalGF:0,totalGA:0,totalPts:0,
     totalMatches:0,
     bestRank:99,bestLeague:"",
-    trophies:{ztk:0,sl:0,cl:0,uefal:0,superKupa:0},
+    trophies:{ztk:0,sl:0,cl:0,uefal:0,con:0,superKupa:0},
     lastClChampion:"",     // geçen sezon ASK şampiyonu
     lastUefaChampion:"",   // geçen sezon AL şampiyonu
     pressMoods:[],        // basın toplantısı geçmişi
@@ -555,7 +555,8 @@ function App(){
       r.includes("Kupası")||r.includes("Finale Çıktı")||
       r.includes("Yarı Finale")||r.includes("Çeyrek Finale")||
       r.includes("Grup Aşaması Geçildi")||r.includes("yükselmesi")||
-      r.includes("ASK hakkı")||r.includes("Avrupa Ligi");
+      r.includes("ASK hakkı")||r.includes("Avrupa Ligi")||
+      r.includes("Turuna Çıktı")||r.includes("Konferans Ligi");
 
     if(raw){
       // raw=true: maç galibiyet/mağlubiyet
@@ -647,35 +648,8 @@ function App(){
       :[];
     const MONTH_ORDER_FIX=["Temmuz","Agustos","Eylul","Ekim","Kasim","Aralik","Ocak","Subat","Mart","Nisan","Mayis","Haziran"];
     const moFix=(m)=>{const i=MONTH_ORDER_FIX.indexOf(m);return i===-1?99:i;};
-    // ── ASK / UEFA Lig maçlarını fixture'a ekle ──
-    const CL_MONTHS=["Ekim","Kasim","Aralik","Subat","Mart","Nisan"];
-    // clGroups/uefaGroups sıfırla — Eylül hook'u doğru zamanda set edecek
-    const newClGroups=null;
-    const newUEFAGroups=null;
-    let euroFix=[];
-    const shuffle2=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
-    const buildEuroFixLocal=(groups,comp,strBase)=>{
-      const fixes=[];
-      const myGroup=Object.values(groups).find(g=>g.some(t=>t.me));
-      if(!myGroup) return fixes;
-      const opps=shuffle2(myGroup.filter(t=>!t.me));
-      const MD_MONTHS=["Eylul","Ekim","Ekim","Kasim","Kasim","Aralik"];
-      const MD_HOME   =[true,   true,  true,  false,  false,  false];
-      // w>=1000 → sortFixture'da w/100 ile doğrudan konumlanır (slot bazlı değil)
-      // ew: 4.5, 7.5, 8.5, 10.5, 11.5, 13.5 — her ay içinde lig haftaları arasına düşer
-      const MD_W=[450, 750, 850, 1050, 1150, 1350];
-      // MD1-3: sırayla her rakiple EV maçı
-      // MD4-6: ters sırayla DEP maçı (gerçek UEFA formatı)
-      opps.forEach((opp,i)=>{
-        const str=strBase+Math.floor(Math.random()*8);
-        fixes.push({w:MD_W[i],    opp:opp.n,home:true, str,month:MD_MONTHS[i],  comp,round:"Grup Aşaması"});
-        fixes.push({w:MD_W[5-i],  opp:opp.n,home:false,str,month:MD_MONTHS[5-i],comp,round:"Grup Aşaması"});
-      });
-      // Knockout turları dinamik ekleniyor (handleMatchFinish içinde), burada sadece grup maçları
-      return fixes;
-    };
-    if(newClGroups) euroFix=buildEuroFixLocal(newClGroups,"CL",80);
-    else if(newUEFAGroups) euroFix=buildEuroFixLocal(newUEFAGroups,"UEFA",73);
+    // Avrupa (Swiss model) fikstürü Eylül kurasında eklenir (pendingEuroGroups)
+    const euroFix=[];
     const newFix=[...preFix,...ligFix,...kupaFix];
     // Sezon sonu hazırlık maçı — tüm lig maçları bittikten sonra (Mayıs sonu)
     const _endHazOpps={
@@ -1102,6 +1076,7 @@ function App(){
       let changed=false;
       const fixFixture=(f, lg)=>{
         if(!f) return f;
+        if(f.sw) return f; // Swiss model Avrupa fikstürü — w zaten takvime göre
         const _is38=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(lg||"");
         // ZTK grup son maçı
         if(f.comp==="ZTK"&&f.round&&f.round.startsWith("Grup")&&(f.w===265||f.w===225||f.w===215))
@@ -1115,15 +1090,15 @@ function App(){
         if(f.comp==="ZTK"&&f.round==="Yarı Final — 2. Maç") return {...f,w:3250,month:"Mayis"};
         if(f.comp==="ZTK"&&f.round&&f.round.startsWith("Final")) return {...f,w:3430,month:"Mayis"};
         // CL/UEFA KO — 38 ve 34 haftalık lig için farklı değerler
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Son 16 — 1. Maç") return {...f,w:_is38?2750:2330,month:"Mart"};
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Son 16 — 2. Maç") return {...f,w:_is38?2850:2530,month:"Mart"};
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Çeyrek Final — 1. Maç") return {...f,w:_is38?3050:2730,month:"Nisan"};
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Çeyrek Final — 2. Maç") return {...f,w:_is38?3150:2920,month:"Nisan"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Son 16 — 1. Maç") return {...f,w:_is38?2750:2330,month:"Mart"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Son 16 — 2. Maç") return {...f,w:_is38?2850:2530,month:"Mart"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Çeyrek Final — 1. Maç") return {...f,w:_is38?3050:2730,month:"Nisan"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Çeyrek Final — 2. Maç") return {...f,w:_is38?3150:2920,month:"Nisan"};
         // CL/UEFA YF
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Yarı Final — 1. Maç") return {...f,w:_is38?3550:3150,month:"Mayis"};
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Yarı Final — 2. Maç") return {...f,w:_is38?3650:3350,month:"Mayis"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Yarı Final — 1. Maç") return {...f,w:_is38?3550:3150,month:"Mayis"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Yarı Final — 2. Maç") return {...f,w:_is38?3650:3350,month:"Mayis"};
         // CL/UEFA Final
-        if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Final") return {...f,w:_is38?3750:3470,month:"Mayis"};
+        if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Final") return {...f,w:_is38?3750:3470,month:"Mayis"};
         return f;
       };
       const migratedSaves=saves.map(slot=>{
@@ -1356,11 +1331,11 @@ function App(){
         return updated;
       };
       const curLgForSim=prev.league||"1. Lig";
-      const isEuroFix=fix.comp==="CL"||fix.comp==="UEFA";
+      const isEuroFix=fix.comp==="CL"||fix.comp==="UEFA"||fix.comp==="CON";
       const KNOWN_LIG_COMPS=["SL","TFF1","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi","İngiliz 2. Ligi"];
-      const isLeagueFix=KNOWN_LIG_COMPS.includes(fix.comp)||(!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(fix.comp)&&!isEuroFix);
+      const isLeagueFix=KNOWN_LIG_COMPS.includes(fix.comp)||(!["ZTK","HAZ","CL","UEFA","CON","SUPERKUPA"].includes(fix.comp)&&!isEuroFix);
       // Kullanıcının lig maç sayısı (Kupa/HAZ/CL/UEFA hariç) — bu maçtan sonraki değer
-      const myLgPlayedSoFar=prev.results.filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp)).length;
+      const myLgPlayedSoFar=prev.results.filter(r=>!["ZTK","HAZ","CL","UEFA","CON","SUPERKUPA"].includes(r.comp)).length;
       const myLgCap=isLeagueFix?myLgPlayedSoFar+1:myLgPlayedSoFar;
       const newTeams0=prev.teams.map(t=>{
         if(t.me) return isLeagueFix?{...t,pts:t.pts+(result.res==="W"?3:result.res==="D"?1:0),
@@ -1447,400 +1422,53 @@ function App(){
       // Hem fixture hem results'a bakarak çakışmayı önle
       const nextWForMonth=(month,base)=>{
         const usedFix=prev.fixture
-          .filter(f=>f.month===month&&(f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"))
+          .filter(f=>f.month===month&&(f.comp==="ZTK"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON"))
           .map(f=>f.w||0);
         const usedRes=prev.results
-          .filter(r=>r.month===month&&(r.comp==="ZTK"||r.comp==="CL"||r.comp==="UEFA"))
+          .filter(r=>r.month===month&&(r.comp==="ZTK"||r.comp==="CL"||r.comp==="UEFA"||r.comp==="CON"))
           .map(r=>r.w||0);
         const allUsed=[...usedFix,...usedRes];
         return allUsed.length>0?Math.max(base,...allUsed.map(w=>w+1)):base;
       };
 
-      // ── CL / UEFA ELEME TUR SİSTEMİ ─────────────────────────────
-      if(isEuroFix){
-        const comp=fix.comp; // "CL" veya "UEFA"
-        const prevEuroResults=prev.results.filter(r=>r.comp===comp);
-        const prevEuroPlayed=prevEuroResults.length;
-        const thisRound=fix.round||"";
-        // Penaltı bilgisini results'a eklemek için (penData global scope'ta tanımlı)
-
-        // Grup aşaması: 6 maç tamamlandı mı?
-        const prevEuroGroupPlayed=prevEuroResults.filter(r=>r.round==="Grup Aşaması").length;
-        const isLastGroup=thisRound==="Grup Aşaması"&&prevEuroGroupPlayed===5;
-
-        // Eleme tur kontrolleri
-        const isEuroS16M1=thisRound==="Son 16 — 1. Maç";
-        const isEuroS16M2=thisRound==="Son 16 — 2. Maç";
-        const isEuroQFM1=thisRound==="Çeyrek Final — 1. Maç";
-        const isEuroQFM2=thisRound==="Çeyrek Final — 2. Maç";
-        const isEuroSFM1=thisRound==="Yarı Final — 1. Maç";
-        const isEuroSFM2=thisRound==="Yarı Final — 2. Maç";
-        const isEuroFinalMatch=thisRound==="Final";
-
-        const euroStr=(round)=>{
-          if(comp==="CL"){
-            if(round.startsWith("Son 16"))    return 84+Math.floor(Math.random()*6);
-            if(round.startsWith("Çeyrek"))    return 86+Math.floor(Math.random()*6);
-            if(round.startsWith("Yarı Final"))return 88+Math.floor(Math.random()*6);
-            return 90+Math.floor(Math.random()*6);
-          } else {
-            if(round.startsWith("Son 16"))    return 78+Math.floor(Math.random()*6);
-            if(round.startsWith("Çeyrek"))    return 80+Math.floor(Math.random()*6);
-            if(round.startsWith("Yarı Final"))return 82+Math.floor(Math.random()*6);
-            return 84+Math.floor(Math.random()*6);
-          }
-        };
-
-        const CL_KO_CLUBS=["Real Madreno","Bayern FC","FC Internazionale","Juventus FC","Galatasaray FC","Sporting CP","Leverkusen FC","Atletico Madreno","PSV Eindhoven","FC Porto","Villareal CF","RSC Anderlecht","Eastfield City","Paris SG","AFC Ajax","SS Lazione","Northon City","Mersey Reds","SL Benfica","Shakhtar","FC Cataluña","Dortmund BV","Feyenoord","Celtic FC","Westbridge FC","SSC Partenopei","Sevilia FC","SC Braga","AC Milanese","Leipzig RB","Gladbach FC","Real Sociedad"];
-        const UEFA_KO_CLUBS=["AS Romasso","Stade Rennais","İskoç Mavi FC","Ferencvaros","OL Lyon","Frankfurt EFC","East Hammers","Slavia Praha","OM Marseille","Stuttgart VfB","Boavista","OGC Nice","Atalanta BC B","Brest","Eintracht","RC Lens","Fenerbahce FC","Trabzonspor FC","Bodo Glimt","Molde","Bologna FC","Wolfsburg FC","AZ Alkmaar","Genk","Gil Vicente","Qarabag","Union SG","Djurgarden","Sturm Graz","Omonoia","Vitoria SC","Helsinki"];
-        const koPool=comp==="CL"?CL_KO_CLUBS:UEFA_KO_CLUBS;
-        // Daha önce oynanan rakipleri topla (tekrar eşleşme olmasın)
-        const usedEuroOpps=[...new Set([
-          ...prev.results.filter(r=>r.comp===comp).map(r=>r.opp),
-          ...prev.fixture.filter(f=>f.comp===comp&&f.round&&f.round.startsWith("Grup")).map(f=>f.opp)
-        ])];
-        // Gruplardaki tüm 1. ve 2. takımları bul (kullanıcı grubunun dışındaki)
-        const liveGroupsNow=comp==="CL"?prev.clGroups:prev.uefaGroups;
-        const qualifiedFromGroups=(()=>{
-          if(!liveGroupsNow||Object.keys(liveGroupsNow).length===0) return [];
-          const result2=[];
-          Object.values(liveGroupsNow).forEach(grp=>{
-            const isMyGrp=grp.some(t=>t.me);
-            const sorted=[...grp].sort((a,b)=>b.pts-a.pts||((b.gf||0)-(b.ga||0))-((a.gf||0)-(a.ga||0)));
-            if(!isMyGrp){
-              // Diğer gruplardan 1. ve 2.yi al
-              if(sorted[0]&&sorted[0].n!==clubName) result2.push(sorted[0].n);
-              if(sorted[1]&&sorted[1].n!==clubName) result2.push(sorted[1].n);
-            } else {
-              // Kendi grubumuzdan: 1. veya 2. olan takımları da ekle (ÇF+ için rakip olabilirler)
-              // S16'da aynı gruptakiyle karşılaşılmaz ama ÇF'de karşılaşılabilir
-              sorted.forEach(t=>{
-                if(!t.me&&t.n!==clubName) result2.push(t.n);
-              });
-            }
-          });
-          return result2;
-        })();
-        const pickEuroOpp=(seed,round)=>{
-          // Tüm KO turları: diğer grupların 1./2. takımlarından seç
-          // S16 için: kendi grubumuzdan rakip seçme (UEFA kuralı)
-          // ÇF+ için: kendi grubumuzdan da seçilebilir
-          const isS16=round&&round.includes("Son 16");
-          let base;
-          if(isS16){
-            // S16: sadece diğer grupların takımları
-            const otherGroupTeams=[];
-            if(liveGroupsNow&&Object.keys(liveGroupsNow).length>0){
-              Object.values(liveGroupsNow).forEach(grp=>{
-                const isMyGrp=grp.some(t=>t.me);
-                if(!isMyGrp){
-                  const sorted=[...grp].sort((a,b)=>b.pts-a.pts||((b.gf||0)-(b.ga||0))-((a.gf||0)-(a.ga||0)));
-                  if(sorted[0]&&sorted[0].n!==clubName) otherGroupTeams.push(sorted[0].n);
-                  if(sorted[1]&&sorted[1].n!==clubName) otherGroupTeams.push(sorted[1].n);
-                }
-              });
-            }
-            base=otherGroupTeams.length>0?otherGroupTeams:koPool;
-          } else {
-            base=qualifiedFromGroups.length>0?qualifiedFromGroups:koPool;
-          }
-          const available=base.filter(c=>!usedEuroOpps.includes(c));
-          const pool=available.length>0?available:base.length>0?base:koPool;
-          return pool[Math.abs(seed)%pool.length];
-        };
-
-        if(isLastGroup){
-          // Grup tablosunu hesapla: groups maçlarındaki puan
-          const groupResults=prev.results.filter(r=>r.comp===comp&&r.round==="Grup Aşaması");
-          const pts=groupResults.reduce((s,r)=>s+(r.r==="W"?3:r.r==="D"?1:0),0)+(result.res==="W"?3:result.res==="D"?1:0);
-          // Grup sıralaması: prev tablosuna SON MAÇI da ekleyerek değerlendir
-          const myEuroGroupPrev=comp==="CL"
-            ?Object.values(prev.clGroups||{}).find(g=>g.some(t=>t.me))
-            :Object.values(prev.uefaGroups||{}).find(g=>g.some(t=>t.me));
-          let qualified=false;
-          if(myEuroGroupPrev){
-            // Son maç sonucunu tabloya uygula
-            const myG=result.myG; const opG=result.opG; const res=result.res;
-            const oppR=res==="W"?"L":res==="L"?"W":"D";
-            const updatedGroup=myEuroGroupPrev.map(t=>{
-              if(t.me) return{...t,pts:t.pts+(res==="W"?3:res==="D"?1:0),w:t.w+(res==="W"?1:0),d:t.d+(res==="D"?1:0),l:t.l+(res==="L"?1:0),gf:t.gf+myG,ga:t.ga+opG};
-              if(t.n===fix.opp) return{...t,pts:t.pts+(oppR==="W"?3:oppR==="D"?1:0),w:t.w+(oppR==="W"?1:0),d:t.d+(oppR==="D"?1:0),l:t.l+(oppR==="L"?1:0),gf:t.gf+opG,ga:t.ga+myG};
-              return t;
-            });
-            const euroTable=[...updatedGroup].sort((a,b)=>
-              b.pts-a.pts||((b.gf||0)-(b.ga||0))-((a.gf||0)-(a.ga||0)));
-            const myEuroRank=euroTable.findIndex(t=>t.me);
-            qualified=myEuroRank<=1; // sadece 1. ve 2. çıkar
-          } else {
-            // Fallback: basit puan kontrolü
-            const seed1=prev.played*7+comp.charCodeAt(0);
-            const seed2=prev.played*13+comp.charCodeAt(1);
-            const seed3=prev.played*17+(comp.charCodeAt(2)||99);
-            const simP=(s)=>Math.min(18,Math.floor(((s*1664525+1013904223)>>>0)%4)*3+Math.floor(((s*22695477+1)>>>0)%3));
-            const oppPtsFb=[simP(seed1),simP(seed2),simP(seed3)];
-            const fbHigher=oppPtsFb.filter(p=>p>pts).length;
-            qualified=fbHigher<=1;
-          }
-          if(qualified){
-            const opp=pickEuroOpp(prev.played+17,"Son 16");
-            const str=euroStr("Son 16");
-            const _is38=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(season.league||"");
-            extraFixture.push({w:_is38?2750:2330,opp,home:false,str,month:"Mart", comp,round:"Son 16 — 1. Maç"});
-            extraFixture.push({w:_is38?2850:2530,opp,home:true, str,month:"Mart", comp,round:"Son 16 — 2. Maç"});
-            setTimeout(()=>showToast(`🎉 ${comp==="CL"?"⭐ Avrupa Şampiyonlar Kupası":"🇪🇺 Avrupa Ligi"} Son 16'ya kaldık! ${opp} ile eşleştik.`,4000),500);
-          } else {
-            setTimeout(()=>showToast(`😔 ${comp==="CL"?"⭐ Avrupa Şampiyonlar Kupası":"🇪🇺 Avrupa Ligi"} grup aşamasında elendik.`,3500),500);
-            // Gruptan elenince me:false yap ama tabloyu koru (simülasyon sürekliliği)
-            setTimeout(()=>setSeason(s=>{
-              const clearMe=(groups)=>{if(!groups)return groups;const g={};Object.entries(groups).forEach(([k,v])=>{g[k]=v.map(t=>t.me?{...t,me:false}:t);});return g;};
-              return {...s,
-                clGroups:comp==="CL"?clearMe(s.clGroups):s.clGroups,
-                uefaGroups:comp==="UEFA"?clearMe(s.uefaGroups):s.uefaGroups,
-              };
-            }),600);
-          }
-        }
-
-        // Son 16 — 2. maç bitti: agregaya bak
-        if(isEuroS16M2){
-          const r1=prev.results.filter(r=>r.comp===comp&&r.round==="Son 16 — 1. Maç").slice(-1)[0];
-          const g1={myG:r1?.myG??0, opG:r1?.opG??0};
-          const myTot=g1.myG+result.myG; const opTot=g1.opG+result.opG;
-          let advancedS16=myTot>opTot;
-          let penMsgS16="";
-          if(!advancedS16&&myTot===opTot){
-            const penSeed=prev.played*41+result.myG*13+result.opG*7+37;
-            const myProb=0.35+(euroStr("Son 16")/(euroStr("Son 16")*2))*0.30;
-            const penWon=((penSeed*1664525+1013904223)>>>0)/4294967296 < 0.5;
-            const myP=penWon?(3+Math.floor(((penSeed*22695477)>>>0)%3)):(3+Math.floor(((penSeed*22695477)>>>0)%3)-1+3)%3+3;
-            const opP=penWon?(myP-1):(myP+1);
-            advancedS16=penWon;
-            penMsgS16=` (pen. ${Math.max(3,Math.min(5,myP))}-${Math.max(3,Math.min(5,opP))})`;
-            penData={won:penWon,my:Math.max(3,Math.min(5,myP)),op:Math.max(3,Math.min(5,opP))};
-            setTimeout(()=>showToast(`⚽ Agregada eşitlik! Penaltılar: ${penWon?"🎉 Kazandık":"😔 Kaybettik"}${penMsgS16}`,4000),300);
-          }
-          if(advancedS16){
-            const opp=pickEuroOpp(prev.played+31,"Çeyrek Final");
-            const str=euroStr("Çeyrek Final");
-            const _is38qf=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(season.league||"");
-            extraFixture.push({w:_is38qf?3050:2730,opp,home:true, str,month:"Nisan",comp,round:"Çeyrek Final — 1. Maç"});
-            extraFixture.push({w:_is38qf?3150:2920,opp,home:false,str,month:"Nisan",comp,round:"Çeyrek Final — 2. Maç"});
-            setTimeout(()=>showToast(`🏆 Çeyrek Finale yükseldik! ${opp} ile eşleştik.`,4000),penMsgS16?4500:500);
-          } else {
-            setTimeout(()=>showToast(`😔 Son 16'da elendik${penMsgS16}. İyi mücadele!`,3500),penMsgS16?4500:500);
-          }
-        }
-
-        // Çeyrek Final — 2. maç
-        if(isEuroQFM2){
-          const r1=prev.results.filter(r=>r.comp===comp&&r.round==="Çeyrek Final — 1. Maç").slice(-1)[0];
-          const g1={myG:r1?.myG??0, opG:r1?.opG??0};
-          const myTot=g1.myG+result.myG; const opTot=g1.opG+result.opG;
-          let advancedQF=myTot>opTot;
-          let penMsgQF="";
-          if(!advancedQF&&myTot===opTot){
-            const penSeed=prev.played*53+result.myG*17+result.opG*11+41;
-            const penWon=((penSeed*1664525+1013904223)>>>0)/4294967296 < 0.5;
-            const myP=penWon?(3+Math.floor(((penSeed*22695477)>>>0)%3)):(2+Math.floor(((penSeed*22695477)>>>0)%3));
-            const opP=penWon?(myP-1):(myP+1);
-            advancedQF=penWon;
-            penMsgQF=` (pen. ${Math.max(3,Math.min(5,myP))}-${Math.max(3,Math.min(5,opP))})`;
-            penData={won:penWon,my:Math.max(3,Math.min(5,myP)),op:Math.max(3,Math.min(5,opP))};
-            setTimeout(()=>showToast(`⚽ Agregada eşitlik! Penaltılar: ${penWon?"🎉 Kazandık":"😔 Kaybettik"}${penMsgQF}`,4000),300);
-          }
-          if(advancedQF){
-            const opp=pickEuroOpp(prev.played+47,"Yarı Final");
-            const str=euroStr("Yarı Final");
-            const _is38sf=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(season.league||"");
-            extraFixture.push({w:_is38sf?3550:3150,opp,home:false,str,month:"Mayis",comp,round:"Yarı Final — 1. Maç"});
-            extraFixture.push({w:_is38sf?3650:3350,opp,home:true, str,month:"Mayis",comp,round:"Yarı Final — 2. Maç"});
-            setTimeout(()=>showToast(`🌟 Yarı Finale yükseldik! ${opp} ile eşleştik.`,4000),penMsgQF?4500:500);
-          } else {
-            setTimeout(()=>showToast(`😔 Çeyrek Finalde elendik${penMsgQF}.`,3500),penMsgQF?4500:500);
-          }
-        }
-
-        // Yarı Final — 2. maç
-        if(isEuroSFM2){
-          const r1=prev.results.filter(r=>r.comp===comp&&r.round==="Yarı Final — 1. Maç").slice(-1)[0];
-          const g1={myG:r1?.myG??0, opG:r1?.opG??0};
-          const myTot=g1.myG+result.myG; const opTot=g1.opG+result.opG;
-          let advancedSF=myTot>opTot;
-          let penMsgSF="";
-          if(!advancedSF&&myTot===opTot){
-            const penSeed=prev.played*67+result.myG*19+result.opG*13+43;
-            const penWon=((penSeed*1664525+1013904223)>>>0)/4294967296 < 0.5;
-            const myP=penWon?(3+Math.floor(((penSeed*22695477)>>>0)%3)):(2+Math.floor(((penSeed*22695477)>>>0)%3));
-            const opP=penWon?(myP-1):(myP+1);
-            advancedSF=penWon;
-            penMsgSF=` (pen. ${Math.max(3,Math.min(5,myP))}-${Math.max(3,Math.min(5,opP))})`;
-            penData={won:penWon,my:Math.max(3,Math.min(5,myP)),op:Math.max(3,Math.min(5,opP))};
-            setTimeout(()=>showToast(`⚽ Agregada eşitlik! Penaltılar: ${penWon?"🎉 Kazandık":"😔 Kaybettik"}${penMsgSF}`,4000),300);
-          }
-          if(advancedSF){
-            const opp=pickEuroOpp(prev.played+63,"Final");
-            const str=euroStr("Final");
-            const _is38fin=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(season.league||"");
-            extraFixture.push({w:_is38fin?3750:3470,opp,home:false,str,month:"Mayis",comp,round:"Final"});
-            setTimeout(()=>showToast(`🏆🌟 FİNALE YÜKSELDIK! ${opp} ile Final!`,5000),penMsgSF?4500:500);
-          } else {
-            setTimeout(()=>showToast(`😔 Yarı Finalde elendik${penMsgSF}.`,3500),penMsgSF?4500:500);
-          }
-        }
-
-        // Final
-        if(isEuroFinalMatch){
-          // Final bitti → grupları KORUYORUZ (turnuva gecmisi ve GK/AK silinmesin)
-          if(result.res==="W"){
-            setTimeout(()=>showToast(`🏆🎉🎊 ${comp==="CL"?"ŞAMPIYONLAR LİGİ":"UEFA LİGİ"} KUPASINI KAZANDIK!`,6000),500);
-            setCareerStats(prev=>({...prev,trophies:{...prev.trophies,
-              cl:(prev.trophies?.cl||0)+(comp==="CL"?1:0),
-              uefal:(prev.trophies?.uefal||0)+(comp==="UEFA"?1:0),
-            }}));
-          } else if(result.res==="L"){
-            setTimeout(()=>showToast(`😔 ${comp==="CL"?"Avrupa Şampiyonlar Kupası":"Avrupa Ligi"} Finalini kaybettik. Gururluyuz!`,4000),500);
-          } else {
-            // Beraberlik → penaltı
-            const wonPens=Math.random()>0.45;
-            setTimeout(()=>showToast(`⚽ ${comp} Finali berabere! Penaltılar...`,2000),300);
-            setTimeout(()=>showToast(wonPens?`🏆🎉 PENALTILARDA KAZANDIK! ${comp} ŞAMPİYONUYUZ!`:`😔 Penaltılarda kaybettik. Finalist olduk!`,5000),2500);
-            if(wonPens){
-              setCareerStats(prev=>({...prev,trophies:{...prev.trophies,
-                cl:(prev.trophies?.cl||0)+(comp==="CL"?1:0),
-                uefal:(prev.trophies?.uefal||0)+(comp==="UEFA"?1:0),
-              },
-                lastClChampion:  comp==="CL"  ? clubName : prev.lastClChampion,
-                lastUefaChampion:comp==="UEFA" ? clubName : prev.lastUefaChampion,
-              }));
-              setTimeout(()=>updateRep(comp==="CL"?16:8,`🏆 ${comp==="CL"?"Avrupa Şampiyonlar Kupası":"Avrupa Ligi"} Şampiyonluğu`,season.league||"Elit Lig"),3000);
-            } else {
-              updateRep(comp==="CL"?10:5,`${comp==="CL"?"Avrupa Şampiyonlar Kupası":"Avrupa Ligi"} — Final Kaybı (Finalist)`,season.league||"Elit Lig");
-            }
-          }
-        }
-
-        // ── CL / UEFA PRİM SİSTEMİ ───────────────────────────────
-        const EURO_PRIM={
-          CL:{
-            grup_galibiyet:   800,   // Grup maçı galibiyeti (gerçek: ~2.8M€, oyun dengesi için azaltıldı)
-            grup_beraberlik:  300,   // Berabere
-            grup_gecis:      4000,   // Son 16'ya çıkma
-            s16_gecis:       6500,   // Çeyrek Finale çıkma
-            qf_gecis:       10000,   // Yarı Finale çıkma
-            sf_gecis:       15000,   // Finale çıkma
-            finalist:        8000,   // Finalist olma (kaybetsen bile)
-            sampiyon:       25000,   // Şampiyonluk
-          },
-          UEFA:{
-            grup_galibiyet:   300,
-            grup_beraberlik:  100,
-            grup_gecis:      1500,
-            s16_gecis:       2500,
-            qf_gecis:        4000,
-            sf_gecis:        6000,
-            finalist:        3000,
-            sampiyon:       10000,
-          },
-        };
-        const epTab=EURO_PRIM[comp]||EURO_PRIM["UEFA"];
-        const compIcon=comp==="CL"?"⭐":"🇪🇺";
-        const compName=comp==="CL"?"Avrupa Şampiyonlar Kupası":"Avrupa Ligi";
+      // ── AVRUPA (SWISS MODEL) — kullanıcının Avrupa maçı ─────────
+      // Lig aşaması primi + eleme turunda toplam eşitse penaltı; tablo ilerletme aşağıda (upd sonrası)
+      let euroUM=null;
+      if(isEuroFix&&fix.sw){
+        const comp=fix.comp;
+        const meta=EURO_META[comp]||EURO_META.UEFA;
+        const prim=EURO_PRIM[comp]||EURO_PRIM.UEFA;
         const fmtEuro=(v)=>v>=1000?(v/1000).toFixed(1)+"M€":v+"K€";
-
-        // Grup maçı galibiyeti / berabere primi
-        if(thisRound==="Grup Aşaması"){
-          if(result.res==="W"){
+        if(fix.md){
+          euroUM={comp,md:fix.md,myG:result.myG,opG:result.opG};
+          if(result.res==="W"||result.res==="D"){
+            const v=result.res==="W"?prim.lig_galibiyet:prim.lig_beraberlik;
             setTimeout(()=>{
-              updateFinans(epTab.grup_galibiyet,"kupaPrim",`${compIcon} ${compName} Grup Galibiyeti (+${fmtEuro(epTab.grup_galibiyet)})`);
-              showToast(`💰 ${compIcon} ${compName} grup galibiyeti: +${fmtEuro(epTab.grup_galibiyet)}`,2500);
-            },800);
-          } else if(result.res==="D"){
-            setTimeout(()=>{
-              updateFinans(epTab.grup_beraberlik,"kupaPrim",`${compIcon} ${compName} Grup Berabere (+${fmtEuro(epTab.grup_beraberlik)})`);
-              showToast(`💰 ${compIcon} Berabere primi: +${fmtEuro(epTab.grup_beraberlik)}`,2000);
+              updateFinans(v,"kupaPrim",`${meta.icon} ${meta.name} Lig Aşaması ${result.res==="W"?"Galibiyeti":"Beraberliği"} (+${fmtEuro(v)})`);
+              showToast(`💰 ${meta.icon} ${meta.name} ${result.res==="W"?"galibiyet":"beraberlik"} primi: +${fmtEuro(v)}`,2500);
             },800);
           }
-          // Gruptan çıkma primi
-          if(isLastGroup){
-            const gpPts=prev.results.filter(r=>r.comp===comp&&r.round==="Grup Aşaması")
-              .reduce((s,r)=>s+(r.r==="W"?3:r.r==="D"?1:0),0)+(result.res==="W"?3:result.res==="D"?1:0);
-            if(gpPts>=6){
-              setTimeout(()=>{
-                updateFinans(epTab.grup_gecis,"kupaPrim",`${compIcon} ${compName} Son 16 Prim (+${fmtEuro(epTab.grup_gecis)})`);
-                showToast(`💰 ${compIcon} Son 16 primi: +${fmtEuro(epTab.grup_gecis)}`,3000);
-                updateRep(comp==="CL"?6:3,`${compName} Grup Aşaması Geçildi`,season.league||"Elit Lig");
-              },1500);
+        } else if(fix.ko){
+          euroUM={comp,ko:fix.ko,leg:fix.leg||0,myG:result.myG,opG:result.opG};
+          const tblNow=prev[EURO_TABLE_KEY[comp]];
+          const meT=tblNow&&tblNow.teams.find(t=>t.me);
+          const tie=meT&&(tblNow.ko[fix.ko]||[]).find(t=>t.a===meT.n||t.b===meT.n);
+          const decisive=fix.ko==="fin"||(fix.leg||0)===1;
+          if(tie&&decisive){
+            let myAgg=result.myG, opAgg=result.opG;
+            if(fix.ko!=="fin"){const l0=tie.legs[0];if(l0&&l0.hg!==null){const h=l0.h===meT.n;myAgg+=h?l0.hg:l0.ag;opAgg+=h?l0.ag:l0.hg;}}
+            if(myAgg===opAgg){
+              const oppT=tblNow.teams.find(t=>t.n===fix.opp)||{str:fix.str||75};
+              const r=euroRng(euroHash(tblNow.seed+":upen:"+fix.ko+":"+prev.played))();
+              const won=r<0.5+((meT.str||70)-(oppT.str||70))*0.008;
+              const wp=4+Math.floor(r*10)%2, lp=Math.max(2,wp-1-Math.floor(r*100)%2);
+              penData={won,my:won?wp:lp,op:won?lp:wp};
+              euroUM.penWon=won;
+              setTimeout(()=>showToast(`⚽ ${fix.ko==="fin"?"Final":"Toplamda"} eşitlik! Penaltılar: ${won?"🎉 Kazandık":"😔 Kaybettik"} (${penData.my}-${penData.op})`,4000),300);
             }
           }
         }
-
-        // Son 16 → Çeyrek Final geçiş primi
-        if(isEuroS16M2){
-          const r1e=prev.results.filter(r=>r.comp===comp&&r.round==="Son 16 — 1. Maç").slice(-1)[0];
-          const myTE=(r1e?.myG??0)+result.myG; const opTE=(r1e?.opG??0)+result.opG;
-          const advE=myTE>opTE||(myTE===opTE&&result.myG>result.opG)||(myTE===opTE&&Math.random()>0.5);
-          if(advE){
-            setTimeout(()=>{
-              updateFinans(epTab.s16_gecis,"kupaPrim",`${compIcon} ${compName} Çeyrek Final Prim (+${fmtEuro(epTab.s16_gecis)})`);
-              showToast(`💰 ${compIcon} Çeyrek Final primi: +${fmtEuro(epTab.s16_gecis)}`,3000);
-              updateRep(comp==="CL"?8:4,`${compName} Çeyrek Finale Çıktı`,season.league||"Elit Lig");
-            },1500);
-          }
-        }
-
-        // Çeyrek Final → Yarı Final geçiş primi
-        if(isEuroQFM2){
-          const r1e=prev.results.filter(r=>r.comp===comp&&r.round==="Çeyrek Final — 1. Maç").slice(-1)[0];
-          const myTE=(r1e?.myG??0)+result.myG; const opTE=(r1e?.opG??0)+result.opG;
-          const advE=myTE>opTE||(myTE===opTE&&result.myG>result.opG)||(myTE===opTE&&Math.random()>0.5);
-          if(advE){
-            setTimeout(()=>{
-              updateFinans(epTab.qf_gecis,"kupaPrim",`${compIcon} ${compName} Yarı Final Prim (+${fmtEuro(epTab.qf_gecis)})`);
-              showToast(`💰 ${compIcon} Yarı Final primi: +${fmtEuro(epTab.qf_gecis)}`,3000);
-              updateRep(comp==="CL"?12:6,`${compName} Yarı Finale Çıktı`,season.league||"Elit Lig");
-            },1500);
-          }
-        }
-
-        // Yarı Final → Final geçiş primi
-        if(isEuroSFM2){
-          const r1e=prev.results.filter(r=>r.comp===comp&&r.round==="Yarı Final — 1. Maç").slice(-1)[0];
-          const myTE=(r1e?.myG??0)+result.myG; const opTE=(r1e?.opG??0)+result.opG;
-          const advE=myTE>opTE||(myTE===opTE&&result.myG>result.opG)||(myTE===opTE&&Math.random()>0.5);
-          if(advE){
-            setTimeout(()=>{
-              updateFinans(epTab.sf_gecis,"kupaPrim",`${compIcon} ${compName} Final Prim (+${fmtEuro(epTab.sf_gecis)})`);
-              showToast(`💰 ${compIcon} Finale çıkma primi: +${fmtEuro(epTab.sf_gecis)}`,3500);
-              updateRep(comp==="CL"?16:8,`${compName} Finale Çıktı`,season.league||"Elit Lig");
-            },1500);
-          }
-        }
-
-        // Final bitişi: finalist + şampiyon primleri
-        if(isEuroFinalMatch){
-          setTimeout(()=>{
-            updateFinans(epTab.finalist,"kupaPrim",`${compIcon} ${compName} Finalist Prim (+${fmtEuro(epTab.finalist)})`);
-            showToast(`💰 ${compIcon} Finalist primi: +${fmtEuro(epTab.finalist)}`,2000);
-          },600);
-          if(result.res==="W"){ // Sadece net galibiyet şampiyonluk verir; beraberlik = penaltı kaybı = finalist
-            setTimeout(()=>{
-              updateFinans(epTab.sampiyon,"kupaPrim",`${compIcon}🎉 ${compName.toUpperCase()} ŞAMPİYONLUK PRİMİ (+${fmtEuro(epTab.sampiyon)})`);
-              showToast(`💰${compIcon} ${compName} Şampiyonluk primi: +${fmtEuro(epTab.sampiyon)}`,4000);
-              updateRep(comp==="CL"?16:8,`🏆 ${compName} Şampiyonluğu`,season.league||"Elit Lig");
-            },3500);
-            // Şampiyonlar Kalkanı için: CL/UEFA şampiyonu kaydet
-            setCareerStats(prev=>({...prev,
-              lastClChampion:  comp==="CL"  ? clubName : prev.lastClChampion,
-              lastUefaChampion:comp==="UEFA"? clubName : prev.lastUefaChampion,
-            }));
-          } else {
-            // Final kaybı — finalist olmanın itibarı
-            updateRep(comp==="CL"?10:5,`${compName} — Final Kaybı (Finalist)`,season.league||"Elit Lig");
-          }
-        }
-        // ── CL/UEFA PRİM SİSTEMİ SONU ────────────────────────────
       }
-      // ── CL/UEFA SİSTEMİ SONU ────────────────────────────────────
       const prevZtkPlayed=prev.results.filter(r=>r.comp==="ZTK").length;
       const prevZtkGroupPlayed=prev.results.filter(r=>r.comp==="ZTK"&&r.round&&r.round.startsWith("Grup")).length;
       // Penaltı simülasyonu: str farkına göre ağırlıklı random
@@ -2269,7 +1897,7 @@ function App(){
           // remaining'deki lig haftalarına göre yeniden hesapla.
           // Böylece bazı Nisan haftaları zaten oynanmış olsa bile
           // kupa maçları kalan haftalar arasına doğru yerleşir.
-          const _LIG_EXCL=["HAZ","ZTK","CL","UEFA","SUPERKUPA"];
+          const _LIG_EXCL=["HAZ","ZTK","CL","UEFA","CON","SUPERKUPA"];
           // Ay → kalan lig w değerleri
           const _remLigW={};
           remaining.forEach(f=>{
@@ -2325,109 +1953,89 @@ function App(){
         kupaSonuc:{...newKupa,
           sampiyon:newKupa.sampiyon||ztkWonFinal||false
         },
-        // ── CL/UEFA GRUP TABLOSU GÜNCELLEME ────────────────────────────────
-        clGroups:(()=>{
-          if(fix.comp!=="CL"||fix.round!=="Grup Aşaması") return prev.clGroups;
-          if(!prev.clGroups) return prev.clGroups;
-          // Bizim grubumuzda oynayan takımları güncelle
-          const myG=result.myG; const opG=result.opG; const res=result.res;
-          const oppR=res==="W"?"L":res==="L"?"W":"D";
-          const updated={};
-          for(const [grpName,grpTeams] of Object.entries(prev.clGroups)){
-            const hasMe=grpTeams.some(t=>t.me);
-            const hasOpp=grpTeams.some(t=>t.n===fix.opp);
-            if(hasMe&&hasOpp){
-              // Bu bizim grubumuz — güncelle
-              updated[grpName]=grpTeams.map(t=>{
-                if(t.me) return{...t,pts:t.pts+(res==="W"?3:res==="D"?1:0),w:t.w+(res==="W"?1:0),d:t.d+(res==="D"?1:0),l:t.l+(res==="L"?1:0),gf:t.gf+myG,ga:t.ga+opG};
-                if(t.n===fix.opp) return{...t,pts:t.pts+(oppR==="W"?3:oppR==="D"?1:0),w:t.w+(oppR==="W"?1:0),d:t.d+(oppR==="D"?1:0),l:t.l+(oppR==="L"?1:0),gf:t.gf+opG,ga:t.ga+myG};
-                // Diğer grup takımları kendi aralarında simüle et
-                return t;
-              });
-              // Diğer 2 takımı da birbiriyle oynat (simüle)
-              const others=updated[grpName].filter(t=>!t.me&&t.n!==fix.opp);
-              if(others.length===2){
-                const [a,b]=others;
-                const seed=(prev.played*17+a.n.charCodeAt(0))%100;
-                const aWin=seed<40; const draw=seed>=40&&seed<65;
-                updated[grpName]=updated[grpName].map(t=>{
-                  if(t.n===a.n) return{...t,pts:t.pts+(aWin?3:draw?1:0),w:t.w+(aWin?1:0),d:t.d+(draw?1:0),l:t.l+(!aWin&&!draw?1:0),gf:t.gf+(aWin?2:draw?1:0),ga:t.ga+(!aWin&&!draw?2:draw?1:0)};
-                  if(t.n===b.n) return{...t,pts:t.pts+(!aWin&&!draw?3:draw?1:0),w:t.w+(!aWin&&!draw?1:0),d:t.d+(draw?1:0),l:t.l+(aWin?1:0),gf:t.gf+(!aWin&&!draw?2:draw?1:0),ga:t.ga+(aWin?2:draw?1:0)};
-                  return t;
-                });
-              }
-            } else {
-              // Başka grup — kendi aralarında simüle et
-              const seed2=(prev.played*31+grpName.charCodeAt(0))%100;
-              let sim=[...grpTeams];
-              for(let i=0;i+1<sim.length;i+=2){
-                const a=sim[i],b=sim[i+1];
-                const s2=((prev.played*1664525+a.n.charCodeAt(0)*22695477)>>>0)%100;
-                const aW=s2<45; const dr=s2>=45&&s2<65;
-                sim=sim.map(t=>{
-                  if(t.n===a.n) return{...t,pts:t.pts+(aW?3:dr?1:0),w:t.w+(aW?1:0),d:t.d+(dr?1:0),l:t.l+(!aW&&!dr?1:0),gf:t.gf+(aW?2:dr?1:0),ga:t.ga+(!aW&&!dr?2:dr?1:0)};
-                  if(t.n===b.n) return{...t,pts:t.pts+(!aW&&!dr?3:dr?1:0),w:t.w+(!aW&&!dr?1:0),d:t.d+(dr?1:0),l:t.l+(aW?1:0),gf:t.gf+(!aW&&!dr?2:dr?1:0),ga:t.ga+(aW?2:dr?1:0)};
-                  return t;
-                });
-              }
-              updated[grpName]=sim;
-            }
-          }
-          return updated;
-        })(),
-        uefaGroups:(()=>{
-          if(fix.comp!=="UEFA"||fix.round!=="Grup Aşaması") return prev.uefaGroups;
-          if(!prev.uefaGroups) return prev.uefaGroups;
-          const myG=result.myG; const opG=result.opG; const res=result.res;
-          const oppR=res==="W"?"L":res==="L"?"W":"D";
-          const updated={};
-          for(const [grpName,grpTeams] of Object.entries(prev.uefaGroups)){
-            const hasMe=grpTeams.some(t=>t.me);
-            const hasOpp=grpTeams.some(t=>t.n===fix.opp);
-            if(hasMe&&hasOpp){
-              updated[grpName]=grpTeams.map(t=>{
-                if(t.me) return{...t,pts:t.pts+(res==="W"?3:res==="D"?1:0),w:t.w+(res==="W"?1:0),d:t.d+(res==="D"?1:0),l:t.l+(res==="L"?1:0),gf:t.gf+myG,ga:t.ga+opG};
-                if(t.n===fix.opp) return{...t,pts:t.pts+(oppR==="W"?3:oppR==="D"?1:0),w:t.w+(oppR==="W"?1:0),d:t.d+(oppR==="D"?1:0),l:t.l+(oppR==="L"?1:0),gf:t.gf+opG,ga:t.ga+myG};
-                return t;
-              });
-              const others=updated[grpName].filter(t=>!t.me&&t.n!==fix.opp);
-              if(others.length===2){
-                const [a,b]=others;
-                const seed=(prev.played*17+a.n.charCodeAt(0))%100;
-                const aWin=seed<40; const draw=seed>=40&&seed<65;
-                updated[grpName]=updated[grpName].map(t=>{
-                  if(t.n===a.n) return{...t,pts:t.pts+(aWin?3:draw?1:0),w:t.w+(aWin?1:0),d:t.d+(draw?1:0),l:t.l+(!aWin&&!draw?1:0),gf:t.gf+(aWin?2:draw?1:0),ga:t.ga+(!aWin&&!draw?2:draw?1:0)};
-                  if(t.n===b.n) return{...t,pts:t.pts+(!aWin&&!draw?3:draw?1:0),w:t.w+(!aWin&&!draw?1:0),d:t.d+(draw?1:0),l:t.l+(aWin?1:0),gf:t.gf+(!aWin&&!draw?2:draw?1:0),ga:t.ga+(aWin?2:draw?1:0)};
-                  return t;
-                });
-              }
-            } else {
-              const seed2=(prev.played*31+grpName.charCodeAt(0))%100;
-              let sim=[...grpTeams];
-              for(let i=0;i+1<sim.length;i+=2){
-                const a=sim[i],b=sim[i+1];
-                const s2=((prev.played*1664525+a.n.charCodeAt(0)*22695477)>>>0)%100;
-                const aW=s2<45; const dr=s2>=45&&s2<65;
-                sim=sim.map(t=>{
-                  if(t.n===a.n) return{...t,pts:t.pts+(aW?3:dr?1:0),w:t.w+(aW?1:0),d:t.d+(dr?1:0),l:t.l+(!aW&&!dr?1:0),gf:t.gf+(aW?2:dr?1:0),ga:t.ga+(!aW&&!dr?2:dr?1:0)};
-                  if(t.n===b.n) return{...t,pts:t.pts+(!aW&&!dr?3:dr?1:0),w:t.w+(!aW&&!dr?1:0),d:t.d+(dr?1:0),l:t.l+(aW?1:0),gf:t.gf+(!aW&&!dr?2:dr?1:0),ga:t.ga+(aW?2:dr?1:0)};
-                  return t;
-                });
-              }
-              updated[grpName]=sim;
-            }
-          }
-          return updated;
-        })(),
       };
+
+      // ── AVRUPA KUPALARI (Swiss): 3×36 takımlı tabloları bu maçın takvim konumuna kadar ilerlet ──
+      const euroAdvanceAll=(P,um)=>{
+        const evAll=[], addFix=[];
+        EURO_COMP_LIST.forEach(c=>{
+          const key=EURO_TABLE_KEY[c];
+          if(!upd[key]) return;
+          const r=advanceEuroTable(upd[key],P,um&&um.comp===c?um:null);
+          upd={...upd,[key]:r.tbl};
+          evAll.push(...r.ev);addFix.push(...r.fix);
+        });
+        if(addFix.length) upd={...upd,fixture:sortFixture([...upd.fixture,...addFix])};
+        const fmtEuro=(v)=>v>=1000?(v/1000).toFixed(1)+"M€":v+"K€";
+        const repTab={r16:[6,3,2],qf:[8,4,3],sf:[12,6,4],fin:[16,8,5]};
+        evAll.forEach(e=>{
+          const meta=EURO_META[e.comp], prim=EURO_PRIM[e.comp], ci=EURO_COMP_LIST.indexOf(e.comp);
+          const tbl=upd[EURO_TABLE_KEY[e.comp]];
+          const mine=!!(tbl&&tbl.teams.some(t=>t.me));
+          const payPrim=(k,label,delay)=>setTimeout(()=>{
+            updateFinans(prim[k],"kupaPrim",`${meta.icon} ${meta.name} ${label} Primi (+${fmtEuro(prim[k])})`);
+            showToast(`💰 ${meta.icon} ${label} primi: +${fmtEuro(prim[k])}`,3000);
+          },delay);
+          if(e.type==="league_end"&&mine&&e.myRank){
+            if(e.myRank<=8){
+              setTimeout(()=>showToast(`🎉 ${meta.icon} ${meta.name} lig aşamasını ${e.myRank}. bitirdik — doğrudan Son 16!`,4500),600);
+            } else if(e.myRank<=24){
+              const meN=(tbl.teams.find(x=>x.me)||{}).n;
+              const tie=(tbl.ko.po||[]).find(t=>t.a===meN||t.b===meN);
+              const opp=tie?(tie.a===meN?tie.b:tie.a):"";
+              setTimeout(()=>showToast(`${meta.icon} ${meta.name}: ${e.myRank}. sıra — Şubat'ta Play-Off${opp?": "+opp:""}`,4500),600);
+              payPrim("playoff","Play-Off",1500);
+            } else {
+              setTimeout(()=>showToast(`😔 ${meta.icon} ${meta.name} lig aşamasında ${e.myRank}. sırada kalıp elendik.`,4000),600);
+            }
+          }
+          if(e.type==="round_start"&&e.tie){
+            const meN=(tbl.teams.find(x=>x.me)||{}).n;
+            const opp=e.tie.a===meN?e.tie.b:e.tie.a;
+            const lbl=EURO_KO_LABEL[e.round];
+            setTimeout(()=>showToast(e.round==="fin"?`🏆🌟 ${meta.name} FİNALİNDEYİZ! Rakip: ${opp}`:`🏆 ${meta.name} ${lbl}: ${opp} ile eşleştik.`,4500),900);
+            payPrim(EURO_PRIM_ROUND[e.round],lbl,1800);
+            const rp=repTab[e.round];
+            if(rp) setTimeout(()=>updateRep(rp[ci],`${meta.name} ${lbl} Turuna Çıktı`,season.league||"Elit Lig"),2000);
+          }
+          if(e.type==="tie_end"&&!e.won){
+            const pen=e.pen?" (penaltılarla)":"";
+            setTimeout(()=>showToast(e.round==="fin"?`😔 ${meta.name} Finalini kaybettik${pen}. Gururluyuz!`:`😔 ${meta.name} ${EURO_KO_LABEL[e.round]} turunda elendik${pen} — rakip: ${e.opp}`,4000),900);
+          }
+          if(e.type==="tie_end"&&e.round==="fin"){
+            payPrim("finalist","Finalist",600);
+            if(!e.won) updateRep([10,5,3][ci],`${meta.name} — Final Kaybı (Finalist)`,season.league||"Elit Lig");
+          }
+          if(e.type==="champion"){
+            if(e.me){
+              setTimeout(()=>showToast(`🏆🎉🎊 ${meta.upper} KUPASINI KAZANDIK!`,6000),500);
+              payPrim("sampiyon","Şampiyonluk",3500);
+              setTimeout(()=>updateRep([16,8,5][ci],`🏆 ${meta.name} Şampiyonluğu`,season.league||"Elit Lig"),3000);
+            }
+            const trKey=e.comp==="CL"?"cl":e.comp==="UEFA"?"uefal":"con";
+            setCareerStats(cs=>({...cs,
+              trophies:e.me?{...cs.trophies,[trKey]:((cs.trophies||{})[trKey]||0)+1}:cs.trophies,
+              lastClChampion:e.comp==="CL"?e.champion:cs.lastClChampion,
+              lastUefaChampion:e.comp==="UEFA"?e.champion:cs.lastUefaChampion,
+              lastConChampion:e.comp==="CON"?e.champion:cs.lastConChampion,
+            }));
+          }
+        });
+      };
+      {
+        const lastLigW=Math.max(0,...upd.results.filter(r=>!EURO_CUP_COMPS.includes(r.comp)&&(r.w||0)<1000).map(r=>r.w||0));
+        const P=isLeagueFix?(fix.w||lastLigW):(fix.w||0)>=1000?(fix.w/100):lastLigW;
+        euroAdvanceAll(P,euroUM);
+      }
 
       // Sezon sonu: tüm fikstür (ZTK + CL/UEFA dahil) bitince tetikle
       const hasRemainingZtk=upd.fixture.some(f=>f.comp==="ZTK");
-      const hasRemainingLig=upd.fixture.some(f=>f.comp!=="ZTK"&&f.comp!=="HAZ"&&f.comp!=="CL"&&f.comp!=="UEFA");
-      const hasRemainingEuro=upd.fixture.some(f=>f.comp==="CL"||f.comp==="UEFA");
+      const hasRemainingLig=upd.fixture.some(f=>f.comp!=="ZTK"&&f.comp!=="HAZ"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="CON");
+      const hasRemainingEuro=upd.fixture.some(f=>f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON");
       // Sezon gerçekten bitti: lig kalmadı VE kupa kalmadı VE Avrupa kalmadı VE bu haftadan ekstra fikstür de yok
       const seasonOver=!hasRemainingLig&&!hasRemainingZtk&&!hasRemainingEuro&&extraFixture.length===0;
       if(seasonOver){
+        euroAdvanceAll(Infinity,null); // AI eleme turları ve finaller tamamlanır
         const lg2=upd.league||"1. Lig";
         // Eksik maçları tamamla: sezon sonunda tüm takımlar maxGames oynamış olmalı
         const LIG_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};
@@ -2526,100 +2134,15 @@ function App(){
         else if(rank2<=6) updateFans(4,"Sezon tatmin edici","season");
         else if(rank2>=lgT.length-2) updateFans(-15,"Kötü sezon bitiş","season");
         else updateFans(-2,"Sezon beklentilerin altında","season");
-        // ASK / UEFA grup oluştur — tüm büyük ligler desteklenir
-        // Aynı ülke takımları aynı gruba düşmez
-        const buildEuroGroups=(pool,myClub,numGroups,groupSize)=>{
-          // Ülke/lig mapping
-          const getLeague=(nm)=>{
-            const elitTeams=["Galatasaray FC","Fenerbahce FC","Besiktas FC","Trabzonspor FC","Basaksehir FC","Konyaspor FC","Alanyaspor FC","Sivasspor FC","Kasimpasa FC","Rizespor FC","Antalyaspor FC","Hatayspor FC","Kayserispor FC","Samsunspor FC","Goztepe FC"];
-            if(elitTeams.includes(nm)||nm===myClub) return "TUR";
-            if(["Bayern FC","Dortmund BV","Leverkusen FC","Leipzig RB","Frankfurt EFC","Stuttgart VfB","Wolfsburg FC","Gladbach FC"].includes(nm)) return "GER";
-            if(["Eastfield City","Northon City","Mersey Reds","Westbridge FC","Redford United","Southgate Hotspur","Tyneside FC"].includes(nm)) return "ENG";
-            if(["Real Madreno","FC Cataluña","Atletico Madreno","Sevilia FC","Villareal CF","Real Sociedad"].includes(nm)) return "ESP";
-            if(["FC Internazionale","Juventus FC","AC Milanese","SSC Partenopei","AS Romasso","SS Lazione","Atalanta BC B"].includes(nm)) return "ITA";
-            if(["Paris SG","OL Lyon","OM Marseille","LOSC Lille","OGC Nice","Stade Rennais","RC Lens"].includes(nm)) return "FRA";
-            if(["AFC Ajax","PSV Eindhoven","Feyenoord","AZ Alkmaar","FC Twente","FC Utrecht"].includes(nm)) return "NED";
-            if(["SL Benfica","FC Porto","Sporting CP","SC Braga"].includes(nm)) return "POR";
-            if(["Celtic FC","İskoç Mavi FC"].includes(nm)) return "SCO";
-            return nm.slice(0,3);
-          };
-
-          const available=[...pool].filter(nm=>nm!==myClub);
-          // Shuffle
-          for(let i=available.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[available[i],available[j]]=[available[j],available[i]];}
-
-          const groups={};
-          const groupNames="ABCDEFGH".slice(0,numGroups).split("");
-          // Kulüp başına ülke ataması
-          const myLeague=getLeague(myClub);
-
-          // Kendi grubumuz: biz + (groupSize-1) farklı ülkeden takım
-          const myGroup=[{n:myClub,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:true}];
-          const usedInMyGroup=new Set([myLeague]);
-          for(const nm of available){
-            if(myGroup.length>=groupSize) break;
-            const lg=getLeague(nm);
-            if(!usedInMyGroup.has(lg)){
-              myGroup.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-              usedInMyGroup.add(lg);
-            }
-          }
-          // Yeterince farklı ülke yoksa doldur
-          for(const nm of available){
-            if(myGroup.length>=groupSize) break;
-            if(!myGroup.find(t=>t.n===nm)) myGroup.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-          }
-          groups[groupNames[0]]=myGroup;
-
-          // Diğer gruplar: her grupta aynı ülkeden max 1 takım
-          const remaining=available.filter(nm=>!myGroup.find(t=>t.n===nm));
-          for(let g=1;g<numGroups;g++){
-            const grp=[];
-            const usedLgs=new Set();
-            for(const nm of remaining){
-              if(grp.length>=groupSize) break;
-              const lg=getLeague(nm);
-              if(!usedLgs.has(lg)){
-                grp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-                usedLgs.add(lg);
-              }
-            }
-            // Yeterince yoksa doldur
-            for(const nm of remaining){
-              if(grp.length>=groupSize) break;
-              if(!grp.find(t=>t.n===nm)) grp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-            }
-            groups[groupNames[g]]=grp;
-            grp.forEach(t=>{const idx=remaining.indexOf(t.n);if(idx>=0)remaining.splice(idx,1);});
-          }
-          return groups;
-        };
-
-        const CL_CLUBS=["Real Madreno","Bayern FC","Eastfield City","Paris SG","FC Internazionale","Juventus FC","FC Cataluña","Northon City","Atletico Madreno","Dortmund BV","Mersey Reds","Westbridge FC","FC Porto","AFC Ajax","SSC Partenopei","SL Benfica","AC Milanese","Gladbach FC","Galatasaray FC","Leverkusen FC","Leipzig RB","Feyenoord","Sevilia FC","Villareal CF","Real Sociedad","SS Lazione","Celtic FC","Shakhtar","SC Braga","RSC Anderlecht","PSV Eindhoven","Sporting CP"].filter(n=>n!==clubName);
-        // UEFA: Elit Ligden max 2 Türk takımı (oyuncunun takımı hariç)
-        const UEFA_CLUBS=["AS Romasso","Stade Rennais","İskoç Mavi FC","Ferencvaros","OL Lyon","Frankfurt EFC","East Hammers","Slavia Praha","OM Marseille","Stuttgart VfB","Boavista","OGC Nice","Atalanta BC B","Brest","Eintracht","RC Lens","Fenerbahce FC","Trabzonspor FC","Bodo Glimt","Molde","Bologna FC","Wolfsburg FC","AZ Alkmaar","Genk","Gil Vicente","Qarabag","Union SG","Djurgarden","Sturm Graz","Omonoia","Vitoria SC","Helsinki"].filter(n=>n!==clubName);
-        // Lig bazlı CL/UEFA kotası (kaçıncı sıraya kadar)
-        const LIG_CL_SPOTS2={"İngiliz Ligi":4,"İspanyol Ligi":4,"Alman Ligi":4,"İtalyan Ligi":4,"Fransız Ligi":3,"Elit Lig":2,"Hollanda Ligi":1,"Portekiz Ligi":2};
-        const LIG_UEFA_SPOTS2={"İngiliz Ligi":7,"İspanyol Ligi":6,"Alman Ligi":6,"İtalyan Ligi":7,"Fransız Ligi":5,"Elit Lig":4,"Hollanda Ligi":3,"Portekiz Ligi":3};
-        const clSpots2=LIG_CL_SPOTS2[lg2]||0;
-        const uefaSpots2=LIG_UEFA_SPOTS2[lg2]||0;
-        const inCL2=rank2>0&&rank2<=clSpots2;
-        const inUEFA2=!inCL2&&rank2>0&&rank2<=uefaSpots2;
-        let clGroups=upd.clGroups||null;
-        let uefaGroups=upd.uefaGroups||null;
-        if(inCL2){
-          const pendingCL=buildEuroGroups(CL_CLUBS,clubName,8,4);
-          clGroups=null; uefaGroups=null;
-          setTimeout(()=>setPendingEuroGroups({type:"CL",groups:pendingCL}),900);
-          setTimeout(()=>showToast(`⭐ Tebrikler! ${clubName} Avrupa Şampiyonlar Kupası'ne katıldı! Kura çekimi Eylül'de.`,5000),1200);
-        } else if(inUEFA2){
-          const pendingUEFA=buildEuroGroups(UEFA_CLUBS,clubName,8,4);
-          clGroups=null; uefaGroups=null;
-          setTimeout(()=>setPendingEuroGroups({type:"UEFA",groups:pendingUEFA}),900);
-          setTimeout(()=>showToast(`🇪🇺 Tebrikler! ${clubName} Avrupa Ligi'ne katıldı! Kura çekimi Eylül'de.`,5000),1200);
-        } else {
-          clGroups=null;
-          uefaGroups=null;
+        // ── Avrupa katılımı (Swiss model): 8 ligin final sıralamasından 3×36 takım ──
+        // Kura Eylül'de çekilir (pendingEuroGroups → isEnteringEylul hook'u)
+        const correctSeasonNumEuro=(careerStats.seasons||[]).length+1;
+        const euroQuals=selectEuroQualifiers(upd.teams);
+        const myEuroComp=EURO_COMP_LIST.find(c=>euroQuals[c].some(t=>t.me))||null;
+        setTimeout(()=>setPendingEuroGroups({swiss:true,quals:euroQuals,myComp:myEuroComp,seed:(Date.now()%1000003)+correctSeasonNumEuro}),900);
+        if(myEuroComp){
+          const _em=EURO_META[myEuroComp], _ek={CL:"'na",UEFA:"'ne",CON:"'ne"}[myEuroComp];
+          setTimeout(()=>showToast(`${_em.icon} Tebrikler! ${clubName} ${_em.name}${_ek} katıldı! Lig aşaması kurası Eylül'de.`,5000),1200);
         }
         const lgT_total=lgT.length;
         // Terfi: 1. Lig → Elit Lig, İngiliz 2. Ligi → İngiliz Ligi (ilk 3)
@@ -2713,34 +2236,14 @@ function App(){
     }
     if(isEnteringEylul&&pendingEuroGroups){
       const peg=pendingEuroGroups;
+      setPendingEuroGroups(null);
       setTimeout(()=>{
-        // Avrupa grup maçlarını fikstüre ekle
-        const shuffle3=(a)=>{const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;};
-        const buildEuroFix2=(groups,comp,strBase)=>{
-          const myGroup=Object.values(groups).find(g=>g.some(t=>t.me));
-          if(!myGroup) return [];
-          const opps=shuffle3(myGroup.filter(t=>!t.me));
-          const MD_MONTHS=["Eylul","Ekim","Ekim","Kasim","Kasim","Aralik"];
-          const MD_HOME=[true,true,true,false,false,false];
-          // w>=1000 → sortFixture'da w/100 ile doğrudan konumlanır
-          const MD_W=[450,750,850,1050,1150,1350];
-          const fixes=[];
-          // MD1-3: sırayla her rakiple EV maçı, MD4-6: ters sırayla DEP maçı
-          opps.forEach((opp,i)=>{
-            const str=strBase+Math.floor(Math.random()*8);
-            fixes.push({w:MD_W[i],  opp:opp.n,home:true, str,month:MD_MONTHS[i],  comp,round:"Grup Aşaması"});
-            fixes.push({w:MD_W[5-i],opp:opp.n,home:false,str,month:MD_MONTHS[5-i],comp,round:"Grup Aşaması"});
-          });
-          return fixes;
-        };
-        const euroFix2=peg.type==="CL"?buildEuroFix2(peg.groups,"CL",80):buildEuroFix2(peg.groups,"UEFA",73);
-        setSeason(s=>({...s,
-          clGroups:peg.type==="CL"?peg.groups:null,
-          uefaGroups:peg.type==="UEFA"?peg.groups:null,
-          fixture:sortFixture([...s.fixture,...euroFix2]),
+        const drawn=buildEuroSeasonDraw(season,peg.swiss?peg:{swiss:true,quals:null});
+        setSeason(s=>({...s,...drawn.tables,
+          fixture:sortFixture([...s.fixture.filter(f=>!(isEuroComp(f.comp)&&f.sw)),...drawn.userFix]),
         }));
-        setKuraModal(peg);
-        setPendingEuroGroups(null);
+        if(drawn.kura) setKuraModal(drawn.kura);
+        else showToast("🌍 Avrupa kupalarında lig aşaması kuraları çekildi (36 takım).",3000);
       },600);
     }
     // Yeni ayda transfer penceresi açılıyorsa pending oyuncuları kadroya aktar
@@ -2781,11 +2284,11 @@ function App(){
     var rLg=season.league||"1. Lig";
     // Maç bazı rep: net sabit değerler (raw=true → çarpan yok)
     if(result.res==="W"){
-      const repGain=fix.comp==="CL"?3:fix.comp==="UEFA"?3:fix.comp==="ZTK"?2:1;
+      const repGain=fix.comp==="CL"?3:fix.comp==="UEFA"?3:fix.comp==="CON"?2:fix.comp==="ZTK"?2:1;
       updateRep(repGain,"Galibiyet: "+fix.opp,rLg,true);
     } else if(result.res==="L"){
       updateRep(fix.str>=75?-1:fix.str>=65?-2:-3,"Mağlubiyet: "+fix.opp,rLg);
-    } else if(result.res==="D"&&(fix.comp==="CL"||fix.comp==="UEFA")){
+    } else if(result.res==="D"&&(fix.comp==="CL"||fix.comp==="UEFA"||fix.comp==="CON")){
       updateRep(1,"Beraberlik: "+fix.opp+" ("+fix.comp+")",rLg,true); // Avrupa'da beraberlik
     }
     // Taraftar memnuniyeti — maç sonucuna göre
@@ -2822,10 +2325,10 @@ function App(){
 
     // Önemli maç sonrası basın toplantısı tetikle — sadece gerçekten önemli maçlarda
     const isImportantMatch=
-      (fix.comp!=="ZTK"&&fix.comp!=="HAZ"&&fix.comp!=="CL"&&fix.comp!=="UEFA"&&fix.str>=85) ||  // elit lig rakibi (85+)
+      (fix.comp!=="ZTK"&&fix.comp!=="HAZ"&&fix.comp!=="CL"&&fix.comp!=="UEFA"&&fix.comp!=="CON"&&fix.str>=85) ||  // elit lig rakibi (85+)
       (fix.comp==="ZTK"&&fix.round&&(fix.round.startsWith("Yarı")||fix.round.startsWith("Final"))) ||  // ZTK YF/Final
-      (fix.comp==="CL"&&fix.round&&!fix.round.startsWith("Grup")) ||                           // CL eleme turları
-      (fix.comp==="UEFA"&&fix.round&&(fix.round.includes("Yarı")||fix.round.includes("Final")));// UEFA YF/Final
+      (fix.comp==="CL"&&fix.ko) ||                                                              // CL eleme turları
+      ((fix.comp==="UEFA"||fix.comp==="CON")&&(fix.ko==="sf"||fix.ko==="fin"));                // AL/KL YF/Final
     if(isImportantMatch){
       setPostMatchBasin({fix, result});
     }
@@ -2862,7 +2365,7 @@ function App(){
       // ── MAÇ İSTATİSTİKLERİNİ GÜNCELLE ────────────────────────
       // Hazırlık maçları (HAZ) istatistiklerine sayılmaz
       const isHazMatch=fixture&&fixture.comp==="HAZ";
-      const isEuroMatch=fixture&&(fixture.comp==="CL"||fixture.comp==="UEFA");
+      const isEuroMatch=fixture&&(fixture.comp==="CL"||fixture.comp==="UEFA"||fixture.comp==="CON");
       const isKupaMatch=fixture&&fixture.comp==="ZTK";
       const isLigMatch=!isHazMatch&&!isEuroMatch&&!isKupaMatch;
       const plGoals=isHazMatch?0:(matchResult.scorers||[]).filter(n=>n===p.n).length;
@@ -3614,7 +3117,7 @@ function App(){
   const [showCoachSaveModal,setShowCoachSaveModal]=useState(false);
   const [pendingNewSeason,setPendingNewSeason]=useState(null); // sezon bitti, hazır olunca başlat
   const [pendingEuroGroups,setPendingEuroGroups]=useState(null); // kura çekimi — Eylül başında göster
-  const [kuraModal,setKuraModal]=useState(null); // {type:"CL"|"UEFA", groups:{A:[...],B:[...],C:[...],D:[...]}}
+  const [kuraModal,setKuraModal]=useState(null); // {comp:"CL"|"UEFA"|"CON", pots:[[{n,lg,me}]], opps:[{n,lg,pot,home,md,month}]}
   const [altinTopModal,setAltinTopModal]=useState(null); // {winner:{n,club,pos,ovr,val,seasonGoals,seasonAssists,seasonRatings}, isMyPlayer:bool}
   const altinTopVerildi=useRef(-1); // son ödül verilen sezon numarası (-1=henüz verilmedi)
   const [showExitConfirm,setShowExitConfirm]=useState(false);
@@ -3626,7 +3129,7 @@ function App(){
     savedAt:Date.now(),
     clubName,
     league:season.league||"1. Lig",
-    week:(()=>{const _lm=season.results.filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp)).length;return _lm||season.week||1;})(),
+    week:(()=>{const _lm=season.results.filter(r=>!["ZTK","HAZ","CL","UEFA","CON","SUPERKUPA"].includes(r.comp)).length;return _lm||season.week||1;})(),
     played:season.played||0,
     managerName:`${manager.firstName} ${manager.lastName}`.trim()||"Menajer",
     manager,
@@ -3746,19 +3249,27 @@ function App(){
             if(f.comp==="ZTK"&&f.round==="Yarı Final — 2. Maç") return {...f,w:3250,month:"Mayis"};
             if(f.comp==="ZTK"&&f.round&&f.round.startsWith("Final")) return {...f,w:3430,month:"Mayis"};
             // CL/UEFA KO — sadece eski format (w < 1000) olan maçları düzelt
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Son 16 — 1. Maç") return {...f,w:_is38?2750:2330,month:"Mart"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Son 16 — 2. Maç") return {...f,w:_is38?2850:2530,month:"Mart"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Çeyrek Final — 1. Maç") return {...f,w:_is38?3050:2730,month:"Nisan"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Çeyrek Final — 2. Maç") return {...f,w:_is38?3150:2920,month:"Nisan"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Yarı Final — 1. Maç") return {...f,w:_is38?3550:3150,month:"Mayis"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Yarı Final — 2. Maç") return {...f,w:_is38?3650:3350,month:"Mayis"};
-            if((f.comp==="CL"||f.comp==="UEFA")&&f.round==="Final") return {...f,w:_is38?3750:3470,month:"Mayis"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Son 16 — 1. Maç") return {...f,w:_is38?2750:2330,month:"Mart"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Son 16 — 2. Maç") return {...f,w:_is38?2850:2530,month:"Mart"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Çeyrek Final — 1. Maç") return {...f,w:_is38?3050:2730,month:"Nisan"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Çeyrek Final — 2. Maç") return {...f,w:_is38?3150:2920,month:"Nisan"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Yarı Final — 1. Maç") return {...f,w:_is38?3550:3150,month:"Mayis"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Yarı Final — 2. Maç") return {...f,w:_is38?3650:3350,month:"Mayis"};
+            if((f.comp==="CL"||f.comp==="UEFA"||f.comp==="CON")&&f.round==="Final") return {...f,w:_is38?3750:3470,month:"Mayis"};
             return f;
           });
         };
-        const migratedSeason={...data.season,
+        let migratedSeason={...data.season,
           fixture:sortFixture(migrateFixture(data.season.fixture||[], data.season.league))
         };
+        // v4 migrasyonu sezon ortasında eski grup sistemini kaldırdıysa 36 takımlı tabloları şimdi kur
+        if(data.pendingEuroGroups&&data.pendingEuroGroups.swiss&&data.pendingEuroGroups.rebuild){
+          try{
+            const drawn=buildEuroSeasonDraw(migratedSeason,data.pendingEuroGroups);
+            migratedSeason={...migratedSeason,...drawn.tables,fixture:sortFixture([...migratedSeason.fixture,...drawn.userFix])};
+            data.pendingEuroGroups=null;
+          }catch(e){console.warn("Avrupa tablo migrasyonu başarısız",e);data.pendingEuroGroups=null;}
+        }
         setSeason(migratedSeason);
       }
       if(data.formation) setFormation(data.formation);
@@ -3852,7 +3363,7 @@ function App(){
       teams:buildInitTeamsWithStr(),
       results:[],
       fixture:sortFixture([...INIT_PRESEASON_TFF1.map(f=>({...f})),...buildTFF1Fixture().map(f=>({...f})),...buildKupaTFF1(clubName,Date.now()).map(f=>({...f}))]),
-      form:[],rankHistory:[],clGroups:null,uefaGroups:null,
+      form:[],rankHistory:[],clGroups:null,uefaGroups:null,clTable:null,uefaTable:null,conTable:null,
       kupaSonuc:{group:"Grup A",w:0,d:0,l:0,gf:0,ga:0,pts:0,elendi:false,finalci:false,sampiyon:false},
     });
     // Finans
@@ -3867,7 +3378,7 @@ function App(){
     setFans({happiness:60,attendance:65,trust:50,chants:0,ultras:"nötr",history:[]});
     setMgmt({trust:60,blockedBudget:0,blockReason:"",blockWeeksLeft:0,history:[]});
     setCareerStats({seasons:[],totalW:0,totalD:0,totalL:0,totalGF:0,totalGA:0,totalPts:0,
-      totalMatches:0,bestRank:99,bestLeague:"",trophies:{ztk:0,sl:0,cl:0,uefal:0},pressMoods:[]});
+      totalMatches:0,bestRank:99,bestLeague:"",trophies:{ztk:0,sl:0,cl:0,uefal:0,con:0},pressMoods:[]});
     // UI
     setPendingSquad([]);
     setRecentlyTransferred(new Set());
@@ -3992,154 +3503,11 @@ function App(){
         date:new Date().toLocaleDateString("tr-TR"),
       }]});
 
-      // ── CL / UEFA katılım: ligi ve takım sırasını belirle ────────
-      // Premier League, La Liga vb. büyük liglerin üst sıraları CL/UEFA'ya katılır
-      // Süper Lig: 1-2. → CL, 3-4. → AL
-      const CL_LEAGUES=["İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Elit Lig","Hollanda Ligi","Portekiz Ligi"];
-      // Grup oluşturma — aynı ülke takımları aynı gruba düşmez
-      const CLUB_LEAGUE_MAP={
-        // Türkiye
-        "Galatasaray FC":"TUR","Fenerbahce FC":"TUR","Besiktas FC":"TUR",
-        "Trabzonspor FC":"TUR","Basaksehir FC":"TUR","Konyaspor FC":"TUR",
-        // İngiltere
-        "Eastfield City":"ENG","Northon City":"ENG","Mersey Reds":"ENG",
-        "Westbridge FC":"ENG","Redford United":"ENG","Southgate Hotspur":"ENG",
-        "Tyneside FC":"ENG","Midfield Villa":"ENG","East Hammers":"ENG","Seagulls FC":"ENG",
-        // İspanya
-        "Real Madreno":"ESP","FC Cataluña":"ESP","Atletico Madreno":"ESP",
-        "Sevilia FC":"ESP","Villareal CF":"ESP","Real Sociedad":"ESP","Real Betis":"ESP",
-        // Almanya
-        "Bayern FC":"GER","Dortmund BV":"GER","Leverkusen FC":"GER","Leipzig RB":"GER",
-        "Frankfurt EFC":"GER","Stuttgart VfB":"GER","Wolfsburg FC":"GER","Gladbach FC":"GER",
-        // İtalya
-        "FC Internazionale":"ITA","Juventus FC":"ITA","AC Milanese":"ITA",
-        "SSC Partenopei":"ITA","AS Romasso":"ITA","SS Lazione":"ITA",
-        "Atalanta BC B":"ITA","Bologna FC":"ITA","ACF Fiorentina":"ITA",
-        // Fransa
-        "Paris SG":"FRA","OL Lyon":"FRA","OM Marseille":"FRA","LOSC Lille":"FRA",
-        "OGC Nice":"FRA","Stade Rennais":"FRA","RC Lens":"FRA","Brest":"FRA",
-        "Stade de Reims":"FRA","AS Monaco B":"FRA",
-        // Hollanda
-        "AFC Ajax":"NED","PSV Eindhoven":"NED","Feyenoord":"NED",
-        "AZ Alkmaar":"NED","FC Twente":"NED","FC Utrecht":"NED",
-        // Portekiz
-        "SL Benfica":"POR","FC Porto":"POR","Sporting CP":"POR","SC Braga":"POR",
-        "Vitoria SC":"POR","Gil Vicente":"POR","Boavista":"POR",
-        // Diğer
-        "Celtic FC":"SCO","İskoç Mavi FC":"SCO",
-        "Shakhtar":"UKR","RSC Anderlecht":"BEL","Ferencvaros":"HUN",
-        "Slavia Praha":"CZE","SC Braga":"POR",
-      };
-      const getClubLeague=(nm,myClubName)=>{
-        if(nm===myClubName) return "TUR"; // varsayılan
-        return CLUB_LEAGUE_MAP[nm]||nm.slice(0,3).toUpperCase();
-      };
-      const buildEuroGroupsDraw=(pool,myClubName,numGroups,grpSize)=>{
-        const available=[...pool].filter(nm=>nm!==myClubName);
-        // Shuffle
-        for(let i=available.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[available[i],available[j]]=[available[j],available[i]];}
-        const grpNames="ABCDEFGH".slice(0,numGroups).split("");
-        const groups={};
-        const myLg=getClubLeague(myClubName,myClubName);
-        // Kendi grubumuz: farklı ülkeden seç
-        const myGrp=[{n:myClubName,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:true}];
-        const usedLgs=new Set([myLg]);
-        for(const nm of available){
-          if(myGrp.length>=grpSize) break;
-          const lg=getClubLeague(nm,myClubName);
-          if(!usedLgs.has(lg)){myGrp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});usedLgs.add(lg);}
-        }
-        for(const nm of available){
-          if(myGrp.length>=grpSize) break;
-          if(!myGrp.find(t=>t.n===nm)) myGrp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-        }
-        groups[grpNames[0]]=myGrp;
-        // Diğer gruplar
-        const used=new Set(myGrp.map(t=>t.n));
-        const remaining=available.filter(nm=>!used.has(nm));
-        for(let g=1;g<numGroups;g++){
-          const grp=[];
-          const usedL=new Set();
-          for(const nm of remaining){
-            if(grp.length>=grpSize) break;
-            const lg=getClubLeague(nm,myClubName);
-            if(!usedL.has(lg)){grp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});usedL.add(lg);}
-          }
-          for(const nm of remaining){
-            if(grp.length>=grpSize) break;
-            if(!grp.find(t=>t.n===nm)) grp.push({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false});
-          }
-          groups[grpNames[g]]=grp;
-          grp.forEach(t=>remaining.splice(remaining.indexOf(t.n),1));
-        }
-        return groups;
-      };
-
-      const CL_OPPS_POOL=["Real Madreno","Bayern FC","Eastfield City","Paris SG","FC Internazionale","Juventus FC","FC Cataluña","Northon City","Atletico Madreno","Dortmund BV","Mersey Reds","Westbridge FC","FC Porto","AFC Ajax","SSC Partenopei","SL Benfica","AC Milanese","Galatasaray FC","Gladbach FC","Leverkusen FC","Leipzig RB","Feyenoord","Sevilia FC","Villareal CF","SS Lazione","Celtic FC","Shakhtar","SC Braga","RSC Anderlecht","Sporting CP","PSV Eindhoven","Real Sociedad"];
-      const UEFA_OPPS_POOL=["AS Romasso","Stade Rennais","İskoç Mavi FC","Ferencvaros","OL Lyon","Frankfurt EFC","East Hammers","Slavia Praha","OM Marseille","Stuttgart VfB","Boavista","OGC Nice","Atalanta BC B","Brest","Eintracht","RC Lens","Fenerbahce FC","Trabzonspor FC","Bodo Glimt","Molde","Bologna FC","Wolfsburg FC","AZ Alkmaar","Genk","Gil Vicente","Qarabag","Union SG","Djurgarden","Sturm Graz","Omonoia","Vitoria SC","Helsinki"];
-
-      // Lig bazlı CL kotası (kaçıncı sıraya kadar CL)
-      const LIG_CL_SPOTS={
-        "İngiliz Ligi":4,"İspanyol Ligi":4,"Alman Ligi":4,"İtalyan Ligi":4,"Fransız Ligi":3,
-        "Elit Lig":2,"Hollanda Ligi":1,"Portekiz Ligi":2,
-      };
-      const LIG_UEFA_SPOTS={
-        "İngiliz Ligi":7,"İspanyol Ligi":6,"Alman Ligi":6,"İtalyan Ligi":7,"Fransız Ligi":5,
-        "Elit Lig":4,"Hollanda Ligi":3,"Portekiz Ligi":3,
-      };
-      const clSpots=LIG_CL_SPOTS[lg]||0;
-      const uefaSpots=LIG_UEFA_SPOTS[lg]||0;
-
-      // Seçilen takımın ligteki sırası — str bazlı tahmini sıra
-      const lgTeamsForRank=INIT_TEAMS.filter(t=>t.lg===lg).sort((a,b)=>b.str-a.str);
-      const teamRank=lgTeamsForRank.findIndex(t=>t.n===(selT?selT.n:""))+1||99;
-      const inCL=CL_LEAGUES.includes(lg)&&teamRank>0&&teamRank<=clSpots;
-      const inUEFA=CL_LEAGUES.includes(lg)&&!inCL&&teamRank>0&&teamRank<=uefaSpots;
-
-      // Grup oluşturma yardımcı
-      const rndTeamsEuro=(pool,n,exclude)=>{
-        const a=[...pool.filter(nm=>nm!==(selT?selT.n:"")&&nm!==cn&&nm!==exclude)];
-        for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
-        return a.slice(0,n).map(nm=>({n:nm,pts:0,w:0,d:0,l:0,gf:0,ga:0,me:false}));
-      };
-
-      let initClGroups=null, initUefaGroups=null;
-      if(inCL){
-        initClGroups=buildEuroGroupsDraw(CL_OPPS_POOL,cn,8,4);
-      } else if(inUEFA){
-        initUefaGroups=buildEuroGroupsDraw(UEFA_OPPS_POOL,cn,8,4);
-      }
-
-      // ── Fikstür: lig + kupa + Avrupa (varsa) ────────────────────
+      // ── Avrupa kupaları (Swiss model): katılımcılar Eylül kurasında güç sıralamasıyla belirlenir ──
       const MO=["Temmuz","Agustos","Eylul","Ekim","Kasim","Aralik","Ocak","Subat","Mart","Nisan","Mayis","Haziran"];
       const mo=(m)=>{const i=MO.indexOf(m);return i===-1?99:i;};
-      const EURO_MONTHS=["Ekim","Kasim","Aralik","Subat","Mart","Nisan"];
-
-      // Avrupa fikstür üret (grup aşaması 6 maç = 3 rakibe 2'şer maç, sezonun 1.yarısı)
-      const buildEuroFix=(groups,comp,strBase)=>{
-        const euroFix=[];
-        const myGrp=Object.values(groups).find(g=>g.some(t=>t.me));
-        if(!myGrp) return euroFix;
-        const opps=myGrp.filter(t=>!t.me);
-        const shuffle2=(arr)=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
-        const shuffled=shuffle2(opps);
-        // Gerçek UEFA takvimi: MD1-MD6 her biri ayrı haftaya yayılır
-        // MD1:Eyl, MD2:Eki, MD3:Eki, MD4:Kas, MD5:Kas, MD6:Ara
-        const MD_MONTHS=["Eylul","Ekim","Ekim","Kasim","Kasim","Aralik"];
-        const MD_HOME   =[true,   false, true,  false,  true,   false];
-        const big38c=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(lg||"");
-        const MD_W=[35,65,85,96,97,126]; // w<100: sortFixture lig haftaları arasına dağıtır, ZTK ile ayrı slotlar
-        const SCHED=[[0,1],[2,3],[4,5]];
-        shuffled.forEach((opp,i)=>{
-          const str=strBase+Math.floor(Math.random()*8);
-          const [homeMD,awayMD]=SCHED[i]||[i*2,i*2+1];
-          euroFix.push({w:MD_W[homeMD], opp:opp.n,home:MD_HOME[homeMD], str,month:MD_MONTHS[homeMD],comp,round:"Grup Aşaması"});
-          euroFix.push({w:MD_W[awayMD],opp:opp.n,home:MD_HOME[awayMD],str,month:MD_MONTHS[awayMD],comp,round:"Grup Aşaması"});
-        });
-        // Knockout turları (Son 16, Çeyrek Final, Yarı Final, Final) dinamik olarak
-        // grup aşaması bitince handleMatchFinish içinde ekleniyor — burada sadece grup maçları yeterli
-        return euroFix;
-      };
+      const _euroPreview=selectEuroQualifiers(INIT_TEAMS.map(t=>selT&&t.n===selT.n&&t.lg===selT.lg?{...t,me:true}:{...t,me:false}),{byStr:true});
+      const myEuroPreview=EURO_COMP_LIST.find(c=>_euroPreview[c].some(t=>t.me))||null;
 
       let ligFix=[], kupaFix=[], preFix=[], euroFix=[];
       if(isTr){
@@ -4218,8 +3586,7 @@ function App(){
         kupaFix=[];
       }
       // Avrupa grupları pending'e gider — Eylül'de kura çekimi modalı ile açılır
-      if(initClGroups) setTimeout(()=>setPendingEuroGroups({type:"CL",groups:initClGroups}),500);
-      else if(initUefaGroups) setTimeout(()=>setPendingEuroGroups({type:"UEFA",groups:initUefaGroups}),500);
+      setTimeout(()=>setPendingEuroGroups({swiss:true,quals:null,seed:Date.now()%1000003}),500);
 
       // euroFix eklenmez — Eylül hook'u ekleyecek
       const _endHazOpps2={
@@ -4276,6 +3643,7 @@ function App(){
           fixture:allFix,
           clGroups:null,
           uefaGroups:null,
+          clTable:null,uefaTable:null,conTable:null,
           kupaSonuc:{group:kupaGrp,w:0,d:0,l:0,gf:0,ga:0,pts:0,elendi:false,finalci:false,sampiyon:false},
         };
       });
@@ -4345,8 +3713,7 @@ function App(){
           updateFinans(initSal,"salary_annual",`Sezon başı kadro maaş gideri (${usedSquad.length} oyuncu)`);
           setTimeout(()=>showToast(`💰 Sezon başı maaş: -${initSal}K€ bütçeden düşüldü`,3500),400);
         }
-        if(inCL) setTimeout(()=>showToast(`⭐ Tebrikler! ${cn}, Avrupa Şampiyonlar Kupası'nde!`,4000),600);
-        else if(inUEFA) setTimeout(()=>showToast(`🇪🇺 Tebrikler! ${cn}, Avrupa Ligi'nde!`,4000),600);
+        if(myEuroPreview) setTimeout(()=>showToast(`${EURO_META[myEuroPreview].icon} Tebrikler! ${cn}, ${EURO_META[myEuroPreview].name} lig aşamasında! Kura Eylül'de.`,4000),600);
       },500);
     }} onBack={()=>setGameScreen("mainmenu")}/>
   );
@@ -4379,7 +3746,7 @@ function App(){
             </div>
           </div>
           {/* İstatistikler */}
-          {(()=>{const ligMacSayisi=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const toplamLigMac=LIG_MAC_MAX[season.league||"1. Lig"]||34;return[["Puan",String(myTeam.pts),C.gd],["Sıra",String(myRank),C.grn2],["Bütçe",(()=>{const b=finans.budget;const abs=Math.abs(b);return (b<0?"-":"")+(abs>=1000?(abs/1000).toFixed(1)+"M€":abs+"K€");})(),C.gd],["Hafta",`${ligMacSayisi}/${toplamLigMac}`,C.dim]];})().map(([l,v,c],i)=>(
+          {(()=>{const ligMacSayisi=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const toplamLigMac=LIG_MAC_MAX[season.league||"1. Lig"]||34;return[["Puan",String(myTeam.pts),C.gd],["Sıra",String(myRank),C.grn2],["Bütçe",(()=>{const b=finans.budget;const abs=Math.abs(b);return (b<0?"-":"")+(abs>=1000?(abs/1000).toFixed(1)+"M€":abs+"K€");})(),C.gd],["Hafta",`${ligMacSayisi}/${toplamLigMac}`,C.dim]];})().map(([l,v,c],i)=>(
             <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",
               borderLeft:`1px solid rgba(77,166,255,0.22)`,paddingLeft:9,flexShrink:0,gap:1}}>
               <div style={{fontSize:".78rem",fontWeight:800,color:c,whiteSpace:"nowrap",letterSpacing:.5,fontFamily:"'Barlow Condensed',sans-serif"}}>{l}{v?" "+v:""}</div>
@@ -4494,9 +3861,9 @@ function App(){
 
         {page==="home"&&nextFix&&(()=>{
           const isHome=nextFix.home;
-          const compLabel=nextFix.comp==="HAZ"?"HAZIRLIK ⚽":nextFix.comp==="ZTK"?"🏆 KUPA":nextFix.comp==="CL"?"⭐ AVRUPA ŞAMPİYONLAR KUPASI":nextFix.comp==="UEFA"?"🇪🇺 AVRUPA LİGİ":"H"+(season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA").length+1);
-          const accentCol=nextFix.comp==="CL"?"#ffd060":nextFix.comp==="UEFA"?"#e67e22":nextFix.comp==="ZTK"?"#e84040":nextFix.comp==="HAZ"?"#7c3aed":nextFix.comp==="SUPERKUPA"?"#c0ff00":C.ac2;
-          const accentRgb=nextFix.comp==="CL"?"200,160,0":nextFix.comp==="UEFA"?"200,100,0":nextFix.comp==="ZTK"?"200,40,40":nextFix.comp==="HAZ"?"26,184,85":nextFix.comp==="SUPERKUPA"?"150,255,50":"45,143,255";
+          const compLabel=nextFix.comp==="HAZ"?"HAZIRLIK ⚽":nextFix.comp==="ZTK"?"🏆 KUPA":nextFix.comp==="CL"?"⭐ AVRUPA ŞAMPİYONLAR KUPASI":nextFix.comp==="UEFA"?"🇪🇺 AVRUPA LİGİ":nextFix.comp==="CON"?"🟢 KONFERANS LİGİ":"H"+(season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON").length+1);
+          const accentCol=nextFix.comp==="CL"?"#ffd060":nextFix.comp==="UEFA"?"#e67e22":nextFix.comp==="CON"?"#2ecc71":nextFix.comp==="ZTK"?"#e84040":nextFix.comp==="HAZ"?"#7c3aed":nextFix.comp==="SUPERKUPA"?"#c0ff00":C.ac2;
+          const accentRgb=nextFix.comp==="CL"?"200,160,0":nextFix.comp==="UEFA"?"200,100,0":nextFix.comp==="CON"?"30,160,90":nextFix.comp==="ZTK"?"200,40,40":nextFix.comp==="HAZ"?"26,184,85":nextFix.comp==="SUPERKUPA"?"150,255,50":"45,143,255";
           const myStr=calcMyStr()+coachBonus;
           const diff=myStr-nextFixLive.str;
           const diffCol=diff>5?C.grn2:diff<-5?C.red2:C.gd;
@@ -4681,7 +4048,7 @@ function App(){
       <div style={{height:22,background:"#030508",borderTop:`1px solid rgba(77,166,255,0.22)`,
         display:"flex",alignItems:"center",overflowX:"auto",scrollbarWidth:"none",
         padding:"0 10px",gap:10,flexShrink:0}}>
-        {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
+        {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
           <span key={i} style={{fontSize:".5rem",letterSpacing:.8,color:C.dim,flexShrink:0,
             borderLeft:i>0?`1px solid rgba(77,166,255,0.22)`:"",paddingLeft:i>0?8:0}}>{v}</span>
         ))}
@@ -5384,58 +4751,60 @@ function App(){
 
       {/* ANA MENÜ ÇIKIŞ ONAY MODALI */}
       {/* ── KURA ÇEKİMİ MODALI ── */}
-      {kuraModal&&(
+      {kuraModal&&kuraModal.comp&&(()=>{
+        const km=EURO_META[kuraModal.comp]||EURO_META.CL;
+        const rgbK=km.rgb, colK=km.color;
+        return(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",zIndex:600,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{minHeight:"100%",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 12px 40px"}}>
-          <div style={{background:"linear-gradient(160deg,#0d1e3c,#060c1c)",border:`1px solid ${kuraModal.type==="CL"?"rgba(232,184,58,.4)":"rgba(230,126,34,.4)"}`,borderRadius:16,padding:"20px 16px",maxWidth:360,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.9)"}}>
-            {/* Başlık */}
-            <div style={{textAlign:"center",marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${kuraModal.type==="CL"?"rgba(232,184,58,.2)":"rgba(230,126,34,.2)"}`}}>
-              <div style={{fontSize:"2.4rem",marginBottom:6}}>{kuraModal.type==="CL"?"⭐":"🇪🇺"}</div>
-              <div style={{fontSize:".5rem",fontWeight:700,letterSpacing:3,color:kuraModal.type==="CL"?"rgba(232,184,58,.7)":"rgba(230,126,34,.7)",textTransform:"uppercase",marginBottom:4}}>
-                {kuraModal.type==="CL"?"AVRUPA ŞAMPİYONLAR KUPASI":"AVRUPA LİGİ"}
-              </div>
-              <div style={{fontSize:"1.1rem",fontWeight:900,color:"#f0f4ff",marginBottom:4}}>GRUP KURA ÇEKİMİ</div>
-              <div style={{fontSize:".5rem",color:"rgba(255,255,255,.4)"}}>Eylül · İstanbul</div>
+          <div style={{background:"linear-gradient(160deg,#0d1e3c,#060c1c)",border:`1px solid rgba(${rgbK},.4)`,borderRadius:16,padding:"20px 16px",maxWidth:380,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.8)"}}>
+            <div style={{textAlign:"center",marginBottom:14,paddingBottom:12,borderBottom:`1px solid rgba(${rgbK},.2)`}}>
+              <div style={{fontSize:"2.4rem",marginBottom:6}}>{km.icon}</div>
+              <div style={{fontSize:".5rem",fontWeight:700,letterSpacing:3,color:`rgba(${rgbK},.8)`,textTransform:"uppercase",marginBottom:4}}>{km.upper}</div>
+              <div style={{fontSize:"1.05rem",fontWeight:900,color:"#f0f4ff",marginBottom:4}}>LİG AŞAMASI KURASI</div>
+              <div style={{fontSize:".5rem",color:"rgba(255,255,255,.45)"}}>36 takım · {km.pots} torba · {km.md} maç ({km.md/2} ev / {km.md/2} deplasman)</div>
             </div>
-
-            {/* Gruplar */}
-            {Object.entries(kuraModal.groups).map(([grpName,teams])=>{
-              const accentCol=kuraModal.type==="CL"?"#ffd060":"#e67e22";
-              const accentRgb=kuraModal.type==="CL"?"232,184,58":"230,126,34";
-              const myTeam=teams.find(t=>t.me);
-              return(
-                <div key={grpName} style={{marginBottom:10,border:`1px solid rgba(${accentRgb},.2)`,borderRadius:10,overflow:"hidden"}}>
-                  <div style={{padding:"5px 10px",background:`rgba(${accentRgb},.1)`,display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:".5rem",fontWeight:800,color:accentCol,letterSpacing:2}}>GRUP {grpName}</span>
-                    {myTeam&&<span style={{fontSize:".42rem",background:`rgba(${accentRgb},.2)`,border:`1px solid rgba(${accentRgb},.4)`,borderRadius:3,padding:"1px 6px",color:accentCol}}>Senin Grubun</span>}
-                  </div>
-                  {teams.map((t,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
-                      borderBottom:i<teams.length-1?`1px solid rgba(${accentRgb},.08)`:"none",
-                      background:t.me?`rgba(${accentRgb},.06)`:""}}>
-                      <TeamBadge name={t.me?clubName:t.n} size="sm"/>
-                      <span style={{flex:1,fontSize:".62rem",color:t.me?accentCol:"#f0f4ff",fontWeight:t.me?800:400}}>
-                        {t.me?"▶ "+clubName:t.n}
-                      </span>
-                    </div>
+            <div style={{fontSize:".5rem",fontWeight:800,letterSpacing:2,color:colK,marginBottom:6}}>RAKİPLERİN</div>
+            {(kuraModal.opps||[]).map((o,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",marginBottom:4,borderRadius:8,
+                background:`rgba(${rgbK},.05)`,border:`1px solid rgba(${rgbK},.12)`}}>
+                <span style={{fontSize:".44rem",color:"rgba(255,255,255,.45)",width:40}}>{o.md}. hafta<br/>{o.month}</span>
+                <TeamBadge name={o.n} size="sm"/>
+                <span style={{flex:1,fontSize:".6rem",color:"#f0f4ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.n}</span>
+                <span style={{fontSize:".42rem",color:"rgba(255,255,255,.4)"}}>{o.lg}</span>
+                <span style={{fontSize:".44rem",color:colK,width:22,textAlign:"center"}}>T{o.pot}</span>
+                <span style={{fontSize:".52rem",width:14,color:o.home?"#4da8ff":"rgba(255,255,255,.4)"}}>{o.home?"⌂":"✈"}</span>
+              </div>
+            ))}
+            <div style={{fontSize:".5rem",fontWeight:800,letterSpacing:2,color:colK,margin:"12px 0 6px"}}>TORBALAR</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {(kuraModal.pots||[]).map((p,pi)=>(
+                <div key={pi} style={{border:`1px solid rgba(${rgbK},.18)`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{padding:"3px 7px",background:`rgba(${rgbK},.1)`,fontSize:".44rem",fontWeight:800,color:colK}}>TORBA {pi+1}</div>
+                  {p.map((t,ti)=>(
+                    <div key={ti} style={{padding:"2px 7px",fontSize:".46rem",color:t.me?colK:"rgba(240,244,255,.8)",fontWeight:t.me?800:400,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.me?"▶ ":""}{t.n}</div>
                   ))}
                 </div>
-              );
-            })}
-
+              ))}
+            </div>
+            <div style={{fontSize:".46rem",color:"rgba(255,255,255,.45)",margin:"10px 2px",lineHeight:1.5}}>
+              1–8 doğrudan Son 16 · 9–24 Şubat'ta çift maçlı Play-Off · 25–36 elenir. Aynı ligden takımlar eşleşmez.
+            </div>
             <button onClick={()=>setKuraModal(null)} style={{
-              width:"100%",marginTop:6,padding:"13px 0",
-              background:kuraModal.type==="CL"?"linear-gradient(135deg,#b8860b,#ffd060)":"linear-gradient(135deg,#c05c00,#e67e22)",
-              border:"none",color:kuraModal.type==="CL"?"#1a1000":"#fff",
+              width:"100%",marginTop:4,padding:"13px 0",
+              background:`linear-gradient(135deg,rgba(${rgbK},.75),${colK})`,
+              border:"none",color:kuraModal.comp==="CL"?"#1a1000":"#fff",
               fontSize:".72rem",fontWeight:900,cursor:"pointer",borderRadius:10,
               fontFamily:"inherit",letterSpacing:.5
             }}>
-              {kuraModal.type==="CL"?"⭐ Gruba Hazırım!":"🇪🇺 Gruba Hazırım!"}
+              {km.icon} Lig Aşamasına Hazırım!
             </button>
           </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {showCoachSaveModal&&(
         <CoachSaveModal

@@ -67,7 +67,7 @@ function getTeamEuroScorers(teamName, totalGf, dbRef){
 function genLigScorers(season, squad, clubName, dbOverride){
   const myLg=season.league||"1. Lig";
   // Sadece lig maçlarını say — HAZ (hazırlık) maçları GK/AK'a dahil edilmez
-  const EXCL_COMPS=["HAZ","ZTK","CL","UEFA","SUPERKUPA"];
+  const EXCL_COMPS=["HAZ","ZTK","CL","UEFA","CON","SUPERKUPA"];
   const ligPlayed=(season.results||[]).filter(r=>!EXCL_COMPS.includes(r.comp)).length;
   const played=ligPlayed; // eski "season.played" yerine sadece lig maçları
   const attPos=["ST","LM","RM","CAM","CM"];
@@ -142,158 +142,24 @@ function genLigScorers(season, squad, clubName, dbOverride){
   return result;
 }
 
-function EuroSimWidget({played,isCL,C,season}){
-  const acCol=isCL?"#ffd060":"#e67e22";
-  const acRgb=isCL?"232,184,58":"230,126,34";
-  const icon=isCL?"⭐":"🇪🇺";
-  const CL_T=[
-    ["Real Madreno","Bayern FC","FC Internazionale","Juventus FC"],
-    ["Galatasaray FC","Sporting CP","Leverkusen FC","Atletico Madreno"],
-    ["PSV Eindhoven","FC Porto","Villareal CF","RSC Anderlecht"],
-    ["Eastfield City","Paris SG","AFC Ajax","SS Lazione"],
-    ["Northon City","Mersey Reds","SL Benfica","Shakhtar"],
-    ["FC Cataluña","Dortmund BV","Feyenoord","Celtic FC"],
-    ["Westbridge FC","SSC Partenopei","Sevilia FC","SC Braga"],
-    ["AC Milanese","Leipzig RB","Gladbach FC","Real Sociedad"],
-  ];
-  const AL_T=[
-    ["AS Romasso","Stade Rennais","İskoç Mavi FC","Ferencvaros"],
-    ["OL Lyon","Frankfurt EFC","East Hammers","Slavia Praha"],
-    ["OM Marseille","Stuttgart VfB","Boavista","OGC Nice"],
-    ["Atalanta BC B","Brest","Eintracht","RC Lens"],
-    ["Fenerbahce FC","Trabzonspor FC","Bodo Glimt","Molde"],
-    ["Bologna FC","Wolfsburg FC","AZ Alkmaar","Genk"],
-    ["Gil Vicente","Qarabag","Union SG","Djurgarden"],
-    ["Sturm Graz","Omonoia","Vitoria SC","Helsinki"],
-  ];
-  const TEAMS=isCL?CL_T:AL_T;
-  const GN=["A","B","C","D","E","F","G","H"];
-  const ROUNDS=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]],[[1,0],[3,2]],[[2,0],[3,1]],[[3,0],[2,1]]];
-  // played = grup maç sayısı (direkt, /5 yok)
-  const gw=Math.min(6,played);
-  // played = 6 + koPhase*2 mantığıyla: koRound = floor((played-6)/2), max 4
-  // Şubat: played=7 → koRound=0 (Son16 henüz bitmedi, sadece başladı)
-  // Mart: played=8 → koRound=1 (Son16 bitti)
-  // Nisan: played=10 → koRound=2 (ÇF bitti)
-  // Mayıs: played=12 → koRound=3 (YF bitti)
-  // Mayıs sonu: played=14 → koRound=4 (Final bitti)
-  const koRound=gw>=6?Math.min(4,Math.floor((played-6)/2)):0;
-  const seed0=((played*7777+(isCL?11:22))>>>0);
-
-  const groups=TEAMS.map(function(grpT,gi){
-    var rows=grpT.map(function(n){return{n:n,w:0,d:0,l:0,gf:0,ga:0,pts:0};});
-    ROUNDS.slice(0,gw).forEach(function(round,ri){
-      round.forEach(function(pair){
-        var ai=pair[0],bi=pair[1];
-        var a=rows[ai],b=rows[bi];
-        var s=((a.n.charCodeAt(0)*31+b.n.charCodeAt(0)*17+ri*7+gi*3+seed0)>>>0)%10000;
-        var r=s/10000;
-        if(r<0.45){a.w++;a.pts+=3;b.l++;a.gf+=1+s%2;b.ga+=1+s%2;}
-        else if(r<0.68){a.d++;b.d++;a.pts++;b.pts++;}
-        else{b.w++;b.pts+=3;a.l++;b.gf+=1+s%2;a.ga+=1+s%2;}
-      });
-    });
-    return{name:GN[gi],teams:rows.slice().sort(function(a,b){return b.pts-a.pts||((b.gf-b.ga)-(a.gf-a.ga));})};
-  });
-
-  var q=[];
-  groups.forEach(function(g){if(g.teams[0])q.push(g.teams[0].n);if(g.teams[1])q.push(g.teams[1].n);});
-  function bracket(teams,seedAdd){
-    var res=[];
-    for(var i=0;i+1<teams.length;i+=2){
-      var s=((seed0+i*997+seedAdd)>>>0)%10000;
-      var aWins=s<5000;
-      var winG=1+(s%3);
-      var loseG=winG>1?((s*13)%winG):0;
-      var totA=aWins?winG:loseG;
-      var totB=aWins?loseG:winG;
-      res.push({teamA:teams[i],teamB:teams[i+1],winner:aWins?teams[i]:teams[i+1],totA:totA,totB:totB});
-    }
-    return res;
-  }
-  // Son 16 kura: aynı gruptan çıkanlar karşılaşamaz
-  // q = [A1,A2, B1,B2, ...] → pot1=birincilar(çift), pot2=ikinciler(tek)
-  function drawS16(q16,seedAdd){
-    if(q16.length<16) return bracket(q16,seedAdd);
-    var pot1=q16.filter(function(_,i){return i%2===0;});
-    var pot2=q16.filter(function(_,i){return i%2===1;});
-    function hh(a,b,r){var h=5381;var s=a+b+r;for(var i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return Math.abs(h);}
-    var used=new Array(pot2.length).fill(false);
-    var pairs=[];
-    for(var i=0;i<pot1.length;i++){
-      var a=pot1[i];
-      var cands=pot2.map(function(b,j){return{b:b,j:j};}).filter(function(x){return x.j!==i&&!used[x.j];});
-      var pick=cands.length>0?cands[hh(a,seedAdd+"p","")%cands.length]:pot2.map(function(b,j){return{b:b,j:j};}).find(function(x){return !used[x.j];});
-      if(!pick) continue;
-      used[pick.j]=true;
-      var s2=((seed0+(seedAdd||0)+i*997)>>>0)%10000;
-      var aWins=s2<5000;var wg=1+(s2%3);var lg=wg>1?((s2*13)%wg):0;
-      pairs.push({teamA:a,teamB:pick.b,winner:aWins?a:pick.b,totA:aWins?wg:lg,totB:aWins?lg:wg});
-    }
-    return pairs;
-  }
-  var s16=koRound>=1?drawS16(q,1000):[];
-  var qf=koRound>=2?bracket(s16.map(function(r){return r.winner;}),2000):[];
-  var sf=koRound>=3?bracket(qf.map(function(r){return r.winner;}),3000):[];
-  var fin=koRound>=4?bracket(sf.map(function(r){return r.winner;}),4000):[];
-  var champ=(koRound>=4&&fin[0])?fin[0].winner:null;
-  var phaseLabel=gw<6?("Grup Aşaması ("+gw+"/6 hafta)"):koRound===0?"⏳ Son 16 Başlıyor":koRound===1?"🔟 Son 16":koRound===2?"🏅 Çeyrek Final":koRound===3?"🥈 Yarı Final":koRound===4?"🏆 Final Tamamlandı":"⏳ Eleme Başlıyor";
-  var koRounds=[
-    {data:s16,label:"🔟 Son 16",show:koRound>=1},
-    {data:qf,label:"🏅 Çeyrek Final",show:koRound>=2},
-    {data:sf,label:"🥈 Yarı Final",show:koRound>=3},
-    {data:fin,label:"🏆 Final",show:koRound>=4},
-  ];
-
-  return React.createElement("div",null,
-    React.createElement("div",{style:{fontSize:".52rem",color:acCol,fontWeight:700,marginBottom:8,textAlign:"center",opacity:.9}},"📊 "+phaseLabel),
-    gw===0&&React.createElement("div",{style:{textAlign:"center",padding:"16px",fontSize:".5rem",color:"rgba("+acRgb+",.4)"}},
-      "Grup maçları henüz başlamadı. Sezon ilerledikçe güncellenecek."),
-    gw>0&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:10}},
-      groups.map(function(grp){
-        return React.createElement("div",{key:grp.name,style:{background:"rgba("+acRgb+",.05)",border:"1px solid rgba("+acRgb+",.2)",borderRadius:6,overflow:"hidden"}},
-          React.createElement("div",{style:{padding:"3px 6px",background:"rgba("+acRgb+",.12)",fontSize:".43rem",fontWeight:700,color:acCol}},icon+" GRUP "+grp.name),
-          grp.teams.map(function(t,i){
-            return React.createElement("div",{key:t.n,style:{display:"grid",gridTemplateColumns:"13px 1fr 16px 18px 20px",gap:1,alignItems:"center",padding:"2px 3px",
-              background:i<2?"rgba("+acRgb+",.07)":"",borderBottom:"1px solid rgba(255,255,255,.025)"}},
-              React.createElement("span",{style:{fontSize:".37rem",color:i<2?acCol:"rgba(255,255,255,.3)",textAlign:"center"}},i+1),
-              React.createElement("span",{style:{fontSize:".41rem",color:"#eee",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.n),
-              React.createElement("span",{style:{fontSize:".37rem",color:"#777",textAlign:"center"}},t.w+t.d+t.l),
-              React.createElement("span",{style:{fontSize:".37rem",color:"#777",textAlign:"center"}},t.gf+"-"+t.ga),
-              React.createElement("span",{style:{fontSize:".44rem",fontWeight:700,color:i<2?acCol:"#bbb",textAlign:"center"}},t.pts)
-            );
-          }),
-          gw>=6&&React.createElement("div",{style:{padding:"2px 5px",fontSize:".37rem",color:acCol,background:"rgba("+acRgb+",.06)"}},"\u25b2 Son 16")
-        );
-      })
-    ),
-    koRounds.filter(function(r){return r.show&&r.data.length>0;}).map(function(kr){
-      return React.createElement("div",{key:kr.label,style:{marginBottom:6,border:"1px solid rgba("+acRgb+",.25)",borderRadius:6,overflow:"hidden"}},
-        React.createElement("div",{style:{padding:"4px 8px",background:"rgba("+acRgb+",.15)",fontSize:".43rem",fontWeight:700,color:acCol}},kr.label),
-        kr.data.map(function(r,i){
-          var aWon=r.winner===r.teamA;
-          var bWon=r.winner===r.teamB;
-          return React.createElement("div",{key:i,style:{display:"grid",gridTemplateColumns:"1fr 36px 1fr",alignItems:"center",padding:"4px 6px",borderBottom:i<kr.data.length-1?"1px solid rgba(255,255,255,.06)":"none",background:i%2===0?"rgba(0,0,0,.15)":"rgba(0,0,0,.05)"}},
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:3,overflow:"hidden"}},
-              React.createElement("span",{style:{fontSize:".38rem",flexShrink:0}},aWon?"✅":"❌"),
-              React.createElement("span",{style:{fontSize:".43rem",fontWeight:aWon?700:400,color:aWon?"#fff":"rgba(255,255,255,.35)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:aWon?"none":"line-through"}},r.teamA)
-            ),
-            React.createElement("div",{style:{textAlign:"center",flexShrink:0}},
-              React.createElement("span",{style:{fontSize:".48rem",fontWeight:800,color:acCol,background:"rgba("+acRgb+",.18)",borderRadius:4,padding:"1px 4px",display:"inline-block"}},r.totA+"-"+r.totB)
-            ),
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:3,justifyContent:"flex-end",overflow:"hidden"}},
-              React.createElement("span",{style:{fontSize:".43rem",fontWeight:bWon?700:400,color:bWon?"#fff":"rgba(255,255,255,.35)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"right",textDecoration:bWon?"none":"line-through"}},r.teamB),
-              React.createElement("span",{style:{fontSize:".38rem",flexShrink:0}},bWon?"✅":"❌")
-            )
-          );
-        })
-      );
-    }),
-    champ&&React.createElement("div",{style:{padding:"10px",background:"rgba("+acRgb+",.15)",border:"1px solid rgba("+acRgb+",.4)",borderRadius:8,textAlign:"center",marginTop:6}},
-      React.createElement("div",{style:{fontSize:"1.3rem"}},"🏆"),
-      React.createElement("div",{style:{fontSize:".5rem",fontWeight:800,color:acCol,marginTop:2}},"ŞAMPİYON"),
-      React.createElement("div",{style:{fontSize:".68rem",fontWeight:900,color:"#fff",marginTop:2}},champ)
-    )
+// Avrupa kupaları canlı görünümü — 36 takımlı Swiss tablo + eleme ağacı (js/ui/euro.js)
+function EuroSimWidget({season,clubName,db}){
+  const avail=EURO_COMP_LIST.filter(c=>season&&season[EURO_TABLE_KEY[c]]);
+  const mine=avail.find(c=>(season[EURO_TABLE_KEY[c]].teams||[]).some(t=>t.me));
+  const [comp,setComp]=useState(mine||avail[0]||"CL");
+  return(
+    <div>
+      <div style={{display:"flex",gap:4,marginBottom:8}}>
+        {EURO_COMP_LIST.map(c=>(
+          <button key={c} onClick={()=>setComp(c)} style={{flex:1,padding:"5px 4px",borderRadius:5,fontSize:".52rem",fontWeight:700,cursor:"pointer",
+            background:comp===c?`rgba(${EURO_META[c].rgb},.18)`:"rgba(255,255,255,.03)",color:comp===c?EURO_META[c].color:C.dim,
+            border:`1px solid ${comp===c?`rgba(${EURO_META[c].rgb},.45)`:"rgba(255,255,255,.06)"}`}}>
+            {EURO_META[c].icon} {EURO_META[c].short}{c===mine?" ▶":""}
+          </button>
+        ))}
+      </div>
+      <EuroSwissPanel key={comp} season={season} comp={comp} clubName={clubName} db={db}/>
+    </div>
   );
 }
 
@@ -301,82 +167,8 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
   const [tab,setTab]=useState("krallik");
   const [ligTab,setLigTab]=useState("gol");
 
-  const played=season.played||0;
+  const played=season?.played||0;
   const myLg=season.league||"1. Lig";
-  // Eylül kontrolü — kura Eylül'de çekilir, önce gruplar gösterilmez
-  const _MONTH_ORD=["Temmuz","Agustos","Eylul","Ekim","Kasim","Aralik","Ocak","Subat","Mart","Nisan","Mayis","Haziran"];
-  const _eylulIdx=_MONTH_ORD.indexOf("Eylul");
-  const _latestMIdx=(season.results||[]).reduce((mx,r)=>Math.max(mx,_MONTH_ORD.indexOf(r.month||"")),-1);
-  const euroKuraCekildi=_latestMIdx>=_eylulIdx;
-  // Kullanıcının her kupada oynadığı grup maç sayısı — results'tan direkt say (elenmiş olsa da korunur)
-  const _clGroupPlayed=(season.results||[]).filter(r=>r.comp==="CL"&&r.round&&r.round.startsWith("Grup")).length;
-  const _uefaGroupPlayed=(season.results||[]).filter(r=>r.comp==="UEFA"&&r.round&&r.round.startsWith("Grup")).length;
-  // Ay bazlı fallback (kullanıcı o kupada hiç oynamadıysa)
-  // Gerçek UEFA takvimi: Eylül=2 hafta, Ekim=4 hafta, Kasım=6 hafta (grup biter), Aralık+=6
-  const _subatIdx=_MONTH_ORD.indexOf("Subat");
-  const _ekimIdx=_MONTH_ORD.indexOf("Ekim");
-  const _kasimIdx=_MONTH_ORD.indexOf("Kasim");
-  const _aralikIdx=_MONTH_ORD.indexOf("Aralik");
-  // Grup maçları hafta bazlı — fikstürdeki gerçek W değerleri kullanılır
-  const _currentWeekNum=(season.results||[]).reduce((mx,r)=>Math.max(mx,r.w||0),0);
-  const _clGroupW=(season.fixture||[]).filter(f=>f.comp==="CL"&&f.round&&f.round.startsWith("Grup")).map(f=>f.w||0).sort((a,b)=>a-b);
-  const _uefaGroupW=(season.fixture||[]).filter(f=>f.comp==="UEFA"&&f.round&&f.round.startsWith("Grup")).map(f=>f.w||0).sort((a,b)=>a-b);
-  const _big38Lg=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(myLg);
-  // MD takvimi: her MD için (ay, o_ayda_kac_lig_maci_oynandiktan_sonra) eşiği
-  // MD1=Eylül/1, MD2=Ekim/1, MD3=Ekim/3, MD4=Kasım/1, MD5=Kasım/3, MD6=Aralık/1
-  const _calcGroupPlayed=()=>{
-    const _EXCL=["CL","UEFA","ZTK","HAZ","SUPERKUPA"];
-    const _MD_SCHED=[["Eylul",1],["Ekim",1],["Ekim",2],["Kasim",1],["Kasim",2],["Aralik",1]];
-    const _eylulI=_MONTH_ORD.indexOf("Eylul");
-    if(_latestMIdx<_eylulI) return 0;
-    const _res=season.results||[];
-    const _ligPlayed={};
-    _res.forEach(r=>{if(!_EXCL.includes(r.comp)&&r.month){_ligPlayed[r.month]=(_ligPlayed[r.month]||0)+1;}});
-    let count=0;
-    for(const [ay,threshold] of _MD_SCHED){
-      const ayI=_MONTH_ORD.indexOf(ay);
-      if(ayI>_latestMIdx) break;
-      if((_ligPlayed[ay]||0)>=threshold) count++;
-    }
-    return Math.min(6,count);
-  };
-  const _nisanIdx=_MONTH_ORD.indexOf("Nisan");
-  const _mayisIdx=_MONTH_ORD.indexOf("Mayis");
-  // Sezon bitti = fixture'da lig maçı kalmadı (CL/UEFA/ZTK/HAZ hariç)
-  const _seasonEnded=(()=>{
-    const _LIG_EXCL=["CL","UEFA","ZTK","HAZ","SUPERKUPA"];
-    const hasLigLeft=(season.fixture||[]).some(f=>!_LIG_EXCL.includes(f.comp));
-    return !hasLigLeft&&(season.played||0)>5;
-  })();
-  const _koPhase=(()=>{
-    if(_latestMIdx<_subatIdx) return 0;
-    if(_latestMIdx===_subatIdx) return 2;      // Şubat: Son16 1. maç
-    if(_latestMIdx===_subatIdx+1) return 2;    // Mart: Son16 + ÇF 1. maç
-    if(_latestMIdx===_nisanIdx){
-      // Nisan: ÇF 2. maç + YF her iki maç
-      if(_seasonEnded) return 6; // sezon bitti = YF de oynanmış
-      return 6; // Nisan'da YF oynandı
-    }
-    // Mayıs: Final
-    if(_latestMIdx===_mayisIdx){
-      if(_seasonEnded) return 8; // Sezon bitti = Final oynandı
-      return 6; // Final henüz oynanmadı
-    }
-    if(_seasonEnded) return 8;
-    return 0;
-  })();
-  // Final: sadece sezon tamamen bittikten sonra göster
-  // _koPhase=8 → koRound=floor((6+8-6)/2)=4 → Final
-  // _koPhase=6 → koRound=floor((6+6-6)/2)=3 → YF (Final yok)
-  // CL widget için played: CL'de oynadıysa kendi maçları, yoksa CL fikstür W bazlı (diğer kupa fallback)
-  const _groupPlayedByMonth=_calcGroupPlayed();
-  const _clGroupPlayedFallback=_calcGroupPlayed();
-  const _uefaGroupPlayedFallback=_calcGroupPlayed();
-  const _clPlayedTotal=(_clGroupPlayed>0?_clGroupPlayed:_clGroupPlayedFallback)+_koPhase;
-  // UEFA widget için played: UEFA'da oynadıysa kendi maçları, yoksa UEFA fikstür W bazlı
-  const _uefaPlayedTotal=(_uefaGroupPlayed>0?_uefaGroupPlayed:_uefaGroupPlayedFallback)+_koPhase;
-  const playedPostEylul=euroKuraCekildi?_clPlayedTotal:0; // CL için (backward compat)
-  const euroGroupWeeks=euroKuraCekildi?Math.min(6,playedPostEylul):0;
 
   // Lig oyuncu istatistikleri
   const ligScorers=genLigScorers(season,squad,clubName,dbProp);
@@ -409,7 +201,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
     :myPlayers;
 
   // Takim istatistikleri — gercek season verisinden
-  const myTeam=season.teams.find(t=>t.me)||{w:0,d:0,l:0,gf:0,ga:0,pts:0};
+  const myTeam=(season.teams||[]).find(t=>t.me)||{w:0,d:0,l:0,gf:0,ga:0,pts:0};
   const ts=played===0
     ?[["Oynanmis Mac","0"],["Atilan Gol","0"],["Yenilen Gol","0"],["Mac Basi Gol","—"],["Isabetli Sut","—"],["Basarili Pas","—"]]
     :[
@@ -431,126 +223,6 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
     return{...t,gk,def,mid,att,overall:ovrToGrade(base)};
   });
 
-  // ── Avrupa Şampiyonlar Kupası Simülasyonu ─────────────────────────────
-  const CL_GROUPS=["A","B","C","D","E","F","G","H"];
-  const CL_CLUBS=[
-    ["Real Madreno","Bayern FC","FC Internazionale","Juventus FC"],
-    ["Galatasaray FC","Sporting CP","Leverkusen FC","Atletico Madreno"],
-    ["PSV Eindhoven","FC Porto","Villareal CF","RSC Anderlecht"],
-    ["Eastfield City","Paris SG","AFC Ajax","SS Lazione"],
-    ["Northon City","Mersey Reds","SL Benfica","Shakhtar"],
-    ["FC Cataluña","Dortmund BV","Feyenoord","Celtic FC"],
-    ["Westbridge FC","SSC Partenopei","Sevilia FC","SC Braga"],
-    ["AC Milanese","Leipzig RB","Gladbach FC","Real Sociedad"],
-  ];
-  const CL_STRENGTHS={
-    "Real Madreno":92,"Bayern FC":90,"FC Internazionale":85,"Juventus FC":83,
-    "Galatasaray FC":78,"Sporting CP":80,"Leverkusen FC":89,"Atletico Madreno":84,
-    "PSV Eindhoven":82,"FC Porto":81,"Villareal CF":78,"RSC Anderlecht":72,
-    "Eastfield City":91,"Paris SG":89,"AFC Ajax":79,"SS Lazione":76,
-    "Northon City":87,"Mersey Reds":86,"SL Benfica":81,"Shakhtar":74,
-    "FC Cataluña":88,"Dortmund BV":85,"Feyenoord":77,"Celtic FC":72,
-    "Westbridge FC":83,"SSC Partenopei":82,"Sevilia FC":79,"SC Braga":73,
-    "AC Milanese":84,"Leipzig RB":82,"Gladbach FC":75,"Real Sociedad":76,
-  };
-  // UEFA Europa League clubs
-  const UEFA_GROUPS=["A","B","C","D","E","F","G","H"];
-  const UEFA_CLUBS=[
-    ["AS Romasso","Stade Rennais","İskoç Mavi FC","Ferencvaros"],
-    ["OL Lyon","Frankfurt EFC","East Hammers","Slavia Praha"],
-    ["OM Marseille","Stuttgart VfB","Boavista","OGC Nice"],
-    ["Atalanta BC B","Brest","Eintracht","RC Lens"],
-    ["Fenerbahce FC","Trabzonspor FC","Bodo Glimt","Molde"],
-    ["Bologna FC","Wolfsburg FC","AZ Alkmaar","Genk"],
-    ["Gil Vicente","Qarabag","Union SG","Djurgarden"],
-    ["Sturm Graz","Omonoia","Vitoria SC","Helsinki"],
-  ];
-  const UEFA_STRENGTHS={
-    "AS Romasso":80,"Stade Rennais":72,"İskoç Mavi FC":69,"Ferencvaros":64,
-    "OL Lyon":74,"Frankfurt EFC":76,"East Hammers":77,"Slavia Praha":70,
-    "OM Marseille":73,"Stuttgart VfB":75,"Boavista":66,"OGC Nice":70,
-    "Atalanta BC B":79,"Brest":71,"Eintracht":76,"RC Lens":71,
-    "Fenerbahce FC":74,"Trabzonspor FC":69,"Bodo Glimt":70,"Molde":67,
-    "Bologna FC":75,"Wolfsburg FC":73,"AZ Alkmaar":72,"Genk":68,
-    "Gil Vicente":65,"Qarabag":64,"Union SG":70,"Djurgarden":62,
-    "Sturm Graz":66,"Omonoia":60,"Vitoria SC":65,"Helsinki":60,
-  };
-
-  // Deterministik simülasyon — played sayısına göre sonuçlar üretilir
-  const simEuroGroup=(clubs,strengths,groupName,seed,playedWeeks)=>{
-    const rows=clubs.map(n=>({n,str:strengths[n]||70,w:0,d:0,l:0,gf:0,ga:0,pts:0}));
-    if(playedWeeks===0) return rows;
-    // Her takım 6 maç oynar (çift devreli, 4 takım grubu) — toplam 12 maç
-    // Maçlar: (0,1),(0,2),(0,3),(1,2),(1,3),(2,3),(1,0),(2,0),(3,0),(2,1),(3,1),(3,2)
-    const matches=[];
-    for(let i=0;i<clubs.length;i++)
-      for(let j=0;j<clubs.length;j++)
-        if(i!==j) matches.push([i,j]);
-    // played'e göre oynanan tur: her 5 haftada 1 Avrupa maçı, max 6 tur
-    const gamesPerTeam=Math.min(6,Math.floor(playedWeeks/5));
-    // Her takım gamesPerTeam maç oynamalı. Tüm gruplarda aynı sayıda.
-    // Birinci turda (0,1),(2,3) → her takım 1 maç; ikinci tur (0,2),(1,3) vb.
-    const rounds=[
-      [[0,1],[2,3]],
-      [[0,2],[1,3]],
-      [[0,3],[1,2]],
-      [[1,0],[3,2]],
-      [[2,0],[3,1]],
-      [[3,0],[2,1]],
-    ];
-    rounds.slice(0,gamesPerTeam).forEach((round,ri)=>{
-      round.forEach(([ai,bi])=>{
-        const a=rows[ai], b=rows[bi];
-        const s=seed*31+ai*1000+bi*100+ri*7;
-        const aStr=a.str, bStr=b.str;
-        const total=aStr+bStr;
-        const rng=((s*1664525+1013904223)>>>0)/4294967296;
-        const rng2e=((s*6364136+ai*22695477+ri*31+1)>>>0)/4294967296;
-        const rng3e=((s*22695477+bi*6364136+ri*17+2)>>>0)/4294967296;
-        const strDiffE=aStr-bStr;
-        const aW=Math.max(0.08,Math.min(0.82,(aStr/total)*0.52+0.06+strDiffE*0.012));
-        const draw=Math.max(0.05,0.20-Math.abs(strDiffE)*0.004);
-        const srE=Math.max(0.5,Math.min(2.0,aStr/(bStr||65)));
-        let aGf,bGf;
-        if(rng<aW){
-          aGf=1+Math.floor(rng2e*2+srE*0.7); bGf=Math.floor(rng3e*2);
-          a.w++; b.l++; a.pts+=3;
-        } else if(rng<aW+draw){
-          aGf=Math.floor(rng2e*3)+1; bGf=aGf;
-          a.d++; b.d++; a.pts++; b.pts++;
-        } else {
-          bGf=1+Math.floor(rng3e*2+(1/srE)*0.7); aGf=Math.floor(rng2e*2);
-          b.w++; a.l++; b.pts+=3;
-        }
-        aGf=Math.max(0,Math.min(7,aGf));
-        bGf=Math.max(0,Math.min(7,bGf));
-        a.gf+=aGf; a.ga+=bGf; b.gf+=bGf; b.ga+=aGf;
-      });
-    });
-    return rows.sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga));
-  };
-
-  // ASK top scorers simulation
-  const CL_SCORERS=[
-    {n:"J.Bellingam",club:"Real Madreno",pos:"CAM",str:91},
-    {n:"E.Haland",club:"Eastfield City",pos:"ST",str:92},
-    {n:"K.Maboul",club:"Paris SG",pos:"ST",str:90},
-    {n:"V.Vinicius",club:"Real Madreno",pos:"LM",str:89},
-    {n:"R.Lewandow",club:"FC Cataluña",pos:"ST",str:87},
-    {n:"Osimhen",club:"SSC Partenopei",pos:"ST",str:86},
-    {n:"Kane",club:"Bayern FC",pos:"ST",str:88},
-    {n:"M.Salache",club:"Mersey Reds",pos:"RM",str:87},
-    {n:"K.Benzemo",club:"Real Madreno",pos:"ST",str:85},
-    {n:"K.DeBruyne",club:"Eastfield City",pos:"CAM",str:91},
-  ];
-  const clGamesPlayed=euroGroupWeeks;
-  const clScorers=CL_SCORERS.map((p,i)=>{
-    const seed=p.n.charCodeAt(0)*17+i*31;
-    const g=clGamesPlayed===0?0:Math.round(clGamesPlayed*(p.str/100)*0.9*((seed%30+85)/100));
-    const a=clGamesPlayed===0?0:Math.round(clGamesPlayed*(p.str/100)*0.6*((seed%25+80)/100));
-    return {...p,g,a,m:clGamesPlayed};
-  }).sort((a,b)=>b.g-a.g);
-
   const tabBtnStyle=(k)=>({
     background:tab===k?"rgba(45,143,255,.25)":"rgba(26,110,216,.06)",
     border:`1px solid ${tab===k?C.ac2:C.brd}`,color:tab===k?C.wh:C.dim,
@@ -560,99 +232,20 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
   const rankColor=(i)=>i===0?"#ffd060":i===1?"#c0c8d8":i===2?"#c87533":C.dim;
   const rankEmoji=(i)=>i===0?"🥇":i===1?"🥈":i===2?"🥉":null;
 
-  // ── Canlı Avrupa grup tablosu — kullanıcı CL/AL'daysa bunu kullan ──
-  const LiveEuroGroupTable=({liveGroups,accentCol,accentRgb,qualifier=2,clubName})=>{
-    if(!liveGroups||typeof liveGroups!=="object") return null;
-    return(
-      <div style={{paddingBottom:10}}>
-        {Object.entries(liveGroups).map(([grpName,teams])=>{
-          if(!Array.isArray(teams)||teams.length===0) return null;
-          const sorted=[...teams].sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf);
-          return(
-            <div key={grpName} style={{marginBottom:10,border:`1px solid rgba(${accentRgb},.22)`,borderRadius:6,overflow:"hidden"}}>
-              <div style={{padding:"4px 8px",background:`rgba(${accentRgb},.1)`,
-                fontSize:".48rem",fontWeight:700,color:accentCol,letterSpacing:2,textTransform:"uppercase"}}>
-                GRUP {grpName}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"16px minmax(0,1fr) 20px 20px 20px 20px 34px 24px",
-                padding:"2px 6px",fontSize:".38rem",color:C.dmr,letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid rgba(77,166,255,0.1)`}}>
-                <span>#</span><span>Takım</span><span style={{textAlign:"center"}}>O</span>
-                <span style={{textAlign:"center"}}>G</span><span style={{textAlign:"center"}}>B</span>
-                <span style={{textAlign:"center"}}>M</span><span style={{textAlign:"center"}}>Av</span>
-                <span style={{textAlign:"center"}}>P</span>
-              </div>
-              {sorted.map((t,i)=>(
-                <div key={t.n} style={{display:"grid",gridTemplateColumns:"16px minmax(0,1fr) 20px 20px 20px 20px 34px 24px",
-                  padding:"3px 6px",borderBottom:i<sorted.length-1?`1px solid rgba(77,166,255,0.1)`:"none",alignItems:"center",
-                  background:t.me?`rgba(${accentRgb},.12)`:i<qualifier?`rgba(${accentRgb},.04)`:""}}>
-                  <span style={{fontSize:".48rem",textAlign:"center",fontWeight:700,color:i<qualifier?accentCol:C.dmr}}>{i+1}</span>
-                  <span style={{fontSize:".58rem",color:t.me?accentCol:i<qualifier?C.wh:C.wh,fontWeight:t.me?800:400,
-                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingLeft:2}}>
-                    {t.me?"▶ ":""}{t.n}
-                  </span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.dim}}>{t.w+t.d+t.l}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.grn2}}>{t.w}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.gd}}>{t.d}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.red2}}>{t.l}</span>
-                  <span style={{textAlign:"center",fontSize:".44rem",color:C.dim}}>{t.gd>0?"+"+t.gd:t.gd}</span>
-                  <span style={{textAlign:"center",fontSize:".64rem",fontWeight:700,color:i<qualifier?accentCol:C.wh}}>{t.pts}</span>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // Euro group table renderer
-  const EuroGroupTable=({groups,clubs,strengths,baseSeed,playedWeeks,accentCol,accentRgb,compLabel,qualifier})=>{
-    return(
-      <div style={{paddingBottom:10}}>
-        {groups.map((g,gi)=>{
-          const rows=simEuroGroup(clubs[gi],strengths,g,baseSeed+gi*999,playedWeeks);
-          return(
-            <div key={g} style={{marginBottom:10,border:`1px solid rgba(${accentRgb},.22)`,borderRadius:6,overflow:"hidden"}}>
-              <div style={{padding:"4px 8px",background:`rgba(${accentRgb},.1)`,
-                fontSize:".48rem",fontWeight:700,color:accentCol,letterSpacing:2,textTransform:"uppercase"}}>
-                GRUP {g}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"16px minmax(0,1fr) 20px 20px 20px 20px 34px 24px",
-                padding:"2px 6px",fontSize:".38rem",color:C.dmr,letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid rgba(77,166,255,0.1)`}}>
-                <span>#</span><span>Takım</span><span style={{textAlign:"center"}}>O</span>
-                <span style={{textAlign:"center"}}>G</span><span style={{textAlign:"center"}}>B</span>
-                <span style={{textAlign:"center"}}>M</span><span style={{textAlign:"center"}}>Av</span>
-                <span style={{textAlign:"center"}}>P</span>
-              </div>
-              {rows.map((t,i)=>(
-                <div key={t.n} style={{display:"grid",gridTemplateColumns:"16px minmax(0,1fr) 20px 20px 20px 20px 34px 24px",
-                  padding:"3px 6px",borderBottom:i<rows.length-1?`1px solid rgba(77,166,255,0.1)`:"none",alignItems:"center",
-                  background:i<qualifier?`rgba(${accentRgb},.06)`:""}}>
-                  <span style={{fontSize:".48rem",textAlign:"center",fontWeight:700,color:i<qualifier?accentCol:C.dmr}}>{i+1}</span>
-                  <span style={{fontSize:".58rem",color:i<qualifier?accentCol:C.wh,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingLeft:2,display:"flex",alignItems:"center",gap:4}}><TeamBadge name={t.n} size="sm"/>{t.n}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.dim}}>{t.w+t.d+t.l}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.grn2}}>{t.w}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.gd}}>{t.d}</span>
-                  <span style={{textAlign:"center",fontSize:".5rem",color:C.red2}}>{t.l}</span>
-                  <span style={{textAlign:"center",fontSize:".44rem",color:C.dim}}>{t.gd>0?"+"+t.gd:t.gd}</span>
-                  <span style={{textAlign:"center",fontSize:".64rem",fontWeight:700,color:i<qualifier?accentCol:C.wh}}>{t.pts}</span>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
       {/* Ana tab bar */}
       <div style={{padding:"5px 10px",borderBottom:`1px solid rgba(77,166,255,0.1)`,display:"flex",gap:4,flexShrink:0,flexWrap:"wrap"}}>
-        {[["krallik","⚽ Krallıklar"],["benim","📋 "+clubName],["takim","📊 Takım İst."],["guc","💪 Güç"],["grafik","📈 Grafik"],["kariyer","🏅 Kariyer"]].map(([k,l])=>(
+        {[["krallik","⚽ Krallıklar"],["benim","📋 "+clubName],["takim","📊 Takım İst."],["guc","💪 Güç"],["grafik","📈 Grafik"],["avrupa","🌍 Avrupa"],["kariyer","🏅 Kariyer"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={tabBtnStyle(k)}>{l}</button>
         ))}
       </div>
+
+      {/* ─── AVRUPA (Swiss model) ─── */}
+      {tab==="avrupa"&&<div style={{flex:1,overflowY:"auto",padding:"8px 10px"}}>
+        <EuroSimWidget season={season} clubName={clubName} db={dbProp}/>
+      </div>}
 
       {/* ─── KRALLIKLAR ─── */}
       {tab==="krallik"&&<div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
@@ -825,9 +418,9 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
           <div style={{fontSize:".46rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,fontWeight:700}}>Maç Özeti</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,textAlign:"center"}}>
             {[
-              {l:"Galibiyet",v:season.teams.find(t=>t.me)?.w||0,c:C.grn2},
-              {l:"Beraberlik",v:season.teams.find(t=>t.me)?.d||0,c:C.gd},
-              {l:"Mağlubiyet",v:season.teams.find(t=>t.me)?.l||0,c:C.red2},
+              {l:"Galibiyet",v:(season.teams||[]).find(t=>t.me)?.w||0,c:C.grn2},
+              {l:"Beraberlik",v:(season.teams||[]).find(t=>t.me)?.d||0,c:C.gd},
+              {l:"Mağlubiyet",v:(season.teams||[]).find(t=>t.me)?.l||0,c:C.red2},
             ].map((x,i)=>(
               <div key={i} style={{background:"rgba(255,255,255,.04)",borderRadius:4,padding:"6px 4px",border:`1px solid rgba(255,255,255,.06)`}}>
                 <div style={{fontSize:"1.1rem",fontWeight:900,color:x.c}}>{x.v}</div>
@@ -882,7 +475,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
       {tab==="grafik"&&<div style={{flex:1,overflowY:"auto",padding:"8px 10px"}}>
         {(()=>{
           const rh=season.rankHistory||[];
-          const lgResults=(season.results||[]).filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp));
+          const lgResults=(season.results||[]).filter(r=>!["ZTK","HAZ","CL","UEFA","CON","SUPERKUPA"].includes(r.comp));
           const maxRank=(season.teams||[]).filter(t=>t.lg===(season.league||"1. Lig")).length||19;
           if(rh.length<2) return(
             <div style={{textAlign:"center",padding:"40px 16px",color:C.dmr,fontSize:".56rem"}}>
@@ -993,7 +586,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
           const tm=cs.totalMatches||0;
           const winRate=tm>0?Math.round((cs.totalW/tm)*100):0;
           // Bu sezon verisini season.results üzerinden hesapla (kesin veri)
-          const lgResults=(season.results||[]).filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA");
+          const lgResults=(season.results||[]).filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON");
           const curW=lgResults.filter(r=>r.res==="W").length;
           const curD=lgResults.filter(r=>r.res==="D").length;
           const curL=lgResults.filter(r=>r.res==="L").length;
@@ -1072,6 +665,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                   {icon:"🥇",label:"Şampiyonlar Kalkanı",n:cs.trophies?.superKupa||0},
                   {icon:"🥇",label:"Elit Lig",n:cs.trophies?.sl||0},
                   {icon:"🌍",label:"AL",n:cs.trophies?.uefal||0},
+                  {icon:"🟢",label:"KL",n:cs.trophies?.con||0},
                   {icon:"⭐",label:"ASK",n:cs.trophies?.cl||0},
                 ].map(tr=>(
                   <div key={tr.label} style={{

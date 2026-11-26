@@ -30,12 +30,13 @@ Grouped by folder. This is **not** the exact load order: `index.html` is the sou
 | `js/sounds.js` | `SOUNDS` (base64 audio, plain JS, **do not read raw**) |
 | `js/core/theme.js` | React hooks, `C` (colour palette), `rnd`, `fmtSal`, `posC`, `ovrToGrade`, `TEAM_BADGE`/`TeamBadge` |
 | `js/data/players.js` | `DB` player database (`{id,n,pos,ovr,pot,age,val,sal,club,lg,nat,ct,st,ch}`; `val` in M€, `sal` in K€/week) |
-| `js/data/league.js` | `INIT_SQUAD`, `INIT_TEAMS`, rival/month tables, `buildDoubleRoundRobin`, `build*Fixture` (TFF1 = "1. Lig", SL = "Elit Lig", Primeira, Eredivisie, Big5), `buildKupa*`, `sortFixture`, `FDATA`, team strength and formation helpers |
+| `js/data/league.js` | `INIT_SQUAD`, `INIT_TEAMS`, rival/month tables, `buildDoubleRoundRobin`, `build*Fixture` (TFF1 = "1. Lig", SL = "Elit Lig", Primeira, Eredivisie, Big5), `buildKupa*`, `sortFixture`, `FDATA`, team strength and formation helpers. At the end: the European cups engine (UEFA 36-team Swiss model for `CL`/`UEFA`/`CON`): `EURO_META`, `EURO_QUOTA`, `EURO_PRIM`, `selectEuroQualifiers`, `createEuroTable`, `advanceEuroTable`, `buildEuroSeasonDraw` (pure and seed-deterministic; state lives in `season.clTable`/`uefaTable`/`conTable`) |
 | `js/data/youth-staff.js` | `INIT_YOUTH`, `genYouthPlayer`, `genFreeAgent`, `COACHES` |
 | `js/match/scouting.js` | Opponent analysis: `TEAM_STYLES`, `getScoutReport`, `ScoutReportCard`, `PreMatchModal` |
 | `js/match/engine.js` | `simulateMatch` (Poisson-based) and the goal/event/commentary tables |
 | `js/match/moments.js` | `planMoments`, `calcMomentChance`, `getMomentMsg` (key moments are always played in 3D) |
 | `js/ui/primitives.js` | Shared UI bits: `PosTag`, `STitle`, `Chip`, `Btn`, `Modal`, `StatBar` |
+| `js/ui/euro.js` | `EuroSwissPanel` (36-team table, KO bracket, user's matches), used by `home.js` and `istatistik.js` (`EuroSimWidget`) |
 | `js/match/halftime.js` | `HalftimeSpeech` |
 | `js/match/three3d.js` … `hud3d.js` | 3D match view (Three.js r128, lazy-loaded from cdnjs; see `PLAN-3D.md`): `three3d` (`loadThreeJs`, coordinates, `mergeGeos3D`, `disposeObject3D`), `rig3d` (articulated low-poly player + animations), `stadium3d` (stands, instanced crowd, floodlights, ad boards, benches), `pitch3d` (`Pitch3D`, cameras), `players3d` (`createMatchActors3D`: players, ball physics, play director, event FX), `moment3d` (`InteractiveMoment3D`), `hud3d` (`Scoreboard3D`), `landscape3d` (surroundings outside the stadium: ground, wall, buildings, trees, hills), `day3d` (day scene: sky, lights, grass/crowd/AO canvases), `assets3d` (`loadModel()` + GLTFLoader from `js/vendor/`, applies `assets/models/*.glb`; credits in `assets/CREDITS.md`) |
 | `js/match/overlay.js` | `SPEED_CONFIGS`, `MATCH3D_TEMPO`, `MatchOverlay` (live match UI) |

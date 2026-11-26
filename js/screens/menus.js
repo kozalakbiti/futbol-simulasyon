@@ -733,21 +733,22 @@ function OnboardingScreen({onComplete, onBack}){
                 // Seçilen takımın muhtemelen kota hakkı var mı?
                 const lgTeamsRanked=[...leagueTeams].sort((a,b)=>b.str-a.str);
                 const selRank=selectedTeam?lgTeamsRanked.findIndex(t=>t.n===selectedTeam.n)+1:99;
-                const LIG_CL_SPOTS={"İngiliz Ligi":4,"İspanyol Ligi":4,"Alman Ligi":4,"İtalyan Ligi":4,"Fransız Ligi":3,"Elit Lig":2,"Hollanda Ligi":1,"Portekiz Ligi":2};
-                const LIG_UEFA_SPOTS={"İngiliz Ligi":7,"İspanyol Ligi":6,"Alman Ligi":6,"İtalyan Ligi":7,"Fransız Ligi":5,"Elit Lig":4,"Hollanda Ligi":3,"Portekiz Ligi":3};
+                const LIG_CL_SPOTS=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]]));
+                const LIG_UEFA_SPOTS=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]+q[1]]));
                 const inCL=selRank>0&&selRank<=((LIG_CL_SPOTS[league]||0));
                 const inUEFA=!inCL&&selRank>0&&selRank<=((LIG_UEFA_SPOTS[league]||0));
+                const inCON=!inCL&&!inUEFA&&selRank>0&&selRank<=(EURO_QUOTA[league]?EURO_QUOTA[league].reduce((a,b)=>a+b,0):0);
                 return(
                   <div style={{marginBottom:10}}>
                     {info&&<div style={{fontSize:".46rem",color:"#ffd060",marginBottom:4,
                       background:"rgba(232,184,58,.08)",border:"1px solid rgba(232,184,58,.2)",
                       borderRadius:5,padding:"4px 8px"}}>{info}</div>}
-                    {selectedTeam&&(inCL||inUEFA)&&(
+                    {selectedTeam&&(inCL||inUEFA||inCON)&&(
                       <div style={{fontSize:".5rem",fontWeight:700,padding:"4px 8px",borderRadius:5,
-                        background:inCL?"rgba(232,184,58,.15)":"rgba(230,126,34,.15)",
-                        border:`1px solid ${inCL?"rgba(232,184,58,.4)":"rgba(230,126,34,.4)"}`,
-                        color:inCL?"#ffd060":"#e67e22"}}>
-                        {inCL?"⭐ Bu takımla Avrupa Şampiyonlar Kupası'nde başlarsınız!":"🇪🇺 Bu takımla Avrupa Ligi'nde başlarsınız!"}
+                        background:inCL?"rgba(232,184,58,.15)":inUEFA?"rgba(230,126,34,.15)":"rgba(46,204,113,.15)",
+                        border:`1px solid ${inCL?"rgba(232,184,58,.4)":inUEFA?"rgba(230,126,34,.4)":"rgba(46,204,113,.4)"}`,
+                        color:inCL?"#ffd060":inUEFA?"#e67e22":"#2ecc71"}}>
+                        {inCL?"⭐ Bu takımla Avrupa Şampiyonlar Kupası'nda başlarsınız!":inUEFA?"🇪🇺 Bu takımla Avrupa Ligi'nde başlarsınız!":"🟢 Bu takımla Konferans Ligi'nde başlarsınız!"}
                       </div>
                     )}
                     <div style={{fontSize:".44rem",color:"rgba(255,255,255,.3)",marginTop:4}}>
@@ -766,12 +767,13 @@ function OnboardingScreen({onComplete, onBack}){
                 {leagueTeams.map(t=>{
                   // Bu takımın DB'deki oyuncu sayısını hesapla
                   const dbCount=DB.filter(p=>p.club===t.n).length;
-                  const LIG_CL_SPOTS2={"İngiliz Ligi":4,"İspanyol Ligi":4,"Alman Ligi":4,"İtalyan Ligi":4,"Fransız Ligi":3,"Elit Lig":2,"Hollanda Ligi":1,"Portekiz Ligi":2};
-                  const LIG_UEFA_SPOTS2={"İngiliz Ligi":7,"İspanyol Ligi":6,"Alman Ligi":6,"İtalyan Ligi":7,"Fransız Ligi":5,"Elit Lig":4,"Hollanda Ligi":3,"Portekiz Ligi":3};
+                  const LIG_CL_SPOTS2=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]]));
+                  const LIG_UEFA_SPOTS2=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]+q[1]]));
                   const lgRanked=[...leagueTeams].sort((a,b)=>b.str-a.str);
                   const tRank=lgRanked.findIndex(r=>r.n===t.n)+1;
                   const tInCL=tRank>0&&tRank<=(LIG_CL_SPOTS2[league]||0);
                   const tInUEFA=!tInCL&&tRank>0&&tRank<=(LIG_UEFA_SPOTS2[league]||0);
+                  const tInCON=!tInCL&&!tInUEFA&&tRank>0&&tRank<=(EURO_QUOTA[league]?EURO_QUOTA[league].reduce((a,b)=>a+b,0):0);
                   return(
                     <button key={t.n} onClick={()=>handleTeamSelect(t)} style={{
                       display:"flex",alignItems:"center",gap:10,width:"100%",marginBottom:5,
@@ -790,6 +792,7 @@ function OnboardingScreen({onComplete, onBack}){
                           <span style={{fontSize:".62rem",fontWeight:700,color:selectedTeam?.n===t.n?"#fff":"rgba(255,255,255,.8)"}}>{t.n}</span>
                           {tInCL&&<span style={{fontSize:".38rem",background:"rgba(232,184,58,.2)",border:"1px solid rgba(232,184,58,.4)",color:"#ffd060",borderRadius:3,padding:"1px 4px"}}>⭐ASK</span>}
                           {tInUEFA&&<span style={{fontSize:".38rem",background:"rgba(230,126,34,.2)",border:"1px solid rgba(230,126,34,.4)",color:"#e67e22",borderRadius:3,padding:"1px 4px"}}>🇪🇺AL</span>}
+                          {tInCON&&<span style={{fontSize:".38rem",background:"rgba(46,204,113,.2)",border:"1px solid rgba(46,204,113,.4)",color:"#2ecc71",borderRadius:3,padding:"1px 4px"}}>🟢KL</span>}
                         </div>
                         <div style={{fontSize:".44rem",color:"rgba(255,255,255,.35)"}}>{t.city} · {dbCount>0?dbCount+" oyuncu DB'de":"Varsayılan kadro"}</div>
                       </div>
@@ -871,14 +874,16 @@ function OnboardingScreen({onComplete, onBack}){
                 })()}
                 {/* ASK/AL durumu */}
                 {(()=>{
-                  const LIG_CL_SPOTS={"İngiliz Ligi":4,"İspanyol Ligi":4,"Alman Ligi":4,"İtalyan Ligi":4,"Fransız Ligi":3,"Elit Lig":2,"Hollanda Ligi":1,"Portekiz Ligi":2};
-                  const LIG_UEFA_SPOTS={"İngiliz Ligi":7,"İspanyol Ligi":6,"Alman Ligi":6,"İtalyan Ligi":7,"Fransız Ligi":5,"Elit Lig":4,"Hollanda Ligi":3,"Portekiz Ligi":3};
+                  const LIG_CL_SPOTS=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]]));
+                  const LIG_UEFA_SPOTS=Object.fromEntries(Object.entries(EURO_QUOTA).map(([k,q])=>[k,q[0]+q[1]]));
                   const lgTeamsRanked=[...INIT_TEAMS.filter(t=>t.lg===league)].sort((a,b)=>b.str-a.str);
                   const selRank=selectedTeam?lgTeamsRanked.findIndex(t=>t.n===selectedTeam.n)+1:99;
                   const inCL=selRank>0&&selRank<=(LIG_CL_SPOTS[league]||0);
                   const inUEFA=!inCL&&selRank>0&&selRank<=(LIG_UEFA_SPOTS[league]||0);
-                  if(inCL) return <div style={{marginTop:6,fontSize:".5rem",fontWeight:700,color:"#ffd060"}}>⭐ Avrupa Şampiyonlar Kupası grubu oluşturulacak!</div>;
-                  if(inUEFA) return <div style={{marginTop:6,fontSize:".5rem",fontWeight:700,color:"#e67e22"}}>🇪🇺 Avrupa Ligi grubu oluşturulacak!</div>;
+                  if(inCL) return <div style={{marginTop:6,fontSize:".5rem",fontWeight:700,color:"#ffd060"}}>⭐ Avrupa Şampiyonlar Kupası lig aşaması (36 takım) — kura Eylül'de!</div>;
+                  const inCON=!inCL&&!inUEFA&&selRank>0&&selRank<=(EURO_QUOTA[league]?EURO_QUOTA[league].reduce((a,b)=>a+b,0):0);
+                  if(inUEFA) return <div style={{marginTop:6,fontSize:".5rem",fontWeight:700,color:"#e67e22"}}>🇪🇺 Avrupa Ligi lig aşaması (36 takım) — kura Eylül'de!</div>;
+                  if(inCON) return <div style={{marginTop:6,fontSize:".5rem",fontWeight:700,color:"#2ecc71"}}>🟢 Konferans Ligi lig aşaması (36 takım) — kura Eylül'de!</div>;
                   return null;
                 })()}
               </div>

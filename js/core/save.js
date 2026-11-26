@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════
 
 const GAME_VERSION = "7.9.5.3";
-const SAVE_SCHEMA_VERSION = 3; // save formatı değiştiğinde artır
+const SAVE_SCHEMA_VERSION = 4; // save formatı değiştiğinde artır (v4: Avrupa kupaları Swiss model)
 
 // ── SINIR TANIMLARI (exploit önleme) ──────────────────────────
 const LIMITS = {
@@ -74,6 +74,38 @@ function sanitizePlayer(p) {
 }
 
 // ── SAVE VERİSİ DOĞRULAMA & MİGRASYON ────────────────────────
+// ── v4: 32 takımlı grup sistemi → 36 takımlı Swiss model (CL/UEFA/CON) ──
+// Eski grup tabloları ve oynanmamış eski CL/UEFA fikstürleri kaldırılır. Kullanıcının
+// kupası (force) korunur. Sezon Eylül'ü geçtiyse tablolar yüklemede hemen kurulur (rebuild),
+// geçmemişse Eylül kurasında kurulur. Yeni kayıtlarda (clTable vb. var) hiçbir şey yapmaz.
+function migrateEuroSwissSave(data){
+  const s=data&&data.season;
+  if(!s||typeof s!=="object") return false;
+  const isLegacyEuro=(f)=>(f.comp==="CL"||f.comp==="UEFA")&&!f.sw;
+  const hasTables=!!(s.clTable||s.uefaTable||s.conTable);
+  const peg=data.pendingEuroGroups;
+  const legacyPeg=!!(peg&&!peg.swiss);
+  const legacyFix=(s.fixture||[]).filter(isLegacyEuro);
+  const hasGroups=!!(s.clGroups||s.uefaGroups);
+  if(hasTables&&!legacyPeg&&!legacyFix.length&&!hasGroups) return false;
+  const inGroups=(g)=>!!g&&Object.values(g).some(arr=>(arr||[]).some(t=>t&&t.me));
+  let force=inGroups(s.clGroups)?"CL":inGroups(s.uefaGroups)?"UEFA":(legacyFix[0]&&legacyFix[0].comp)||null;
+  if(legacyPeg&&(peg.type==="CL"||peg.type==="UEFA")) force=peg.type; // sezon sonunda kazanılmış hak
+  s.fixture=(s.fixture||[]).filter(f=>!isLegacyEuro(f));
+  s.clGroups=null; s.uefaGroups=null;
+  if(!hasTables){
+    s.clTable=null; s.uefaTable=null; s.conTable=null;
+    const MO=["Temmuz","Agustos","Eylul","Ekim","Kasim","Aralik","Ocak","Subat","Mart","Nisan","Mayis","Haziran"];
+    const lastMi=(s.results||[]).reduce((mx,r)=>Math.max(mx,MO.indexOf(r.month||"")),-1);
+    const ligLeft=(s.fixture||[]).some(f=>!["HAZ","ZTK","CL","UEFA","CON","SUPERKUPA"].includes(f.comp));
+    const rebuild=!legacyPeg&&ligLeft&&lastMi>=MO.indexOf("Eylul");
+    data.pendingEuroGroups={swiss:true,quals:null,force,rebuild};
+  } else if(legacyPeg){
+    data.pendingEuroGroups={swiss:true,quals:null,force};
+  }
+  return true;
+}
+
 function validateAndMigrateSave(data) {
   if(!data||typeof data!=="object") return {ok:false,reason:"Boş veri"};
 
@@ -95,7 +127,6 @@ function validateAndMigrateSave(data) {
       data.rep = { pts: Math.max(0,Math.min(200,data.rep)), history:[] };
       warnings.push("rep formatı güncellendi");
     }
-    data.schemaVersion = SAVE_SCHEMA_VERSION;
   }
 
   // ── Checksum kontrolü ──
@@ -107,6 +138,12 @@ function validateAndMigrateSave(data) {
       warnings.push("⚠️ Kayıt imzası uyuşmuyor — veri değiştirilmiş olabilir");
     }
   }
+
+  // ── Migrasyon: v3 → v4 — Avrupa kupaları (checksum sonrası: imza alanlarına dokunmaz) ──
+  if(v < 4) {
+    if(migrateEuroSwissSave(data)) warnings.push("Avrupa kupaları 36 takımlı lig aşaması formatına taşındı");
+  }
+  if(v < SAVE_SCHEMA_VERSION) data.schemaVersion = SAVE_SCHEMA_VERSION;
 
   // ── Oyuncu verisi sanitizasyonu ──
   if(Array.isArray(data.squad)) {

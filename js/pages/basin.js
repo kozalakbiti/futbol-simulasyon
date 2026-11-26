@@ -6,7 +6,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
   const isW=result.res==="W", isL=result.res==="L";
   const bigWin=isW&&(result.myG-result.opG)>=3;
   const bigLoss=isL&&(result.opG-result.myG)>=3;
-  const isKupa=fix.comp==="ZTK"||fix.comp==="CL"||fix.comp==="UEFA";
+  const isKupa=fix.comp==="ZTK"||fix.comp==="CL"||fix.comp==="UEFA"||fix.comp==="CON";
   const score=`${result.myG}-${result.opG}`;
 
   // Sorular — sadece bir kez oluştur (fix/result değişmez)
@@ -192,7 +192,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
 
   const resIcon=isW?"🏆":isL?"😞":"🤝";
   const resText=isW?"Galibiyet":isL?"Mağlubiyet":"Beraberlik";
-  const compLabel=fix.comp==="ZTK"?"Ulusal Kupa":fix.comp==="CL"?"Avrupa Şampiyonlar Kupası":fix.comp==="UEFA"?"Avrupa Ligi":"Lig Maçı";
+  const compLabel=fix.comp==="ZTK"?"Ulusal Kupa":fix.comp==="CL"?"Avrupa Şampiyonlar Kupası":fix.comp==="UEFA"?"Avrupa Ligi":fix.comp==="CON"?"Konferans Ligi":"Lig Maçı";
 
   return(
     <div style={{
