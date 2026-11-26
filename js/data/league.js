@@ -840,10 +840,31 @@ const EURO_META={
   UEFA:{name:"Avrupa Ligi",upper:"AVRUPA LİGİ",short:"AL",icon:"🇪🇺",color:"#e67e22",rgb:"230,126,34",md:8,pots:4},
   CON: {name:"Konferans Ligi",upper:"KONFERANS LİGİ",short:"KL",icon:"🟢",color:"#2ecc71",rgb:"46,204,113",md:6,pots:6},
 };
-// Lig başına kontenjan [CL, UEFA, CON] — her kupa toplam 36 takım
+// Lig başına kontenjan [CL, UEFA, CON] (LIG_EURO_SPOTS) — tablo 34+34+36 verir,
+// eksik slotlar selectEuroQualifiers içinde büyük liglerin en güçlü takımlarıyla 36'ya tamamlanır
 const EURO_QUOTA={
-  "İngiliz Ligi":[6,5,4],"İspanyol Ligi":[5,5,4],"İtalyan Ligi":[5,5,4],"Alman Ligi":[5,5,4],
-  "Fransız Ligi":[4,4,5],"Portekiz Ligi":[4,4,5],"Hollanda Ligi":[4,4,5],"Elit Lig":[3,4,5],
+  "İngiliz Ligi":[5,5,5],"İspanyol Ligi":[5,5,5],"Alman Ligi":[5,5,5],"İtalyan Ligi":[5,5,5],
+  "Fransız Ligi":[4,4,5],"Hollanda Ligi":[4,4,5],"Portekiz Ligi":[4,4,5],"Elit Lig":[2,2,1],
+};
+const LIG_EURO_SPOTS=EURO_QUOTA;
+// Doldurma havuzu: Elit Lig (6+ sıra) ve alt ligler hariç Avrupa'nın büyük ligleri
+const EURO_FILL_LEAGUES=["İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi"];
+// "1–5 → ASK · 6–10 → AL · 11–15 → KL" biçiminde lig bilgi metni
+const euroQuotaText=(lg)=>{
+  const q=EURO_QUOTA[lg];if(!q) return null;
+  let a=1;const parts=[];
+  EURO_COMP_LIST.forEach((c,i)=>{if(q[i]>0){const b=a+q[i]-1;parts.push((a===b?a+".":a+"–"+b)+" → "+EURO_META[c].short);a=b+1;}});
+  return parts.join(" · ");
+};
+// Sezon başı önizleme: takım adı → "CL"/"UEFA"/"CON" (oluşturucuyla aynı seçim, güç sıralaması)
+let _euroPreviewCache=null;
+const euroPreviewComp=(name)=>{
+  if(!_euroPreviewCache){
+    const q=selectEuroQualifiers(INIT_TEAMS.map(t=>({...t,me:false})),{byStr:true});
+    _euroPreviewCache={};
+    EURO_COMP_LIST.forEach(c=>q[c].forEach(t=>{_euroPreviewCache[t.n]=c;}));
+  }
+  return _euroPreviewCache[name]||null;
 };
 const EURO_KO_ROUNDS=["po","r16","qf","sf","fin"];
 const EURO_KO_LABEL={po:"Play-Off",r16:"Son 16",qf:"Çeyrek Final",sf:"Yarı Final",fin:"Final"};
@@ -873,9 +894,13 @@ const selectEuroQualifiers=(teams,opts={})=>{
     const r=rankLg(lg);let i=0;
     EURO_COMP_LIST.forEach((c,ci)=>{for(let k=0;k<q[ci]&&i<r.length;k++,i++){out[c].push(mk(r[i]));used.add(r[i].n);}});
   });
-  // Eksik kalırsa (lig küçükse) en güçlü kalan takımlarla doldur — gerekirse 1. Lig
-  const rest=[...(teams||[])].filter(t=>!used.has(t.n)&&!t.me&&t.lg!=="İngiliz 2. Ligi").sort((a,b)=>(b.str||0)-(a.str||0));
+  // 36 takım garantisi: eksik slotları henüz seçilmemiş, büyük liglerin en güçlü takımlarıyla doldur
+  const byStrDesc=(a,b)=>(b.str||0)-(a.str||0)||String(a.n).localeCompare(String(b.n));
+  const rest=[...(teams||[])].filter(t=>!used.has(t.n)&&EURO_FILL_LEAGUES.includes(t.lg)).sort(byStrDesc);
   EURO_COMP_LIST.forEach(c=>{while(out[c].length<36&&rest.length){const t=rest.shift();out[c].push(mk(t));used.add(t.n);}});
+  // Son çare (lig verisi eksikse): Elit Lig ve İngiliz 2. Ligi dışındaki kalanlar
+  const rest2=[...(teams||[])].filter(t=>!used.has(t.n)&&!t.me&&t.lg!=="Elit Lig"&&t.lg!=="İngiliz 2. Ligi").sort(byStrDesc);
+  EURO_COMP_LIST.forEach(c=>{while(out[c].length<36&&rest2.length){const t=rest2.shift();out[c].push(mk(t));used.add(t.n);}});
   if(force&&out[force]){
     const me=(teams||[]).find(t=>t.me);
     if(me&&!out[force].some(t=>t.me)){
@@ -1310,6 +1335,14 @@ const buildEuroSeasonDraw=(season,peg)=>{
     // Sezon sonu kontenjanını güncel güç/me bilgisiyle tazele
     quals={CL:[],UEFA:[],CON:[]};
     EURO_COMP_LIST.forEach(c=>{quals[c]=(peg.quals[c]||[]).map(t=>{const cur=byName[t.n];return cur?{n:cur.n,lg:cur.lg,str:cur.str||t.str,me:!!cur.me}:{...t,me:false};});});
+    // Kullanıcının hakkı varsa (force) ama listede yoksa (ad uyuşmazlığı vb.): aynı ligin en zayıfını çıkarıp ekle
+    const meT=teams.find(t=>t.me);
+    if(peg.force&&quals[peg.force]&&meT&&!EURO_COMP_LIST.some(c=>quals[c].some(t=>t.me))){
+      const list=quals[peg.force].filter(t=>t.n!==meT.n);
+      const sameLg=list.filter(t=>t.lg===meT.lg).sort((a,b)=>a.str-b.str);
+      const drop=sameLg[0]||[...list].sort((a,b)=>a.str-b.str)[0];
+      quals[peg.force]=[...list.filter(t=>t!==drop),{n:meT.n,lg:meT.lg,str:meT.str||65,me:true}].slice(0,36);
+    }
   } else {
     quals=selectEuroQualifiers(teams,{byStr:true,force:(peg&&peg.force)||null,noMe:!!(peg&&peg.rebuild&&!peg.force)});
   }

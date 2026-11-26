@@ -11,21 +11,22 @@ function PageItibar({rep,league}){
     {min:0,  max:19,label:"Bilinmez",  desc:"Neredeyse hiç seçeneğiniz yok",        col:C.red2},
   ];
   const LIG_MULT_LABELS={
-    "İngiliz Ligi":{m:"×1.4",col:C.grn2,cl:"İlk 4 → ASK · İlk 7 → AL"},
-    "İspanyol Ligi":{m:"×1.35",col:C.grn2,cl:"İlk 4 → ASK · İlk 6 → AL"},
-    "Alman Ligi":{m:"×1.3",col:C.grn2,cl:"İlk 4 → ASK · İlk 6 → AL"},
-    "İtalyan Ligi":{m:"×1.25",col:C.grn2,cl:"İlk 4 → ASK · İlk 7 → AL"},
-    "Fransız Ligi":{m:"×1.2",col:"#e67e22",cl:"İlk 3 → ASK · İlk 5 → AL"},
-    "Elit Lig":{m:"×1.1",col:"#e67e22",cl:"İlk 2 → ASK · 3-4 → AL"},
-    "Hollanda Ligi":{m:"×1.1",col:"#e67e22",cl:"1. → ASK · 2-3 → AL"},
-    "Portekiz Ligi":{m:"×1.0",col:"#e67e22",cl:"İlk 2 → ASK · 3 → AL"},
+    "İngiliz Ligi":{m:"×1.4",col:C.grn2,cl:null},
+    "İspanyol Ligi":{m:"×1.35",col:C.grn2,cl:null},
+    "Alman Ligi":{m:"×1.3",col:C.grn2,cl:null},
+    "İtalyan Ligi":{m:"×1.25",col:C.grn2,cl:null},
+    "Fransız Ligi":{m:"×1.2",col:"#e67e22",cl:null},
+    "Elit Lig":{m:"×1.1",col:"#e67e22",cl:null},
+    "Hollanda Ligi":{m:"×1.1",col:"#e67e22",cl:null},
+    "Portekiz Ligi":{m:"×1.0",col:"#e67e22",cl:null},
     "İngiliz 2. Ligi":{m:"×0.85",col:C.red2,cl:"İlk 3 → İngiliz Ligi (terfi) · Avrupa kotası yok"},
     "Scottish Prem":{m:"×0.7",col:C.red2,cl:"Avrupa kotası yok"},
     "1. Lig":{m:"×0.75",col:C.red2,cl:"Avrupa kotası yok — önce Süper Lig'e çık"},
     "MLS":{m:"×0.7",col:C.red2,cl:"Avrupa kotası yok"},
     "Saudi Pro League":{m:"×0.8",col:C.red2,cl:"Avrupa kotası yok"},
   };
-  const ligInfo=LIG_MULT_LABELS[league]||{m:"×0.8",col:C.dmr,cl:"Bilinmeyen lig"};
+  const _li=LIG_MULT_LABELS[league]||{m:"×0.8",col:C.dmr,cl:"Bilinmeyen lig"};
+  const ligInfo=EURO_QUOTA[league]?{..._li,cl:euroQuotaText(league)+" (eksik slotlar büyük liglerden 36'ya tamamlanır)"}:_li;
   return(
     <div style={{flex:1,overflowY:"auto",padding:12}}>
       <STitle extra={lbl}>Kulüp İtibarı</STitle>

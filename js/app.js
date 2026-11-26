@@ -3586,7 +3586,11 @@ function App(){
         kupaFix=[];
       }
       // Avrupa grupları pending'e gider — Eylül'de kura çekimi modalı ile açılır
-      setTimeout(()=>setPendingEuroGroups({swiss:true,quals:null,seed:Date.now()%1000003}),500);
+      // Rozetle aynı liste (INIT_TEAMS güç sıralaması) sabitlenir; kullanıcı takımı kulüp adıyla (cn) ve me:true girer.
+      // quals:null bırakılırsa Eylül'de DB-harmanlı güçle yeniden seçilir ve kullanıcı listeden düşebilir.
+      const _euroQualsFixed={};
+      EURO_COMP_LIST.forEach(c=>{_euroQualsFixed[c]=_euroPreview[c].map(t=>t.me?{...t,n:cn,me:true}:t);});
+      setTimeout(()=>setPendingEuroGroups({swiss:true,quals:_euroQualsFixed,myComp:myEuroPreview,force:myEuroPreview,seed:Date.now()%1000003}),500);
 
       // euroFix eklenmez — Eylül hook'u ekleyecek
       const _endHazOpps2={
