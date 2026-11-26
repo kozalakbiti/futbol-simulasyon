@@ -19,6 +19,7 @@ function PageItibar({rep,league}){
     "Elit Lig":{m:"×1.1",col:"#e67e22",cl:"İlk 2 → ASK · 3-4 → AL"},
     "Hollanda Ligi":{m:"×1.1",col:"#e67e22",cl:"1. → ASK · 2-3 → AL"},
     "Portekiz Ligi":{m:"×1.0",col:"#e67e22",cl:"İlk 2 → ASK · 3 → AL"},
+    "İngiliz 2. Ligi":{m:"×0.85",col:C.red2,cl:"İlk 3 → İngiliz Ligi (terfi) · Avrupa kotası yok"},
     "Scottish Prem":{m:"×0.7",col:C.red2,cl:"Avrupa kotası yok"},
     "1. Lig":{m:"×0.75",col:C.red2,cl:"Avrupa kotası yok — önce Süper Lig'e çık"},
     "MLS":{m:"×0.7",col:C.red2,cl:"Avrupa kotası yok"},

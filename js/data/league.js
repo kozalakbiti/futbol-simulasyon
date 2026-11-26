@@ -28,191 +28,211 @@ const INIT_SQUAD=[
 
 
 const INIT_TEAMS=[
-  // ── SÜPER LİG ──────────────────────────────────────────────
+  // ═══ 2026/27 SEZONU LİG YAPILARI ═══════════════════════════════════
+  // ── ELİT LİG (18 takım, 34 hafta) ─────────────────────────────────
   {n:"Galatasaray FC", name:"Galatasaray FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:84,stad:"Rams Park",      city:"İstanbul",  lg:"Elit Lig"},
   {n:"Fenerbahce FC",  name:"Fenerbahce FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:82,stad:"Ülker Stadyumu", city:"İstanbul",  lg:"Elit Lig"},
-  {n:"FC Yildiz",   name:"FC Yildiz",   pts:0, w:0, d:0,l:0,gf:0, ga:0, gd:0, me:true, str:63,stad:"Yildiz Arena",   city:"Ankara",    lg:"1. Lig"},
-  {n:"Besiktas FC",    name:"Besiktas FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:78,stad:"Tüpraş Stadyumu",city:"İstanbul",  lg:"Elit Lig"},
-  {n:"Trabzonspor FC", name:"Trabzonspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:76,stad:"Medical Park",  city:"Trabzon",   lg:"Elit Lig"},
-  {n:"Basaksehir FC",  name:"Basaksehir FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:72,stad:"Başakşehir St.",city:"İstanbul",  lg:"Elit Lig"},
-  {n:"Konyaspor FC",   name:"Konyaspor FC",   pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Konya Stadyumu",city:"Konya",     lg:"Elit Lig"},
-  {n:"Alanyaspor FC",  name:"Alanyaspor FC",  pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Bahçeşehir",   city:"Alanya",    lg:"Elit Lig"},
-  {n:"Sivasspor FC",   name:"Sivasspor FC",   pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"4 Eylül St.", city:"Sivas",    lg:"Elit Lig"},
-  {n:"Kasimpasa FC",   name:"Kasimpasa FC",   pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Recep Tayyip",city:"İstanbul",  lg:"Elit Lig"},
-  {n:"Rizespor FC",    name:"Rizespor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Rize Stad.",    city:"Rize",     lg:"Elit Lig"},
-  {n:"Antalyaspor FC", name:"Antalyaspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Antalya Stad.",city:"Antalya",   lg:"Elit Lig"},
-  {n:"Hatayspor FC",   name:"Hatayspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Hatay Stad.",  city:"Hatay",     lg:"Elit Lig"},
-  // ── PREMIER LEAGUE ─────────────────────────────────────────
+  {n:"Besiktas FC",    name:"Besiktas FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Tüpraş Stadyumu",city:"İstanbul",  lg:"Elit Lig"},
+  {n:"Trabzonspor FC", name:"Trabzonspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:76,stad:"Medical Park",  city:"Trabzon",   lg:"Elit Lig"},
+  {n:"Basaksehir FC",  name:"Basaksehir FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Başakşehir St.",city:"İstanbul",  lg:"Elit Lig"},
+  {n:"Goztepe FC",     name:"Goztepe FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Gursel Aksel", city:"Izmir",     lg:"Elit Lig"},
+  {n:"Samsunspor FC",  name:"Samsunspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"19 Mayis",     city:"Samsun",    lg:"Elit Lig"},
+  {n:"Eyupspor FC",    name:"Eyupspor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Eyup St.",     city:"Istanbul",  lg:"Elit Lig"},
+  {n:"Konyaspor FC",   name:"Konyaspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Konya Stadyumu",city:"Konya",    lg:"Elit Lig"},
+  {n:"Alanyaspor FC",  name:"Alanyaspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Bahçeşehir",   city:"Alanya",    lg:"Elit Lig"},
+  {n:"Rizespor FC",    name:"Rizespor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Rize Stad.",   city:"Rize",      lg:"Elit Lig"},
+  {n:"Kasimpasa FC",   name:"Kasimpasa FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Recep Tayyip", city:"İstanbul",  lg:"Elit Lig"},
+  {n:"Gaziantepspor FC",name:"Gaziantepspor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Kalyon Stadyumu",city:"Gaziantep",lg:"Elit Lig"},
+  {n:"Genclerbirligi FC",name:"Genclerbirligi FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"19 Mayis",   city:"Ankara",    lg:"Elit Lig"},
+  {n:"Kocaelispor FC", name:"Kocaelispor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Izmit St.",    city:"Kocaeli",   lg:"Elit Lig"},
+  {n:"Erzurumspor FC", name:"Erzurumspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"K.Karabekir",  city:"Erzurum",   lg:"Elit Lig"},
+  {n:"Amed Sportif FC",name:"Amed Sportif FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Diyarbakır St.",city:"Diyarbakır",lg:"Elit Lig"},
+  {n:"Corum FK",       name:"Corum FK",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Çorum Şehir St.",city:"Çorum",    lg:"Elit Lig"},
+  // ── 1. LİG (20 takım, 38 hafta) ───────────────────────────────────
+  {n:"FC Yildiz",      name:"FC Yildiz",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:true, str:63,stad:"Yildiz Arena",   city:"Ankara",   lg:"1. Lig"},
+  {n:"Kayserispor FC", name:"Kayserispor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Kayseri Stadyumu",city:"Kayseri", lg:"1. Lig"},
+  {n:"Antalyaspor FC", name:"Antalyaspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Antalya Stad.", city:"Antalya",   lg:"1. Lig"},
+  {n:"Karagumruk FC",  name:"Karagumruk FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Fatih St.",     city:"İstanbul",  lg:"1. Lig"},
+  {n:"Sivasspor FC",   name:"Sivasspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"4 Eylül St.",   city:"Sivas",     lg:"1. Lig"},
+  {n:"Bodrumspor FC",  name:"Bodrumspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Bodrum St.",    city:"Bodrum",    lg:"1. Lig"},
+  {n:"Pendikspor FC",  name:"Pendikspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Pendik Stadyumu",city:"Istanbul", lg:"1. Lig"},
+  {n:"Umraniyespor FC",name:"Umraniyespor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Umraniye",      city:"Istanbul",  lg:"1. Lig"},
+  {n:"Istanbulspor FC",name:"Istanbulspor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Necmi Kadioglu",city:"Istanbul",  lg:"1. Lig"},
+  {n:"Bursaspor FC",   name:"Bursaspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Timsah Arena",  city:"Bursa",     lg:"1. Lig"},
+  {n:"Manisaspor FC",  name:"Manisaspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Manisa St.",    city:"Manisa",    lg:"1. Lig"},
+  {n:"Erokspor FC",    name:"Erokspor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Esenyurt St.",  city:"Istanbul",  lg:"1. Lig"},
+  {n:"Bandirmaspor FC",name:"Bandirmaspor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:57,stad:"Bandirma",      city:"Bandirma",  lg:"1. Lig"},
+  {n:"Igdir FK",       name:"Igdir FK",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:57,stad:"Igdir Şehir St.",city:"Igdir",    lg:"1. Lig"},
+  {n:"Boluspor FC",    name:"Boluspor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:56,stad:"Bolu St.",      city:"Bolu",      lg:"1. Lig"},
+  {n:"Vanspor FK",     name:"Vanspor FK",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:56,stad:"Van Atatürk St.",city:"Van",      lg:"1. Lig"},
+  {n:"Sariyer FC",     name:"Sariyer FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:55,stad:"Yusuf Ziya Öniş",city:"Istanbul", lg:"1. Lig"},
+  {n:"Kecioren FK",    name:"Kecioren FK",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:54,stad:"Kecioren St.",  city:"Ankara",    lg:"1. Lig"},
+  {n:"Muglaspor FC",   name:"Muglaspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:54,stad:"Muğla St.",     city:"Muğla",     lg:"1. Lig"},
+  {n:"Batman Petrol FC",name:"Batman Petrol FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:54,stad:"Batman St.",  city:"Batman",    lg:"1. Lig"},
+  // ── İNGİLİZ LİGİ (20 takım, 38 hafta) ─────────────────────────────
   {n:"Eastfield City",    name:"Eastfield City",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:92,stad:"Etihad Stadium",city:"Manchester",lg:"İngiliz Ligi"},
   {n:"Northon City",     name:"Northon City",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:90,stad:"Emirates St.",  city:"London",    lg:"İngiliz Ligi"},
   {n:"Mersey Reds",   name:"Mersey Reds",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:89,stad:"Anfield",       city:"Mersey Reds", lg:"İngiliz Ligi"},
   {n:"Westbridge FC",     name:"Westbridge FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:85,stad:"Stamford Bridge",city:"London",   lg:"İngiliz Ligi"},
   {n:"Tyneside FC",   name:"Tyneside FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:82,stad:"St.James Park", city:"Tyneside FC", lg:"İngiliz Ligi"},
   {n:"Midfield Villa", name:"Midfield Villa", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:81,stad:"Villa Park",    city:"Birmingham",lg:"İngiliz Ligi"},
-  {n:"Southgate Hotspur",   name:"Southgate Hotspur",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:80,stad:"Spurs Stadium",city:"London",  lg:"İngiliz Ligi"},
+  {n:"Southgate Hotspur",   name:"Southgate Hotspur",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:80,stad:"Spurs Stadium",city:"London",  lg:"İngiliz Ligi"},
   {n:"Redford United",     name:"Redford United",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Old Trafford",  city:"Manchester",lg:"İngiliz Ligi"},
-  {n:"Seagulls FC",    name:"Seagulls FC",    pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:76,stad:"Amex Stadium",  city:"Seagulls FC",  lg:"İngiliz Ligi"},
-  {n:"Riverside FC",   name:"Riverside FC",   pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Brentford C.G.",city:"London",   lg:"İngiliz Ligi"},
-  {n:"East Hammers",    name:"East Hammers",    pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"London Stadium",city:"London",  lg:"İngiliz Ligi"},
-  {n:"Goodfields FC",     name:"Goodfields FC",     pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:70,stad:"Goodison Park",city:"Mersey Reds",lg:"İngiliz Ligi"},
-  // ── LA LIGA ─────────────────────────────────────────────────
+  {n:"Seagulls FC",    name:"Seagulls FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:76,stad:"Amex Stadium",  city:"Seagulls FC",  lg:"İngiliz Ligi"},
+  {n:"Riverside FC",   name:"Riverside FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Brentford C.G.",city:"London",   lg:"İngiliz Ligi"},
+  {n:"Goodfields FC",     name:"Goodfields FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:70,stad:"Goodison Park",city:"Mersey Reds",lg:"İngiliz Ligi"},
+  {n:"Crystal FC",name:"Crystal FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Selhurst Park",    city:"London",       lg:"İngiliz Ligi"},
+  {n:"Fulham FC",       name:"Fulham FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Craven Cottage",     city:"London",       lg:"İngiliz Ligi"},
+  {n:"Nottingham FC", name:"Nottingham FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"City Ground",        city:"Nottingham FC",   lg:"İngiliz Ligi"},
+  {n:"Bournemouth FC",  name:"Bournemouth FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Vitality Stadium",   city:"Bournemouth FC",  lg:"İngiliz Ligi"},
+  {n:"Leeds",           name:"Leeds",           pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Elland Road",        city:"Leeds",        lg:"İngiliz Ligi"},
+  {n:"Sunderland",      name:"Sunderland",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Stadium of Light",   city:"Sunderland",   lg:"İngiliz Ligi"},
+  {n:"Covenford City",  name:"Covenford City",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Covenford Arena",    city:"Coventry",     lg:"İngiliz Ligi"},
+  {n:"Ipsworth Town",   name:"Ipsworth Town",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Portman Lane",       city:"Ipswich",      lg:"İngiliz Ligi"},
+  {n:"Humberport City", name:"Humberport City", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Humber Stadium",     city:"Hull",         lg:"İngiliz Ligi"},
+  // ── İNGİLİZ 2. LİGİ (24 takım, 46 hafta) — 2026/27 ──────────────────
+  {n:"East Hammers",   name:"East Hammers",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:73,stad:"London Stadium",   city:"London",       lg:"İngiliz 2. Ligi"},
+  {n:"Wolverhampton",  name:"Wolverhampton",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:71,stad:"Molineux",         city:"Wolverhampton",lg:"İngiliz 2. Ligi"},
+  {n:"Burnley FC",     name:"Burnley FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:69,stad:"Turf Moor",        city:"Burnley",      lg:"İngiliz 2. Ligi"},
+  {n:"Southampton FC", name:"Southampton FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:69,stad:"St Mary's",        city:"Southampton",  lg:"İngiliz 2. Ligi"},
+  {n:"Sheffield FC",   name:"Sheffield FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Bramall Lane",     city:"Sheffield",    lg:"İngiliz 2. Ligi"},
+  {n:"Middlesbrough",  name:"Middlesbrough",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Riverside Stadium",city:"Middlesbrough",lg:"İngiliz 2. Ligi"},
+  {n:"Norwich FC",     name:"Norwich FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Carrow Road",      city:"Norwich",      lg:"İngiliz 2. Ligi"},
+  {n:"West Bromford",  name:"West Bromford",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"The Hawthorns",    city:"West Bromwich",lg:"İngiliz 2. Ligi"},
+  {n:"Birmingham",     name:"Birmingham",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"St Andrew's",      city:"Birmingham",   lg:"İngiliz 2. Ligi"},
+  {n:"Wrexham FC",     name:"Wrexham FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Racecourse Ground",city:"Wrexham",      lg:"İngiliz 2. Ligi"},
+  {n:"Watford FC",     name:"Watford FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Vicarage Road",    city:"Watford",      lg:"İngiliz 2. Ligi"},
+  {n:"Millwall",       name:"Millwall",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"The Den",          city:"London",       lg:"İngiliz 2. Ligi"},
+  {n:"Bristol FC",     name:"Bristol FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Ashton Gate",      city:"Bristol",      lg:"İngiliz 2. Ligi"},
+  {n:"Stoke",          name:"Stoke",          pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"bet365 Stadium",   city:"Stoke",        lg:"İngiliz 2. Ligi"},
+  {n:"Preston",        name:"Preston",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Deepdale",         city:"Preston",      lg:"İngiliz 2. Ligi"},
+  {n:"Swansea",        name:"Swansea",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Swansea.com St.",  city:"Swansea",      lg:"İngiliz 2. Ligi"},
+  {n:"QPR",            name:"QPR",            pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Loftus Road",      city:"London",       lg:"İngiliz 2. Ligi"},
+  {n:"Derby FC",       name:"Derby FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Pride Park",       city:"Derby",        lg:"İngiliz 2. Ligi"},
+  {n:"Blackburn",      name:"Blackburn",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Ewood Park",       city:"Blackburn",    lg:"İngiliz 2. Ligi"},
+  {n:"Portsmouth FC",  name:"Portsmouth FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Fratton Park",     city:"Portsmouth",   lg:"İngiliz 2. Ligi"},
+  {n:"Charlton FC",    name:"Charlton FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"The Valley",       city:"London",       lg:"İngiliz 2. Ligi"},
+  {n:"Cardiff",        name:"Cardiff",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Cardiff City St.", city:"Cardiff",      lg:"İngiliz 2. Ligi"},
+  {n:"Bolton FC",      name:"Bolton FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Toughsheet Comm.", city:"Bolton",       lg:"İngiliz 2. Ligi"},
+  {n:"Lincoln FC",     name:"Lincoln FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Sincil Bank",      city:"Lincoln",      lg:"İngiliz 2. Ligi"},
+  // ── İSPANYOL LİGİ (20 takım, 38 hafta) ────────────────────────────
   {n:"Real Madreno", name:"Real Madreno", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:95,stad:"Bernabéu",      city:"Madrid",    lg:"İspanyol Ligi"},
   {n:"FC Cataluña",   name:"FC Cataluña",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:92,stad:"Olímpic L.C.",  city:"FC Cataluña", lg:"İspanyol Ligi"},
   {n:"Atletico Madreno",    name:"Atletico Madreno",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:86,stad:"Metropolitano", city:"Madrid",    lg:"İspanyol Ligi"},
-  {n:"Real Sociedad",    name:"Real Sociedad",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:80,stad:"Reale Arena",   city:"San Sebastián",lg:"İspanyol Ligi"},
-  {n:"Villareal CF",  name:"Villareal CF",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:78,stad:"Estadio Madrigal",city:"Villareal CF",lg:"İspanyol Ligi"},
+  {n:"Real Sociedad",    name:"Real Sociedad",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:80,stad:"Reale Arena",   city:"San Sebastián",lg:"İspanyol Ligi"},
+  {n:"Villareal CF",  name:"Villareal CF",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Estadio Madrigal",city:"Villareal CF",lg:"İspanyol Ligi"},
   {n:"Valencia CF",    name:"Valencia CF",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:75,stad:"Mestalla",      city:"Valencia CF",  lg:"İspanyol Ligi"},
-  {n:"Real Betis",       name:"Real Betis",       pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Benito Villamarin",city:"Sevilia FC",lg:"İspanyol Ligi"},
-  {n:"Sevilia FC",     name:"Sevilia FC",     pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:73,stad:"Ramón Sánchez",city:"Sevilia FC",    lg:"İspanyol Ligi"},
-  // ── BUNDESLIGA ──────────────────────────────────────────────
+  {n:"Real Betis",       name:"Real Betis",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Benito Villamarin",city:"Sevilia FC",lg:"İspanyol Ligi"},
+  {n:"Sevilia FC",     name:"Sevilia FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:73,stad:"Ramón Sánchez",city:"Sevilia FC",    lg:"İspanyol Ligi"},
+  {n:"Athletic Club",name:"Athletic Club",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"San Mames",          city:"Bilbao",       lg:"İspanyol Ligi"},
+  {n:"CA Osasuna",      name:"CA Osasuna",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"El Sadar",           city:"Pamplona",     lg:"İspanyol Ligi"},
+  {n:"Celta Vigo",   name:"Celta Vigo",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Balaidos",           city:"Vigo",         lg:"İspanyol Ligi"},
+  {n:"Espanyol",        name:"Espanyol",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"RCDE Stadium",       city:"Barcelona",    lg:"İspanyol Ligi"},
+  {n:"Rayo Vallecano",name:"Rayo Vallecano",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Vallecas",        city:"Madrid",       lg:"İspanyol Ligi"},
+  {n:"Getafe CF",       name:"Getafe CF",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Coliseum Alfonso",   city:"Getafe CF",       lg:"İspanyol Ligi"},
+  {n:"Elche",           name:"Elche",           pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Martinez Valero",    city:"Elche",        lg:"İspanyol Ligi"},
+  {n:"Levante",         name:"Levante",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Ciutat de Valencia", city:"Valencia",     lg:"İspanyol Ligi"},
+  {n:"Real Oviedo",     name:"Real Oviedo",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Carlos Tartiere",    city:"Oviedo",       lg:"İspanyol Ligi"},
+  {n:"Deportivo",       name:"Deportivo",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Riazor",             city:"A Coruña",     lg:"İspanyol Ligi"},
+  {n:"Racing Santander",name:"Racing Santander",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"El Sardinero",       city:"Santander",    lg:"İspanyol Ligi"},
+  {n:"Malaga CF",       name:"Malaga CF",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"La Rosaleda",        city:"Malaga",       lg:"İspanyol Ligi"},
+  // ── ALMAN LİGİ (18 takım, 34 hafta) ───────────────────────────────
   {n:"Bayern FC",      name:"Bayern FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:93,stad:"Allianz Arena", city:"München",   lg:"Alman Ligi"},
   {n:"Leverkusen FC",  name:"Leverkusen FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:89,stad:"BayArena",      city:"Leverkusen FC",lg:"Alman Ligi"},
   {n:"Dortmund BV",    name:"Dortmund BV",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:84,stad:"Signal Iduna",  city:"Dortmund BV",  lg:"Alman Ligi"},
   {n:"Leipzig RB",     name:"Leipzig RB",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:83,stad:"Red Bull Arena",city:"Leipzig RB",   lg:"Alman Ligi"},
-  {n:"Frankfurt EFC",   name:"Frankfurt EFC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:78,stad:"Deutsche Bank P.",city:"Frankfurt EFC",lg:"Alman Ligi"},
-  {n:"Stuttgart VfB",   name:"Stuttgart VfB",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:77,stad:"MHPArena",      city:"Stuttgart VfB", lg:"Alman Ligi"},
-  {n:"M'gladbach",  name:"M'gladbach",  pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Borussia-Park", city:"Mönchengladbach",lg:"Alman Ligi"},
-  {n:"Wolfsburg FC",   name:"Wolfsburg FC",   pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:70,stad:"Volkswagen Arena",city:"Wolfsburg FC",lg:"Alman Ligi"},
-  // ── SERIE A ─────────────────────────────────────────────────
+  {n:"Frankfurt EFC",   name:"Frankfurt EFC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Deutsche Bank P.",city:"Frankfurt EFC",lg:"Alman Ligi"},
+  {n:"Stuttgart VfB",   name:"Stuttgart VfB",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:77,stad:"MHPArena",      city:"Stuttgart VfB", lg:"Alman Ligi"},
+  {n:"M'gladbach",  name:"M'gladbach",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Borussia-Park", city:"Mönchengladbach",lg:"Alman Ligi"},
+  {n:"SC Freiburg",     name:"SC Freiburg",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Europa-Park",        city:"SC Freiburg",     lg:"Alman Ligi"},
+  {n:"Berlin Union", name:"Berlin Union", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"An der Alten Forsterei",city:"Berlin",   lg:"Alman Ligi"},
+  {n:"Bremen FC",name:"Bremen FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Weserstadion",       city:"Bremen",       lg:"Alman Ligi"},
+  {n:"FSV Mainz",        name:"FSV Mainz",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Mewa Arena",         city:"FSV Mainz",        lg:"Alman Ligi"},
+  {n:"TSG Hoffenheim",   name:"TSG Hoffenheim",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"PreZero Arena",      city:"TSG Hoffenheim",   lg:"Alman Ligi"},
+  {n:"Hamburger SV",     name:"Hamburger SV",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Volksparkstadion",   city:"Hamburg",      lg:"Alman Ligi"},
+  {n:"FC Schalke",       name:"FC Schalke",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Veltins-Arena",      city:"Gelsenkirchen",lg:"Alman Ligi"},
+  {n:"Koln",         name:"Koln",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"RheinEnergie",       city:"Cologne",      lg:"Alman Ligi"},
+  {n:"FC Augsburg",     name:"FC Augsburg",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"WWK Arena",          city:"FC Augsburg",     lg:"Alman Ligi"},
+  {n:"Paderborn",        name:"Paderborn",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Home Deluxe Arena",  city:"Paderborn",    lg:"Alman Ligi"},
+  {n:"SV Elversberg",    name:"SV Elversberg",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Ursapharm-Arena",    city:"Spiesen-Elversberg",lg:"Alman Ligi"},
+  // ── İTALYAN LİGİ (20 takım, 38 hafta) ─────────────────────────────
   {n:"FC Internazionale",       name:"FC Internazionale",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:91,stad:"San Siro",       city:"Milano",    lg:"İtalyan Ligi"},
   {n:"Juventus FC",    name:"Juventus FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:86,stad:"Juventus Stadium",city:"Torino FC",   lg:"İtalyan Ligi"},
   {n:"AC Milanese",    name:"AC Milanese",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:85,stad:"San Siro",       city:"Milano",    lg:"İtalyan Ligi"},
   {n:"SSC Partenopei",      name:"SSC Partenopei",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:84,stad:"Diego Armando Maradona",city:"SSC Partenopei",lg:"İtalyan Ligi"},
-  {n:"AS Romasso",        name:"AS Romasso",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:80,stad:"Olimpico",       city:"AS Romasso",      lg:"İtalyan Ligi"},
-  {n:"SS Lazione",       name:"SS Lazione",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:78,stad:"Olimpico",       city:"AS Romasso",      lg:"İtalyan Ligi"},
-  {n:"ACF Fiorentina",  name:"ACF Fiorentina",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:75,stad:"Artemio Franchi",city:"Firenze",  lg:"İtalyan Ligi"},
   {n:"Atalanta BC B",    name:"Atalanta BC B",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:82,stad:"Gewiss Stadium", city:"Bergamo",   lg:"İtalyan Ligi"},
-  // ── LIGUE 1 ─────────────────────────────────────────────────
+  {n:"AS Romasso",        name:"AS Romasso",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:80,stad:"Olimpico",       city:"AS Romasso",      lg:"İtalyan Ligi"},
+  {n:"SS Lazione",       name:"SS Lazione",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Olimpico",       city:"AS Romasso",      lg:"İtalyan Ligi"},
+  {n:"ACF Fiorentina",  name:"ACF Fiorentina",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:75,stad:"Artemio Franchi",city:"Firenze",  lg:"İtalyan Ligi"},
+  {n:"Como",            name:"Como",            pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:70,stad:"Sinigaglia",         city:"Como",         lg:"İtalyan Ligi"},
+  {n:"Bologna FC",      name:"Bologna FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Renato Dall'Ara",    city:"Bologna FC",      lg:"İtalyan Ligi"},
+  {n:"Torino FC",       name:"Torino FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Olimpico Torino",    city:"Turin",        lg:"İtalyan Ligi"},
+  {n:"AC Monza",        name:"AC Monza",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"U-Power Stadium",    city:"AC Monza",        lg:"İtalyan Ligi"},
+  {n:"US Sassuolo",     name:"US Sassuolo",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Mapei Stadium",      city:"US Sassuolo",     lg:"İtalyan Ligi"},
+  {n:"Parma Calcio",    name:"Parma Calcio",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Ennio Tardini",      city:"Parma",        lg:"İtalyan Ligi"},
+  {n:"Genoa CFC",        name:"Genoa CFC",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Luigi Ferraris",     city:"Genoa CFC",        lg:"İtalyan Ligi"},
+  {n:"Udinese Calcio",      name:"Udinese Calcio",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Friuli",             city:"Udine",        lg:"İtalyan Ligi"},
+  {n:"US Lecce",        name:"US Lecce",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Via del Mare",       city:"US Lecce",        lg:"İtalyan Ligi"},
+  {n:"Cagliari Calcio",     name:"Cagliari Calcio",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Unipol Domus",       city:"Cagliari Calcio",     lg:"İtalyan Ligi"},
+  {n:"Venezia FC",      name:"Venezia FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Pier Luigi Penzo",   city:"Venezia",      lg:"İtalyan Ligi"},
+  {n:"Frosinone Calcio",    name:"Frosinone Calcio",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Benito Stirpe",      city:"Frosinone Calcio",    lg:"İtalyan Ligi"},
+  // ── FRANSIZ LİGİ (18 takım, 34 hafta) ─────────────────────────────
   {n:"Paris SG",         name:"Paris SG",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:94,stad:"Parc des Princes",city:"Paris",   lg:"Fransız Ligi"},
   {n:"AS Monaco B",      name:"AS Monaco B",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:80,stad:"Stade Louis II", city:"AS Monaco B",    lg:"Fransız Ligi"},
   {n:"OM Marseille",   name:"OM Marseille",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:78,stad:"Vélodrome",      city:"OM Marseille", lg:"Fransız Ligi"},
-  {n:"OL Lyon",        name:"OL Lyon",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:76,stad:"Groupama Stadium",city:"OL Lyon",    lg:"Fransız Ligi"},
-  {n:"RC Lens",        name:"RC Lens",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:75,stad:"Bollaert-Delelis",city:"RC Lens",    lg:"Fransız Ligi"},
-  {n:"LOSC Lille",       name:"LOSC Lille",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0, me:false,str:74,stad:"Pierre-Mauroy",  city:"LOSC Lille",     lg:"Fransız Ligi"},
-  {n:"OGC Nice",        name:"OGC Nice",        pts:0,w:0, d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Allianz Riviera",city:"OGC Nice",     lg:"Fransız Ligi"},
-  {n:"Eyupspor FC",    name:"Eyupspor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Eyup St.",     city:"Istanbul",lg:"1. Lig"},
-  {n:"Sakaryaspor FC", name:"Sakaryaspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Ataturk St.",  city:"Sakarya", lg:"1. Lig"},
-  {n:"Bodrumspor FC",  name:"Bodrumspor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Bodrum St.",   city:"Bodrum",  lg:"1. Lig"},
-  {n:"Goztepe FC",     name:"Goztepe FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Gursel Aksel", city:"Izmir",   lg:"1. Lig"},
-  {n:"Kocaelispor FC", name:"Kocaelispor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Izmit St.",    city:"Kocaeli", lg:"1. Lig"},
-  {n:"Manisaspor FC",   name:"Manisaspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Manisa St.",   city:"Manisa",  lg:"1. Lig"},
-  {n:"Zonguldakspor FC",    name:"Zonguldakspor FC",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:56,stad:"Bolu St.",      city:"Bolu",    lg:"1. Lig"},
-  {n:"Adanaspor FC",   name:"Adanaspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:57,stad:"5 Ocak St.",   city:"Adana",   lg:"1. Lig"},
-  {n:"Erzurumspor FC", name:"Erzurumspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:55,stad:"K.Karabekir",  city:"Erzurum", lg:"1. Lig"},
-  {n:"Altinordu FC",   name:"Altinordu FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Altinordu FC",    city:"Izmir",   lg:"1. Lig"},
-  {n:"Umraniyespor FC",name:"Umraniyespor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Umraniye",     city:"Istanbul",lg:"1. Lig"},
-  {n:"Bandirmaspor FC",name:"Bandirmaspor FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:57,stad:"Bandirma",     city:"Bandirma",lg:"1. Lig"},
-  {n:"Denizlispor FC", name:"Denizlispor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Denizli St.",  city:"Denizli", lg:"1. Lig"},
-  {n:"Sultangazi FC",  name:"Sultangazi FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Pendik St.",   city:"Istanbul",lg:"1. Lig"},
-  {n:"Genclerbirligi FC",name:"Genclerbirligi FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"19Mayis",  city:"Ankara",  lg:"1. Lig"},
-  {n:"Kecioren FK", name:"Kecioren FK", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:54,stad:"Kecioren St.", city:"Ankara",  lg:"1. Lig"},
-  // ── Premier League eksikler (20 takım) ──
-  {n:"Wolverhampton",       name:"Wolverhampton",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Molineux",           city:"Wolverhampton",lg:"İngiliz Ligi"},
-  {n:"Crystal FC",name:"Crystal FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Selhurst Park",    city:"London",       lg:"İngiliz Ligi"},
-  {n:"Fulham FC",       name:"Fulham FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Craven Cottage",     city:"London",       lg:"İngiliz Ligi"},
-  {n:"Bournemouth FC",  name:"Bournemouth FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Vitality Stadium",   city:"Bournemouth FC",  lg:"İngiliz Ligi"},
-  {n:"Nottingham FC", name:"Nottingham FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"City Ground",        city:"Nottingham FC",   lg:"İngiliz Ligi"},
-  {n:"Luton Town",        name:"Luton Town",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Kenilworth Road",    city:"Luton Town",        lg:"İngiliz Ligi"},
-  {n:"Burnley FC",      name:"Burnley FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Turf Moor",          city:"Burnley FC",      lg:"İngiliz Ligi"},
-  {n:"Sheffield FC",name:"Sheffield FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Bramall Lane",       city:"Sheffield",    lg:"İngiliz Ligi"},
-  // ── La Liga eksikler (20 takım) ──
-  {n:"CA Osasuna",      name:"CA Osasuna",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"El Sadar",           city:"Pamplona",     lg:"İspanyol Ligi"},
-  {n:"Celta Vigo",   name:"Celta Vigo",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Balaidos",           city:"Vigo",         lg:"İspanyol Ligi"},
-  {n:"Getafe CF",       name:"Getafe CF",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Coliseum Alfonso",   city:"Getafe CF",       lg:"İspanyol Ligi"},
-  {n:"RCD Mallorca",     name:"RCD Mallorca",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Son Moix",           city:"Palma",        lg:"İspanyol Ligi"},
-  {n:"Girona FC",       name:"Girona FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Montilivi",          city:"Girona FC",       lg:"İspanyol Ligi"},
-  {n:"Rayo Vallecano",name:"Rayo Vallecano",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Vallecas",        city:"Madrid",       lg:"İspanyol Ligi"},
-  {n:"UD Almería",      name:"UD Almería",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Power Horse",        city:"UD Almería",      lg:"İspanyol Ligi"},
-  {n:"Granada CF",      name:"Granada CF",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Los Carmenes",       city:"Granada CF",      lg:"İspanyol Ligi"},
-  {n:"UD Las Palmas",   name:"UD Las Palmas",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Gran Canaria",       city:"UD Las Palmas",   lg:"İspanyol Ligi"},
-  {n:"Alaves",       name:"Alaves",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Mendizorroza",       city:"Vitoria",      lg:"İspanyol Ligi"},
-  {n:"Athletic Club",name:"Athletic Club",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"San Mames",          city:"Bilbao",       lg:"İspanyol Ligi"},
-  {n:"Valladolid",   name:"Valladolid",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Jose Zorrilla",      city:"Valladolid",   lg:"İspanyol Ligi"},
-  // ── Bundesliga eksikler (18 takım) ──
-  {n:"SC Freiburg",     name:"SC Freiburg",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Europa-Park",        city:"SC Freiburg",     lg:"Alman Ligi"},
-  {n:"Berlin Union", name:"Berlin Union", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"An der Alten Forsterei",city:"Berlin",   lg:"Alman Ligi"},
-  {n:"FSV Mainz",        name:"FSV Mainz",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Mewa Arena",         city:"FSV Mainz",        lg:"Alman Ligi"},
-  {n:"TSG Hoffenheim",   name:"TSG Hoffenheim",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"PreZero Arena",      city:"TSG Hoffenheim",   lg:"Alman Ligi"},
-  {n:"FC Augsburg",     name:"FC Augsburg",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"WWK Arena",          city:"FC Augsburg",     lg:"Alman Ligi"},
-  {n:"VfL Bochum",       name:"VfL Bochum",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Vonovia Ruhrstadion",city:"VfL Bochum",       lg:"Alman Ligi"},
-  {n:"Bremen FC",name:"Bremen FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Weserstadion",       city:"Bremen",       lg:"Alman Ligi"},
-  {n:"FC Heidenheim",   name:"FC Heidenheim",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Voith-Arena",        city:"FC Heidenheim",   lg:"Alman Ligi"},
-  {n:"SV Darmstadt",    name:"SV Darmstadt",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Merck-Stadion",      city:"SV Darmstadt",    lg:"Alman Ligi"},
-  {n:"Koln",         name:"Koln",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"RheinEnergie",       city:"Cologne",      lg:"Alman Ligi"},
-  // ── Serie A eksikler (20 takım) ──
-  {n:"Torino FC",       name:"Torino FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Olimpico Torino",    city:"Turin",        lg:"İtalyan Ligi"},
-  {n:"Bologna FC",      name:"Bologna FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Renato Dall'Ara",    city:"Bologna FC",      lg:"İtalyan Ligi"},
-  {n:"AC Monza",        name:"AC Monza",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"U-Power Stadium",    city:"AC Monza",        lg:"İtalyan Ligi"},
-  {n:"Genoa CFC",        name:"Genoa CFC",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Luigi Ferraris",     city:"Genoa CFC",        lg:"İtalyan Ligi"},
-  {n:"US Lecce",        name:"US Lecce",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Via del Mare",       city:"US Lecce",        lg:"İtalyan Ligi"},
-  {n:"Cagliari Calcio",     name:"Cagliari Calcio",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Unipol Domus",       city:"Cagliari Calcio",     lg:"İtalyan Ligi"},
-  {n:"Frosinone Calcio",    name:"Frosinone Calcio",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Benito Stirpe",      city:"Frosinone Calcio",    lg:"İtalyan Ligi"},
-  {n:"Hellas Verona",name:"Hellas Verona",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Bentegodi",          city:"Hellas Verona",       lg:"İtalyan Ligi"},
-  {n:"Udinese Calcio",      name:"Udinese Calcio",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Friuli",             city:"Udine",        lg:"İtalyan Ligi"},
-  {n:"FC Empoli",       name:"FC Empoli",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Carlo Castellani",   city:"FC Empoli",       lg:"İtalyan Ligi"},
-  {n:"US Sassuolo",     name:"US Sassuolo",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Mapei Stadium",      city:"US Sassuolo",     lg:"İtalyan Ligi"},
-  {n:"US Salernitana",  name:"US Salernitana",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Arechi",             city:"Salerno",      lg:"İtalyan Ligi"},
-  // ── Ligue 1 eksikler (18 takım) ──
+  {n:"OL Lyon",        name:"OL Lyon",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:76,stad:"Groupama Stadium",city:"OL Lyon",    lg:"Fransız Ligi"},
+  {n:"RC Lens",        name:"RC Lens",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:75,stad:"Bollaert-Delelis",city:"RC Lens",    lg:"Fransız Ligi"},
+  {n:"LOSC Lille",       name:"LOSC Lille",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Pierre-Mauroy",  city:"LOSC Lille",     lg:"Fransız Ligi"},
+  {n:"OGC Nice",        name:"OGC Nice",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Allianz Riviera",city:"OGC Nice",     lg:"Fransız Ligi"},
   {n:"Stade Rennais",       name:"Stade Rennais",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:68,stad:"Roazhon Park",       city:"Stade Rennais",       lg:"Fransız Ligi"},
-  {n:"FC Nantes",       name:"FC Nantes",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Beaujoire",          city:"FC Nantes",       lg:"Fransız Ligi"},
-  {n:"RC Strasbourg",   name:"RC Strasbourg",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Meinau",             city:"RC Strasbourg",   lg:"Fransız Ligi"},
-  {n:"Toulouse FC",     name:"Toulouse FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Stadium Toulouse",   city:"Toulouse FC",     lg:"Fransız Ligi"},
-  {n:"Montpellier HSC",  name:"Montpellier HSC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"La Mosson",          city:"Montpellier HSC",  lg:"Fransız Ligi"},
   {n:"Brest",        name:"Brest",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Francis-Le Ble",     city:"Brest",        lg:"Fransız Ligi"},
-  {n:"Stade de Reims",        name:"Stade de Reims",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Auguste Delaune",    city:"Stade de Reims",        lg:"Fransız Ligi"},
-  {n:"Clermont Foot",     name:"Clermont Foot",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Gabriel Montpied",   city:"Clermont Foot",     lg:"Fransız Ligi"},
-  {n:"FC Metz",         name:"FC Metz",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Saint-Symphorien",   city:"FC Metz",         lg:"Fransız Ligi"},
+  {n:"Toulouse FC",     name:"Toulouse FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Stadium Toulouse",   city:"Toulouse FC",     lg:"Fransız Ligi"},
+  {n:"Paris FC",        name:"Paris FC",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Stade Jean-Bouin",   city:"Paris",        lg:"Fransız Ligi"},
+  {n:"RC Strasbourg",   name:"RC Strasbourg",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Meinau",             city:"RC Strasbourg",   lg:"Fransız Ligi"},
+  {n:"AJ Auxerre",      name:"AJ Auxerre",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Abbe-Deschamps",     city:"Auxerre",      lg:"Fransız Ligi"},
   {n:"Le Havre",     name:"Le Havre",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Oceane",             city:"Le Havre",     lg:"Fransız Ligi"},
   {n:"FC Lorient",      name:"FC Lorient",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Moustoir",           city:"FC Lorient",      lg:"Fransız Ligi"},
-  // ── Süper Lig eksikler (19 takım) ──
-  {n:"Adana Demir FC",name:"Adana Demir FC",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Yeni Adana",     city:"Adana",        lg:"Elit Lig"},
-  {n:"Gaziantepspor FC", name:"Gaziantepspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Kalyon Stadyumu",    city:"Gaziantep",    lg:"Elit Lig"},
-  {n:"Kayserispor FC",  name:"Kayserispor FC",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Kayseri Stadyumu",   city:"Kayseri",      lg:"Elit Lig"},
-  {n:"Istanbulspor FC", name:"Istanbulspor FC", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Necmi Kadioglu",     city:"Istanbul",     lg:"Elit Lig"},
-  {n:"Ankaragucu FC",   name:"Ankaragucu FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Eryaman",            city:"Ankara",       lg:"Elit Lig"},
-  {n:"Samsunspor FC",   name:"Samsunspor FC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"19 Mayis",           city:"Samsun",       lg:"Elit Lig"},
-  {n:"Pendikspor FC",       name:"Pendikspor FC",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Pendik Stadyumu",    city:"Istanbul",     lg:"Elit Lig"},
-  // ── TFF 1. Lig eksikler (19 takım) ──
-  {n:"Bucaspor FC",     name:"Bucaspor FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"Buca Stadyumu",      city:"Izmir",        lg:"1. Lig"},
-  {n:"Tarsus FK",   name:"Tarsus FK",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:53,stad:"Tarsus Stadyumu",    city:"Tarsus",       lg:"1. Lig"},
-  {n:"Elazig FK",    name:"Elazig FK",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:55,stad:"Elazig Stadyumu",    city:"Elazig",       lg:"1. Lig"},
-  // ── Primeira Liga (18 takım) ──
+  {n:"Angers SCO",      name:"Angers SCO",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Raymond-Kopa",       city:"Angers",       lg:"Fransız Ligi"},
+  {n:"Troyes",          name:"Troyes",          pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Stade de l'Aube",    city:"Troyes",       lg:"Fransız Ligi"},
+  {n:"Le Mans FC",      name:"Le Mans FC",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"MMArena",            city:"Le Mans",      lg:"Fransız Ligi"},
+  // ── PORTEKİZ LİGİ (18 takım, 34 hafta) ────────────────────────────
   {n:"SL Benfica",      name:"SL Benfica",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:84,stad:"Estadio da Luz",     city:"Lisbon",      lg:"Portekiz Ligi"},
   {n:"FC Porto",        name:"FC Porto",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:83,stad:"Estadio do Dragao",  city:"FC Porto",       lg:"Portekiz Ligi"},
   {n:"Sporting CP",  name:"Sporting CP",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:82,stad:"Alvalade",          city:"Lisbon",      lg:"Portekiz Ligi"},
   {n:"SC Braga",        name:"SC Braga",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:74,stad:"Estadio Municipal", city:"SC Braga",       lg:"Portekiz Ligi"},
   {n:"Vitoria SC",   name:"Vitoria SC",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Afonso Henriques",  city:"Guimaraes",   lg:"Portekiz Ligi"},
+  {n:"Casa Pia",     name:"Casa Pia",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Pina Manique",      city:"Lisbon",      lg:"Portekiz Ligi"},
   {n:"Rio Ave",      name:"Rio Ave",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Arcos",             city:"Vila do Conde",lg:"Portekiz Ligi"},
   {n:"Famalicao",    name:"Famalicao",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Municipal",         city:"Famalicao",   lg:"Portekiz Ligi"},
-  {n:"Casa Pia",     name:"Casa Pia",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Pina Manique",      city:"Lisbon",      lg:"Portekiz Ligi"},
   {n:"Estoril",      name:"Estoril",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Antonio Coimbra",   city:"Estoril",     lg:"Portekiz Ligi"},
-  {n:"Arouca",       name:"Arouca",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Municipal de Arouca",city:"Arouca",     lg:"Portekiz Ligi"},
   {n:"Santa Clara",  name:"Santa Clara",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Sao Miguel",        city:"Ponta Delgada",lg:"Portekiz Ligi"},
-  {n:"Moreirense",   name:"Moreirense",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Comunitario",       city:"Moreira",     lg:"Portekiz Ligi"},
-  {n:"Portimonense", name:"Portimonense", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Municipal Portimao",city:"Portimao",    lg:"Portekiz Ligi"},
   {n:"Gil Vicente",  name:"Gil Vicente",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Cidade de Barcelos",city:"Barcelos",    lg:"Portekiz Ligi"},
-  {n:"Chaves",       name:"Chaves",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Municipal de Chaves",city:"Chaves",     lg:"Portekiz Ligi"},
-  {n:"Boavista",     name:"Boavista",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:66,stad:"Bessa",             city:"FC Porto",       lg:"Portekiz Ligi"},
-  {n:"Vizela",       name:"Vizela",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Futebol Clube",     city:"Vizela",      lg:"Portekiz Ligi"},
-  {n:"Paços Ferreira B",name:"Paços Ferreira B",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Capital do Movel",city:"Pacos",      lg:"Portekiz Ligi"},
-  // ── Eredivisie (18 takım) ──
+  {n:"Arouca",       name:"Arouca",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Municipal de Arouca",city:"Arouca",     lg:"Portekiz Ligi"},
+  {n:"Moreirense",   name:"Moreirense",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Comunitario",       city:"Moreira",     lg:"Portekiz Ligi"},
+  {n:"CD Nacional",  name:"CD Nacional",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Madeira",           city:"Funchal",     lg:"Portekiz Ligi"},
+  {n:"CS Maritimo",  name:"CS Maritimo",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Barreiros",         city:"Funchal",     lg:"Portekiz Ligi"},
+  {n:"Estrela Amadora",name:"Estrela Amadora",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Jose Gomes",   city:"Amadora",     lg:"Portekiz Ligi"},
+  {n:"FC Alverca",   name:"FC Alverca",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Complexo do FC Alverca",city:"Alverca",lg:"Portekiz Ligi"},
+  {n:"Academico Viseu",name:"Academico Viseu",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"Fontelo",      city:"Viseu",       lg:"Portekiz Ligi"},
+  // ── HOLLANDA LİGİ (18 takım, 34 hafta) ────────────────────────────
   {n:"PSV Eindhoven",          name:"PSV Eindhoven",          pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:86,stad:"Philips Stadion",   city:"Eindhoven",   lg:"Hollanda Ligi"},
   {n:"AFC Ajax",         name:"AFC Ajax",         pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:83,stad:"Johan Cruyff Arena",city:"Amsterdam",   lg:"Hollanda Ligi"},
   {n:"Feyenoord",    name:"Feyenoord",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:82,stad:"De Kuip",          city:"Rotterdam",   lg:"Hollanda Ligi"},
   {n:"AZ Alkmaar",   name:"AZ Alkmaar",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:76,stad:"AFAS Stadion",     city:"Alkmaar",     lg:"Hollanda Ligi"},
-  {n:"FC Utrecht",      name:"FC Utrecht",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Galgenwaard",      city:"FC Utrecht",     lg:"Hollanda Ligi"},
   {n:"FC Twente",       name:"FC Twente",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:73,stad:"De Grolsch Veste", city:"Enschede",    lg:"Hollanda Ligi"},
-  {n:"Vitesse",      name:"Vitesse",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:67,stad:"Gelredome",        city:"Arnhem",      lg:"Hollanda Ligi"},
-  {n:"Groningen",    name:"Groningen",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Euroborg",         city:"Groningen",   lg:"Hollanda Ligi"},
+  {n:"FC Utrecht",      name:"FC Utrecht",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:72,stad:"Galgenwaard",      city:"FC Utrecht",     lg:"Hollanda Ligi"},
   {n:"Heerenveen",   name:"Heerenveen",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:65,stad:"Abe Lenstra",      city:"Heerenveen",  lg:"Hollanda Ligi"},
+  {n:"Groningen",    name:"Groningen",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Euroborg",         city:"Groningen",   lg:"Hollanda Ligi"},
   {n:"NEC Nijmegen", name:"NEC Nijmegen", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:64,stad:"Goffert",         city:"Nijmegen",    lg:"Hollanda Ligi"},
   {n:"Sparta Rotterdam",name:"Sparta Rotterdam",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Het Kasteel",city:"Rotterdam",  lg:"Hollanda Ligi"},
-  {n:"Almere City",  name:"Almere City",  pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Yanmar Stadion",  city:"Almere",      lg:"Hollanda Ligi"},
-  {n:"Heracles FC",     name:"Heracles FC",     pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:63,stad:"Polman Stadion",  city:"Almelo",      lg:"Hollanda Ligi"},
   {n:"Go Ahead Eagles",name:"Go Ahead Eagles",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"De Adelaarshorst",city:"Deventer",lg:"Hollanda Ligi"},
-  {n:"RKC Waalwijk", name:"RKC Waalwijk", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Mandemakers",    city:"RKC Waalwijk",    lg:"Hollanda Ligi"},
+  {n:"Fortuna Sittard",name:"Fortuna Sittard",pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:62,stad:"Fortuna Sittard Stadion",city:"Sittard",lg:"Hollanda Ligi"},
   {n:"Zwolle",       name:"Zwolle",       pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"MAC3PARK",        city:"Zwolle",      lg:"Hollanda Ligi"},
-  {n:"Emmen",        name:"Emmen",        pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:59,stad:"De Oude Meerdijk",city:"Emmen",       lg:"Hollanda Ligi"},
+  {n:"ADO Den Haag", name:"ADO Den Haag", pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:61,stad:"Bingoal Stadion",  city:"Den Haag",    lg:"Hollanda Ligi"},
+  {n:"Excelsior",    name:"Excelsior",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Van Donge & De Roo",city:"Rotterdam",  lg:"Hollanda Ligi"},
+  {n:"SC Cambuur",   name:"SC Cambuur",   pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Kooi Stadion",     city:"Leeuwarden",  lg:"Hollanda Ligi"},
+  {n:"Willem II",    name:"Willem II",    pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:60,stad:"Koning Willem II", city:"Tilburg",     lg:"Hollanda Ligi"},
+  {n:"Telstar",      name:"Telstar",      pts:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,me:false,str:58,stad:"BUKO Stadion",     city:"Velsen",      lg:"Hollanda Ligi"},
 ];
 
 const MONTHS=["Şubat","Mart","Nisan","Mayıs"];
@@ -257,25 +277,25 @@ const buildDoubleRoundRobin=(teams, comp, months, startW=1)=>{
   return fixtures;
 };
 
-// TFF 1. Lig rakipleri (15 rakip → 30 maç)
+// 1. Lig rakipleri (2026/27 — 19 rakip → 38 maç)
 const TFF1_RIVALS=[
-  {n:"Eyupspor FC",      str:68},{n:"Sakaryaspor FC",   str:65},{n:"Bodrumspor FC",   str:63},
-  {n:"Goztepe FC",       str:66},{n:"Kocaelispor FC",   str:60},{n:"Manisaspor FC",    str:58},
-  {n:"Zonguldakspor FC", str:56},{n:"Adanaspor FC",     str:57},{n:"Erzurumspor FC",   str:55},
-  {n:"Altinordu FC",     str:59},{n:"Umraniyespor FC",  str:60},{n:"Bandirmaspor FC",  str:57},
-  {n:"Denizlispor FC",   str:58},{n:"Sultangazi FC",    str:61},{n:"Genclerbirligi FC",str:62},
-  {n:"Kecioren FK",      str:54},{n:"Bucaspor FC",      str:58},{n:"Tarsus FK",        str:53},
-  {n:"Elazig FK",        str:55},{n:"Kahramanmarasspor",str:56}, // 20. yedek
+  {n:"Kayserispor FC",   str:62},{n:"Antalyaspor FC",   str:61},{n:"Karagumruk FC",    str:62},
+  {n:"Sivasspor FC",     str:60},{n:"Bodrumspor FC",    str:63},{n:"Pendikspor FC",    str:60},
+  {n:"Umraniyespor FC",  str:60},{n:"Istanbulspor FC",  str:59},{n:"Bursaspor FC",     str:59},
+  {n:"Manisaspor FC",    str:58},{n:"Erokspor FC",      str:58},{n:"Bandirmaspor FC",  str:57},
+  {n:"Igdir FK",         str:57},{n:"Boluspor FC",      str:56},{n:"Vanspor FK",       str:56},
+  {n:"Sariyer FC",       str:55},{n:"Kecioren FK",      str:54},{n:"Muglaspor FC",     str:54},
+  {n:"Batman Petrol FC", str:54},
+  {n:"Sakaryaspor FC",   str:57}, // Yedek: kullanıcı bir 1. Lig takımını seçerse 19. rakip
 ];
-// Süper Lig rakipleri (17 rakip → 34 maç)
+// Elit Lig rakipleri (2026/27 — 18 takım; kullanıcı hariç 17 rakip → 34 maç)
 const SL_RIVALS=[
-  {n:"Galatasaray FC",  str:88},{n:"Fenerbahce FC",   str:86},{n:"Trabzonspor FC",  str:76},
-  {n:"Basaksehir FC",   str:74},{n:"Kasimpasa FC",   str:62},{n:"Sivasspor FC",    str:65},
-  {n:"Konyaspor FC",    str:63},{n:"Alanyaspor FC",  str:64},{n:"Rizespor FC",     str:60},
-  {n:"Antalyaspor FC",  str:61},{n:"Hatayspor FC",   str:62},{n:"Kayserispor FC",  str:63},
-  {n:"Samsunspor FC",   str:61},{n:"Ankaragucu FC",  str:59},{n:"Adana Demir FC",  str:60},
-  {n:"Gaziantepspor FC",str:60},{n:"Istanbulspor FC",str:58},
-  {n:"Pendikspor FC",   str:57},{n:"Besiktas FC",str:78}, // Yedekler
+  {n:"Galatasaray FC",   str:88},{n:"Fenerbahce FC",    str:86},{n:"Besiktas FC",      str:78},
+  {n:"Trabzonspor FC",   str:76},{n:"Basaksehir FC",    str:74},{n:"Eyupspor FC",      str:68},
+  {n:"Goztepe FC",       str:66},{n:"Konyaspor FC",     str:63},{n:"Alanyaspor FC",    str:64},
+  {n:"Samsunspor FC",    str:61},{n:"Kasimpasa FC",     str:62},{n:"Genclerbirligi FC",str:62},
+  {n:"Gaziantepspor FC", str:60},{n:"Rizespor FC",      str:60},{n:"Kocaelispor FC",   str:60},
+  {n:"Amed Sportif FC",  str:60},{n:"Erzurumspor FC",   str:59},{n:"Corum FK",         str:58},
 ];
 
 const TFF1_MONTHS=["Agustos","Agustos","Agustos","Eylul","Eylul","Eylul","Ekim","Ekim","Ekim","Kasim","Kasim","Kasim","Aralik","Aralik","Aralik","Aralik","Aralik","Ocak","Ocak","Ocak","Ocak","Subat","Subat","Subat","Subat","Mart","Mart","Mart","Mart","Nisan","Nisan","Nisan","Nisan","Mayis","Mayis","Mayis","Mayis","Mayis"];
@@ -298,12 +318,11 @@ const SL_MONTHS  =["Agustos","Agustos","Agustos","Eylul","Eylul","Eylul","Ekim",
 // ─────────────────────────────────────────────────────────────────────
 const PRIMEIRA_RIVALS=[
   {n:"SL Benfica",    str:84},{n:"FC Porto",       str:83},{n:"Sporting CP", str:82},
-  {n:"SC Braga",      str:74},{n:"Boavista",    str:66},{n:"Casa Pia",    str:65},
-  {n:"Vitoria SC", str:67},{n:"Rio Ave",     str:64},{n:"Famalicao",   str:63},
-  {n:"Santa Clara",str:62},{n:"Estoril",     str:62},{n:"Gil Vicente", str:62},
-  {n:"Arouca",     str:61},{n:"Moreirense",  str:61},{n:"Portimonense",str:60},
-  {n:"Chaves",     str:60},{n:"Vizela",      str:59},
-  {n:"Paços Ferreira B",str:60}, // Yedek
+  {n:"SC Braga",      str:74},{n:"Vitoria SC",     str:67},{n:"Casa Pia",    str:65},
+  {n:"Rio Ave",       str:64},{n:"Famalicao",      str:63},{n:"Santa Clara", str:62},
+  {n:"Estoril",       str:62},{n:"Gil Vicente",    str:62},{n:"Arouca",      str:61},
+  {n:"Moreirense",    str:61},{n:"CD Nacional",    str:61},{n:"CS Maritimo", str:61},
+  {n:"Estrela Amadora",str:60},{n:"FC Alverca",    str:60},{n:"Academico Viseu",str:59},
 ];
 const PRIMEIRA_MONTHS=["Agustos","Agustos","Agustos","Eylul","Eylul","Eylul","Ekim","Ekim","Ekim","Kasim","Kasim","Kasim","Aralik","Aralik","Aralik","Ocak","Ocak","Subat","Subat","Subat","Mart","Mart","Mart","Mart","Nisan","Nisan","Nisan","Nisan","Mayis","Mayis","Mayis","Mayis","Mayis","Mayis"];
 const buildPrimeiraFixture=(excludeName="")=>{
@@ -327,13 +346,12 @@ const INIT_PRESEASON_PRIMEIRA=[
 // EREDİVİSİE (18 takım, 34 maç)
 // ─────────────────────────────────────────────────────────────────────
 const EREDIVISIE_RIVALS=[
-  {n:"PSV Eindhoven",          str:86},{n:"AFC Ajax",         str:83},{n:"Feyenoord",    str:82},
-  {n:"AZ Alkmaar",   str:76},{n:"FC Twente",       str:73},{n:"FC Utrecht",      str:72},
-  {n:"Vitesse",      str:67},{n:"Heerenveen",   str:65},{n:"Groningen",    str:64},
-  {n:"NEC Nijmegen", str:64},{n:"Heracles FC",     str:63},{n:"Sparta Rotterdam",str:63},
-  {n:"Go Ahead Eagles",str:62},{n:"Almere City",str:62},{n:"Zwolle",       str:61},
-  {n:"RKC Waalwijk", str:60},{n:"Emmen",        str:59},
-  {n:"RKC Waalwijk",     str:58}, // Yedek
+  {n:"PSV Eindhoven", str:86},{n:"AFC Ajax",       str:83},{n:"Feyenoord",    str:82},
+  {n:"AZ Alkmaar",    str:76},{n:"FC Twente",      str:73},{n:"FC Utrecht",   str:72},
+  {n:"Heerenveen",    str:65},{n:"Groningen",      str:64},{n:"NEC Nijmegen", str:64},
+  {n:"Sparta Rotterdam",str:63},{n:"Go Ahead Eagles",str:62},{n:"Fortuna Sittard",str:62},
+  {n:"Zwolle",        str:61},{n:"ADO Den Haag",   str:61},{n:"Excelsior",    str:60},
+  {n:"SC Cambuur",    str:60},{n:"Willem II",      str:60},{n:"Telstar",      str:58},
 ];
 const EREDIVISIE_MONTHS=["Agustos","Agustos","Agustos","Eylul","Eylul","Eylul","Ekim","Ekim","Ekim","Kasim","Kasim","Kasim","Aralik","Aralik","Aralik","Ocak","Ocak","Subat","Subat","Subat","Mart","Mart","Mart","Mart","Nisan","Nisan","Nisan","Nisan","Mayis","Mayis","Mayis","Mayis","Mayis","Mayis"];
 const buildEredivisieFixture=(excludeName="")=>{
@@ -398,8 +416,24 @@ const buildSLFixture=(excludeName="")=>{
 };
 const INIT_FIXTURE_SL=buildSLFixture();
 
-// Büyük 5 lig fikstürü — CAREER_TEAMS içinden o ligin rakiplerini kullanır
-const buildBig5Fixture=(lg,excludeName="")=>{
+// İngiliz 2. Ligi (Championship) takvimi: 46 hafta
+// Ağu×4, Eyl×4, Eki×5, Kas×4, Ara×6, Oca×4, Şub×5, Mar×5, Nis×5, May×4
+const CH_MONTHS=[
+  "Agustos","Agustos","Agustos","Agustos",
+  "Eylul","Eylul","Eylul","Eylul",
+  "Ekim","Ekim","Ekim","Ekim","Ekim",
+  "Kasim","Kasim","Kasim","Kasim",
+  "Aralik","Aralik","Aralik","Aralik","Aralik","Aralik",
+  "Ocak","Ocak","Ocak","Ocak",
+  "Subat","Subat","Subat","Subat","Subat",
+  "Mart","Mart","Mart","Mart","Mart",
+  "Nisan","Nisan","Nisan","Nisan","Nisan",
+  "Mayis","Mayis","Mayis","Mayis"
+];
+
+// Büyük 5 lig (+ İngiliz 2. Ligi) fikstürü — o ligin rakiplerini kullanır
+// teamsOverride: sezonlar arası terfi/düşme sonrası güncel takım listesi (verilmezse INIT_TEAMS)
+const buildBig5Fixture=(lg,excludeName="",teamsOverride=null)=>{
   const shuffle=(a)=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
   const LIG_MONTHS={
     "İngiliz Ligi": TFF1_MONTHS, // 38 hafta
@@ -407,9 +441,10 @@ const buildBig5Fixture=(lg,excludeName="")=>{
     "İtalyan Ligi": TFF1_MONTHS, // 38 hafta
     "Fransız Ligi": SL_MONTHS,   // 34 hafta
     "Alman Ligi":   SL_MONTHS,   // 34 hafta
+    "İngiliz 2. Ligi":CH_MONTHS, // 46 hafta
   };
   const mo=LIG_MONTHS[lg]||TFF1_MONTHS;
-  const rivals=INIT_TEAMS.filter(t=>t.lg===lg&&t.n!==excludeName);
+  const rivals=(teamsOverride||INIT_TEAMS).filter(t=>t.lg===lg&&!t.me&&t.n!==excludeName);
   if(rivals.length===0) return buildTFF1Fixture(excludeName).map(f=>({...f,comp:lg}));
   const n=rivals.length;
   const firstHalf=shuffle(rivals.map((opp,i)=>({opp,home:i%2===0})));
@@ -425,6 +460,9 @@ const buildBig5Fixture=(lg,excludeName="")=>{
   return fix;
 };
 
+// İngiliz 2. Ligi (24 takım): kullanıcı hariç 23 rakip → 46 hafta
+const buildChampionshipFixture=(excludeName="",teamsOverride=null)=>buildBig5Fixture("İngiliz 2. Ligi",excludeName,teamsOverride);
+
 // Hazırlık maçları (sezon öncesi — Temmuz)
 const INIT_PRESEASON_TFF1=[
   {w:0, opp:"Ankaragucu FC",   home:true, str:62,month:"Temmuz",comp:"HAZ", round:"Hazırlık"},
@@ -438,17 +476,19 @@ const INIT_PRESEASON_SL=[
 ];
 
 // Ulusal Kupa fikstürü (her iki ligde de oynanır)
+// 1. Lig takımı için kupa rakipleri: Elit Lig takımları
 const TFF1_KUPA_OPPS=[
-  {n:"Kayserispor FC",str:62},{n:"Bucaspor FC",str:58},{n:"Ankaragucu FC",str:62},
-  {n:"Alanyaspor FC",str:60},{n:"Rizespor FC",str:59},{n:"Hatayspor FC",str:61},
-  {n:"Adanaspor FC",str:57},{n:"Denizlispor FC",str:58},{n:"Zonguldakspor FC",str:56},
-  {n:"Samsunspor FC",str:61},{n:"Altinordu FC",str:55},{n:"Manisaspor FC",str:57},
+  {n:"Konyaspor FC",str:63},{n:"Alanyaspor FC",str:62},{n:"Rizespor FC",str:60},
+  {n:"Kasimpasa FC",str:62},{n:"Gaziantepspor FC",str:60},{n:"Genclerbirligi FC",str:62},
+  {n:"Kocaelispor FC",str:60},{n:"Erzurumspor FC",str:59},{n:"Amed Sportif FC",str:60},
+  {n:"Corum FK",str:58},{n:"Samsunspor FC",str:61},{n:"Goztepe FC",str:66},
 ];
+// Elit Lig takımı için kupa rakipleri: 1. Lig takımları
 const SL_KUPA_OPPS=[
-  {n:"Sivasspor FC",str:65},{n:"Kayserispor FC",str:62},{n:"Antalyaspor FC",str:61},
-  {n:"Samsunspor FC",str:60},{n:"Pendikspor FC",str:59},{n:"Kasimpasa FC",str:63},
-  {n:"Rizespor FC",str:60},{n:"Alanyaspor FC",str:62},{n:"Hatayspor FC",str:61},
-  {n:"Gaziantepspor FC",str:60},{n:"Konyaspor FC",str:61},{n:"Adana Demir FC",str:63},
+  {n:"Kayserispor FC",str:62},{n:"Antalyaspor FC",str:61},{n:"Sivasspor FC",str:60},
+  {n:"Karagumruk FC",str:62},{n:"Bodrumspor FC",str:63},{n:"Pendikspor FC",str:60},
+  {n:"Istanbulspor FC",str:59},{n:"Bursaspor FC",str:59},{n:"Umraniyespor FC",str:60},
+  {n:"Manisaspor FC",str:58},{n:"Bandirmaspor FC",str:57},{n:"Igdir FK",str:57},
 ];
 // Sezona özgü deterministik karıştırma — aynı sezonda tutarlı ama her sezonda farklı
 const shuffleKupaPool=(pool,excludeName,seed)=>{
@@ -627,48 +667,80 @@ function buildInitTeamsWithStr(){
 
 // Her takım için sabit formasyon tercihi (gercek dunyaya yakin)
 const TEAM_PREF_FORMATION={
-  // Süper Lig
+  // Elit Lig
   "Galatasaray FC":"4-2-3-1","Fenerbahce FC":"4-3-3","Besiktas FC":"4-2-3-1",
   "Trabzonspor FC":"4-3-3","Basaksehir FC":"4-4-2","Konyaspor FC":"5-3-2",
-  "Alanyaspor FC":"4-3-3","Sivasspor FC":"4-1-4-1","Adana Demir FC":"4-2-3-1",
-  "Samsunspor FC":"4-4-2","Bodrumspor FC":"4-2-3-1","Antalyaspor FC":"4-4-2",
-  "Kasimpasa FC":"4-3-3","Hatayspor FC":"4-4-2","Kayserispor FC":"5-3-2",
-  "Rizespor FC":"4-4-2","Ankaragucu FC":"4-1-4-1","Ankaragucu FC":"4-1-4-1",
-  "Pendikspor FC":"4-4-2","Istanbulspor FC":"4-3-3","Gaziantepspor FC":"4-4-2",
-  // TFF 1. Lig
-  "Eyupspor FC":"4-3-3","Sakaryaspor FC":"4-2-3-1",
-  "Goztepe FC":"4-3-3","Kocaelispor FC":"4-4-2","Manisaspor FC":"4-1-4-1",
-  "Zonguldakspor FC":"5-3-2","Adanaspor FC":"4-4-2","Erzurumspor FC":"5-3-2",
-  "Altinordu FC":"4-3-3","Umraniyespor FC":"4-4-2","Bandirmaspor FC":"4-4-2",
-  "Denizlispor FC":"4-2-3-1","Genclerbirligi FC":"4-3-3","Kecioren FK":"5-3-2",
-  "Bucaspor FC":"4-4-2","Tarsus FK":"5-3-2","Elazig FK":"4-4-2",
-  "Altay FC":"4-2-3-1","Manisaspor FC":"4-4-2",
-  // Premier League
+  "Alanyaspor FC":"4-3-3","Samsunspor FC":"4-4-2","Kasimpasa FC":"4-3-3",
+  "Rizespor FC":"4-4-2","Gaziantepspor FC":"4-4-2","Eyupspor FC":"4-3-3",
+  "Goztepe FC":"4-3-3","Kocaelispor FC":"4-4-2","Genclerbirligi FC":"4-3-3",
+  "Erzurumspor FC":"5-3-2","Amed Sportif FC":"4-2-3-1","Corum FK":"4-1-4-1",
+  // 1. Lig
+  "Kayserispor FC":"5-3-2","Antalyaspor FC":"4-4-2","Sivasspor FC":"4-1-4-1",
+  "Karagumruk FC":"4-2-3-1","Bodrumspor FC":"4-2-3-1","Pendikspor FC":"4-4-2",
+  "Istanbulspor FC":"4-3-3","Umraniyespor FC":"4-4-2","Bandirmaspor FC":"4-4-2",
+  "Manisaspor FC":"4-1-4-1","Kecioren FK":"5-3-2","Bursaspor FC":"4-2-3-1",
+  "Erokspor FC":"4-3-3","Igdir FK":"4-4-2","Boluspor FC":"4-4-2",
+  "Vanspor FK":"5-3-2","Sariyer FC":"4-1-4-1","Muglaspor FC":"4-4-2","Batman Petrol FC":"5-3-2",
+  // Alt lig / kupa / hazırlık rakipleri (lig dışı ama maç havuzlarında geçiyor)
+  "Hatayspor FC":"4-4-2","Adana Demir FC":"4-2-3-1","Ankaragucu FC":"4-1-4-1",
+  "Sakaryaspor FC":"4-2-3-1","Zonguldakspor FC":"5-3-2","Adanaspor FC":"4-4-2",
+  "Altinordu FC":"4-3-3","Denizlispor FC":"4-2-3-1","Bucaspor FC":"4-4-2",
+  "Tarsus FK":"5-3-2","Elazig FK":"4-4-2","Altay FC":"4-2-3-1",
+  // İngiliz Ligi
   "Eastfield City":"4-3-3","Mersey Reds":"4-3-3","Northon City":"4-3-3",
-  "Westbridge FC":"4-2-3-1","Man United":"4-4-2","Southgate Hotspur":"4-2-3-1",
+  "Westbridge FC":"4-2-3-1","Redford United":"4-4-2","Southgate Hotspur":"4-2-3-1",
   "Tyneside FC":"4-3-3","Midfield Villa":"4-2-3-1","Seagulls FC":"4-2-3-1",
-  "Leicester City":"4-4-2","Wolverhampton":"3-5-2","East Hammers":"4-2-3-1",
-  // La Liga
+  "Riverside FC":"4-4-2","Goodfields FC":"4-4-2","Crystal FC":"3-5-2",
+  "Fulham FC":"4-2-3-1","Nottingham FC":"4-2-3-1","Bournemouth FC":"4-2-3-1",
+  "Leeds":"4-2-3-1","Sunderland":"4-3-3","Covenford City":"4-4-2",
+  "Ipsworth Town":"4-2-3-1","Humberport City":"4-4-2",
+  "Leicester City":"4-4-2", // lig dışı (Avrupa/kupa havuzları)
+  // İngiliz 2. Ligi
+  "East Hammers":"4-2-3-1","Wolverhampton":"3-5-2","Burnley FC":"4-4-2",
+  "Southampton FC":"4-3-3","Sheffield FC":"3-5-2","Middlesbrough":"4-2-3-1",
+  "Norwich FC":"4-3-3","West Bromford":"4-2-3-1","Birmingham":"4-2-3-1",
+  "Wrexham FC":"3-5-2","Watford FC":"4-3-3","Millwall":"4-4-2",
+  "Bristol FC":"4-2-3-1","Stoke":"4-4-2","Preston":"3-5-2",
+  "Swansea":"4-3-3","QPR":"4-2-3-1","Derby FC":"4-4-2",
+  "Blackburn":"4-2-3-1","Portsmouth FC":"4-4-2","Charlton FC":"4-4-2",
+  "Cardiff":"4-1-4-1","Bolton FC":"4-4-2","Lincoln FC":"4-4-2",
+  // İspanyol Ligi
   "Real Madreno":"4-3-3","FC Cataluña":"4-3-3","Atletico Madreno":"4-4-2",
   "Sevilia FC":"4-2-3-1","Villareal CF":"4-4-2","Real Sociedad":"4-3-3",
-  "Athletic":"4-2-3-1","CA Osasuna":"4-4-2","Getafe CF":"4-1-4-1","RCD Mallorca":"5-3-2",
-  // Bundesliga
+  "Athletic Club":"4-2-3-1","CA Osasuna":"4-4-2","Getafe CF":"4-1-4-1",
+  "Valencia CF":"4-4-2","Real Betis":"4-2-3-1","Celta Vigo":"4-3-3",
+  "Rayo Vallecano":"4-4-2","Espanyol":"4-4-2","Elche":"4-4-2","Levante":"4-2-3-1",
+  "Real Oviedo":"4-4-2","Deportivo":"4-2-3-1","Racing Santander":"4-3-3","Malaga CF":"4-4-2",
+  "RCD Mallorca":"5-3-2", // lig dışı
+  // Alman Ligi
   "Bayern FC":"4-2-3-1","Dortmund BV":"4-3-3","Leverkusen FC":"4-2-3-1",
   "Leipzig RB":"4-4-2","TSG Hoffenheim":"4-2-3-1","Koln":"4-4-2",
-  "FC Heidenheim":"5-3-2","SC Freiburg":"3-5-2","Frankfurt EFC":"3-5-2",
-  "Wolfsburg FC":"4-2-3-1","FSV Mainz":"4-3-3","VfL Bochum":"4-4-2",
-  // Serie A
+  "SC Freiburg":"3-5-2","Frankfurt EFC":"3-5-2","FSV Mainz":"4-3-3",
+  "Stuttgart VfB":"4-2-3-1","M'gladbach":"4-2-3-1","Berlin Union":"3-5-2",
+  "Bremen FC":"4-3-3","FC Augsburg":"3-5-2","Hamburger SV":"4-3-3",
+  "FC Schalke":"4-2-3-1","Paderborn":"4-3-3","SV Elversberg":"4-4-2",
+  "Wolfsburg FC":"4-2-3-1","FC Heidenheim":"5-3-2","VfL Bochum":"4-4-2", // lig dışı
+  // İtalyan Ligi
   "FC Internazionale":"3-5-2","AC Milanese":"4-2-3-1","Juventus FC":"3-5-2",
   "SSC Partenopei":"4-3-3","Atalanta BC B":"3-5-2","SS Lazione":"4-3-3",
   "AS Romasso":"3-5-2","Torino FC":"4-4-2","Genoa CFC":"4-4-2","Udinese Calcio":"4-4-2",
-  "Bologna FC":"4-2-3-1","ACF Fiorentina":"4-3-3",
-  // Ligue 1
+  "Bologna FC":"4-2-3-1","ACF Fiorentina":"4-3-3","Como":"4-2-3-1",
+  "AC Monza":"3-5-2","US Sassuolo":"4-3-3","Parma Calcio":"4-3-3",
+  "US Lecce":"4-3-3","Cagliari Calcio":"4-4-2","Venezia FC":"3-5-2","Frosinone Calcio":"4-3-3",
+  // Fransız Ligi
   "Paris SG":"4-3-3","OL Lyon":"4-2-3-1","AS Monaco B":"4-3-3","OM Marseille":"4-2-3-1",
-  "Stade Rennais":"4-2-3-1","RC Lens":"4-3-3","RC Strasbourg":"4-4-2","Stade de Reims":"4-1-4-1",
-  "LOSC Lille":"4-4-2","OGC Nice":"4-3-3","FC Nantes":"4-4-2",
-  // Diger Avrupa
+  "Stade Rennais":"4-2-3-1","RC Lens":"4-3-3","RC Strasbourg":"4-4-2",
+  "LOSC Lille":"4-4-2","OGC Nice":"4-3-3","Brest":"4-3-3","Toulouse FC":"4-2-3-1",
+  "Paris FC":"4-3-3","AJ Auxerre":"5-3-2","Le Havre":"4-4-2","FC Lorient":"4-4-2",
+  "Angers SCO":"4-1-4-1","Troyes":"4-4-2","Le Mans FC":"4-4-2",
+  "Stade de Reims":"4-1-4-1","FC Nantes":"4-4-2", // lig dışı
+  // Portekiz Ligi
   "FC Porto":"4-3-3","SL Benfica":"4-3-3","Sporting CP":"4-2-3-1",
+  "SC Braga":"4-2-3-1","Vitoria SC":"4-4-2","Boavista":"4-4-2",
+  // Hollanda Ligi
   "AFC Ajax":"4-3-3","Feyenoord":"4-3-3","PSV Eindhoven":"4-3-3",
+  "AZ Alkmaar":"4-3-3","FC Twente":"4-2-3-1","FC Utrecht":"4-4-2",
+  // Diger Avrupa
   "Celtic FC":"4-2-3-1","İskoç Mavi FC":"4-4-2",
   "Brugge":"4-3-3","Slavia":"4-2-3-1","Salzburg":"4-3-3",
   "Olympiakos":"4-3-3","Shakhtar":"4-3-3","Dinamo Zagreb":"4-2-3-1",

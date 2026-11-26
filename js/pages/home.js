@@ -1,12 +1,12 @@
 // ─── ANA SAYFA ───────────────────────────────────────────────
 function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=null,squad=[],careerStats=null,db=null}){
   const myLg=season.league||"1. Lig";
-  const allLgs=["1. Lig","Elit Lig","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi"];
+  const allLgs=["1. Lig","Elit Lig","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi","İngiliz 2. Ligi"];
   const showLgs=allLgs.filter(lg=>season.teams.some(t=>t.lg===lg));
   const hasCL=!!season.clGroups;
   const hasUEFA=!!season.uefaGroups;
   const kupa=season.kupaSonuc||{group:"",w:0,d:0,l:0,gf:0,ga:0,pts:0};
-  const tabs=[...showLgs.map(lg=>({id:lg,lbl:{"1. Lig":"1.Lig","Elit Lig":"Elit","İngiliz Ligi":"Eng","İspanyol Ligi":"Esp","Alman Ligi":"Ger","İtalyan Ligi":"Ita","Fransız Ligi":"Fra","Hollanda Ligi":"Hol","Portekiz Ligi":"Por"}[lg]||lg,euro:false})),
+  const tabs=[...showLgs.map(lg=>({id:lg,lbl:{"1. Lig":"1.Lig","Elit Lig":"Elit","İngiliz Ligi":"Eng","İspanyol Ligi":"Esp","Alman Ligi":"Ger","İtalyan Ligi":"Ita","Fransız Ligi":"Fra","Hollanda Ligi":"Hol","Portekiz Ligi":"Por","İngiliz 2. Ligi":"Eng2"}[lg]||lg,euro:false})),
     {id:"ZTK",  lbl:"🏆 KUPA",  euro:true, color:"#cc2233"},
     {id:"SUPERKUPA", lbl:"🛡️ KALKAN", euro:true, color:"#c0ff00"},
     {id:"CL",   lbl:"⭐ ASK",    euro:true, color:"#ffd060"},

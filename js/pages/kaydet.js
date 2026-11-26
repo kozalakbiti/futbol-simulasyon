@@ -162,7 +162,7 @@ function PageKaydet({season, squad, coaches, youth, db, clubName="Club Manager: 
           </div>
           <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
             {[
-              ["Hafta",`${season.results.filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp)).length}/${{"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34}[season.league||"1. Lig"]||34}`,"#4da6ff"],
+              ["Hafta",`${season.results.filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp)).length}/${{"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46}[season.league||"1. Lig"]||34}`,"#4da6ff"],
               ["Puan",myTeam.pts,"#ffd060"],
               ["Sıra",`${myRank}. sıra`,"#30e070"],
               ["Kadro",`${squad.length} oyuncu`,"#9b59b6"],

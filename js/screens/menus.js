@@ -687,6 +687,7 @@ function OnboardingScreen({onComplete, onBack}){
                 ["1. Lig","🏆","2. Türk ligi — Kupa + yükselme hedefi","1. Lig"],
                 ["Elit Lig","⭐","Türkiye'nin en üst ligi — Kupa dahil","Elit Lig"],
                 ["İngiliz Ligi","🏴󠁧󠁢󠁥󠁮󠁧󠁿","İngiltere — sadece lig","İngiliz Ligi"],
+                ["İngiliz 2. Ligi","🏴󠁧󠁢󠁥󠁮󠁧󠁿","İngiltere 2. lig — 24 takım, 46 hafta, ilk 3 yükselir","İngiliz 2. Ligi"],
                 ["İspanyol Ligi","🇪🇸","İspanya — sadece lig","İspanyol Ligi"],
                 ["Alman Ligi","🇩🇪","Almanya — sadece lig","Alman Ligi"],
                 ["İtalyan Ligi","🇮🇹","İtalya — sadece lig","İtalyan Ligi"],
@@ -726,6 +727,7 @@ function OnboardingScreen({onComplete, onBack}){
                   "Elit Lig":"⭐ İlk 2 → ASK · 3-4 → AL",
                   "Hollanda Ligi":"⭐ 1. → ASK · 2-3 → AL",
                   "Portekiz Ligi":"⭐ İlk 2 → ASK · 3 → AL",
+                  "İngiliz 2. Ligi":"⬆ İlk 3 → İngiliz Ligi'ne yükselir",
                 };
                 const info=LIG_CL_AL_INFO[league];
                 // Seçilen takımın muhtemelen kota hakkı var mı?

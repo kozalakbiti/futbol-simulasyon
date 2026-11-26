@@ -256,7 +256,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
         minWidth:0,width:"100%"}}>
         {[["all","Tümü"],...leagues.map(lg=>[lg,lg])].map(([key,label])=>{
           const active=filter===key;
-          const shortLabel={"İngiliz Ligi":"Eng","İspanyol Ligi":"Esp","Alman Ligi":"Ger","İtalyan Ligi":"Ita","Fransız Ligi":"Fra","Hollanda Ligi":"Hol","Portekiz Ligi":"Por","1. Lig":"1.Lig","Elit Lig":"Elit"}[label]||label;
+          const shortLabel={"İngiliz Ligi":"Eng","İspanyol Ligi":"Esp","Alman Ligi":"Ger","İtalyan Ligi":"Ita","Fransız Ligi":"Fra","Hollanda Ligi":"Hol","Portekiz Ligi":"Por","İngiliz 2. Ligi":"Eng2","1. Lig":"1.Lig","Elit Lig":"Elit"}[label]||label;
           const count=key==="all"?allTeams.length:allTeams.filter(t=>t.lg===key).length;
           return(
             <button key={key} onClick={()=>setFilter(key)} style={{

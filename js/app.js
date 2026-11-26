@@ -532,7 +532,7 @@ function App(){
     const LIG_BASE={
       "Elit Lig":38,"1. Lig":12,
       "İngiliz Ligi":52,"İspanyol Ligi":50,"Alman Ligi":48,"İtalyan Ligi":46,"Fransız Ligi":42,
-      "Hollanda Ligi":36,"Portekiz Ligi":34,"Scottish Prem":28,"MLS":22,"Saudi Pro League":25,
+      "Hollanda Ligi":36,"Portekiz Ligi":34,"İngiliz 2. Ligi":30,"Scottish Prem":28,"MLS":22,"Saudi Pro League":25,
     };
     const base=LIG_BASE[league]||20;
     // Takım gücü bonusu: her 5 OVR puanı için +3, lig bazından
@@ -576,7 +576,7 @@ function App(){
     }
     const LIG_MULT={
       "İngiliz Ligi":1.4,"İspanyol Ligi":1.35,"Alman Ligi":1.3,"İtalyan Ligi":1.25,"Fransız Ligi":1.2,
-      "Elit Lig":1.1,"1. Lig":0.75,"Hollanda Ligi":1.0,"Portekiz Ligi":0.9,
+      "Elit Lig":1.1,"1. Lig":0.75,"Hollanda Ligi":1.0,"Portekiz Ligi":0.9,"İngiliz 2. Ligi":0.85,
       "Scottish Prem":0.7,"MLS":0.7,"Saudi Pro League":0.8,
     };
     const mult=LIG_MULT[lg]||0.8;
@@ -609,12 +609,28 @@ function App(){
       return{pts:npts,history:[entry,...(prev.history||[])].slice(0,30)};
     });
   };
+  // İngiltere terfi/düşme: İngiliz Ligi son 3 → İngiliz 2. Ligi, İngiliz 2. Ligi ilk 3 → İngiliz Ligi
+  // (kullanıcı takımı listelerde yer alırsa AI takas sayısı otomatik azalır; lig boyutları 20/24 kalır)
+  const applyEngSwaps=(teams)=>{
+    const srt=(lg)=>teams.filter(t=>t.lg===lg).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+    const pl=srt("İngiliz Ligi"), ch=srt("İngiliz 2. Ligi");
+    const anyPlayed=pl.some(t=>(t.w+t.d+t.l)>0)||ch.some(t=>(t.w+t.d+t.l)>0);
+    if(!anyPlayed||pl.length<4||ch.length<4) return teams;
+    const plRel=new Set(pl.slice(-3).filter(t=>!t.me).map(t=>t.n));
+    const chPro=new Set(ch.slice(0,3).filter(t=>!t.me).map(t=>t.n));
+    return teams.map(t=>t.me?t
+      :plRel.has(t.n)?{...t,lg:"İngiliz 2. Ligi",str:Math.min(74,Math.max(t.str-2,64))}
+      :chPro.has(t.n)?{...t,lg:"İngiliz Ligi",str:Math.max(64,Math.min(70,t.str-1))}
+      :t);
+  };
   const promoteToLeague=(newLg,tffTable=[],slTable=[])=>{
-    const is38Lig=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi"].includes(newLg);
+    const is38Lig=["İngiliz Ligi","İspanyol Ligi","İtalyan Ligi","İngiliz 2. Ligi"].includes(newLg);
+    // İngiltere ligleri: terfi/düşme sonrası güncel takım listesiyle fikstür kur
+    const engTeamsNext=applyEngSwaps(season.teams||[]);
     const ligFix=newLg==="1. Lig"
       ?buildTFF1Fixture(clubName).map(f=>({...f}))
       :is38Lig
-      ?buildBig5Fixture(newLg,clubName)
+      ?buildBig5Fixture(newLg,clubName,(newLg==="İngiliz Ligi"||newLg==="İngiliz 2. Ligi")?engTeamsNext:null)
       :newLg==="Elit Lig"?buildSLFixture(clubName).map(f=>({...f}))
       :newLg==="Portekiz Ligi"?buildPrimeiraFixture(clubName).map(f=>({...f}))
       :newLg==="Hollanda Ligi"?buildEredivisieFixture(clubName).map(f=>({...f}))
@@ -672,6 +688,7 @@ function App(){
       "Fransız Ligi":["Metz FC","Lorient FC","Clermont FC"],
       "Hollanda Ligi":["NEC Nijmegen","Excelsior FC","Almere City"],
       "Portekiz Ligi":["Chaves FC","Estoril FC","Portimonense FC"],
+      "İngiliz 2. Ligi":["Reading FC","Luton Town","Leicester City"],
     };
     const _hazPool=_endHazOpps[newLg]||["Ankaragucu FC","Altay FC","Eskisehirspor"];
     const _hazOpp=_hazPool[Math.floor(Math.random()*_hazPool.length)];
@@ -773,7 +790,8 @@ function App(){
         const slRelIds=new Set(slTable.slice(Math.max(0,slLen-3)).filter(t=>!t.me).map(t=>t.n));
         const tffPromoIds=new Set(tffTable.slice(0,3).filter(t=>!t.me).map(t=>t.n));
         const newBudget=(str)=>str>=84?80:str>=78?50:str>=72?30:str>=66?18:str>=60?10:6;
-        return prev.teams.map(t=>{
+        // İngiltere terfi/düşme (lig ve str güncellenir; puanlar aşağıda sıfırlanır)
+        return applyEngSwaps(prev.teams).map(t=>{
           if(t.me) return{...t,...basePts,lg:newLg};
           if(tffPromoIds.has(t.n)){
             const promoStr=Math.max(58,Math.min(67,t.str-5));
@@ -1069,7 +1087,7 @@ function App(){
       blockedBudget:(prev.blockWeeksLeft||0)<=1?0:prev.blockedBudget,
       blockReason:(prev.blockWeeksLeft||0)<=1?"":prev.blockReason,
     }));
-    setTimeout(()=>showToast(newLg==="Elit Lig"?"🏆 Elit Lig'e yükseldiniz! Yeni sezon başladı!":season.league==="Elit Lig"&&newLg==="1. Lig"?"⬇ TFF 1. Lig'e düştünüz. Yeni sezon başladı.":"⚽ Yeni sezon başladı!"),1500);
+    setTimeout(()=>showToast(newLg==="Elit Lig"?"🏆 Elit Lig'e yükseldiniz! Yeni sezon başladı!":season.league==="Elit Lig"&&newLg==="1. Lig"?"⬇ TFF 1. Lig'e düştünüz. Yeni sezon başladı.":season.league==="İngiliz 2. Ligi"&&newLg==="İngiliz Ligi"?"🏆 İngiliz Ligi'ne yükseldiniz! Yeni sezon başladı!":season.league==="İngiliz Ligi"&&newLg==="İngiliz 2. Ligi"?"⬇ İngiliz 2. Ligi'ne düştünüz. Yeni sezon başladı.":"⚽ Yeni sezon başladı!"),1500);
   };
   const showToast=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),3000);};
 
@@ -1248,7 +1266,7 @@ function App(){
     setSeason(prev=>{
       // Diğer liglerin bu haftaki maçlarını simüle et
       const simWeek=(teams,myLg,myOpp,myLgCap)=>{
-        const LIG_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34};
+        const LIG_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};
         // updated: her takımın kopyasını index ile tut
         const updated=teams.map(t=>({...t}));
         const idxOf=(name)=>updated.findIndex(t=>t.n===name);
@@ -1291,7 +1309,7 @@ function App(){
           updated[aIdx]={...a,pts:a.pts+(aRes==="W"?3:aRes==="D"?1:0),w:a.w+(aRes==="W"?1:0),d:a.d+(aRes==="D"?1:0),l:a.l+(aRes==="L"?1:0),gf:a.gf+aGf,ga:a.ga+bGf,gd:a.gd+aGf-bGf};
           updated[bIdx]={...b,pts:b.pts+(bRes==="W"?3:bRes==="D"?1:0),w:b.w+(bRes==="W"?1:0),d:b.d+(bRes==="D"?1:0),l:b.l+(bRes==="L"?1:0),gf:b.gf+bGf,ga:b.ga+aGf,gd:b.gd+bGf-aGf};
         };
-        const ligs=["1. Lig","Elit Lig","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi"];
+        const ligs=["1. Lig","Elit Lig","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi","İngiliz 2. Ligi"];
         ligs.forEach(lg=>{
           const maxGames=LIG_MAX[lg]||34;
           // Kullanıcının ligi için özel işlem
@@ -1339,7 +1357,7 @@ function App(){
       };
       const curLgForSim=prev.league||"1. Lig";
       const isEuroFix=fix.comp==="CL"||fix.comp==="UEFA";
-      const KNOWN_LIG_COMPS=["SL","TFF1","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi"];
+      const KNOWN_LIG_COMPS=["SL","TFF1","İngiliz Ligi","İspanyol Ligi","Alman Ligi","İtalyan Ligi","Fransız Ligi","Hollanda Ligi","Portekiz Ligi","İngiliz 2. Ligi"];
       const isLeagueFix=KNOWN_LIG_COMPS.includes(fix.comp)||(!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(fix.comp)&&!isEuroFix);
       // Kullanıcının lig maç sayısı (Kupa/HAZ/CL/UEFA hariç) — bu maçtan sonraki değer
       const myLgPlayedSoFar=prev.results.filter(r=>!["ZTK","HAZ","CL","UEFA","SUPERKUPA"].includes(r.comp)).length;
@@ -2412,7 +2430,7 @@ function App(){
       if(seasonOver){
         const lg2=upd.league||"1. Lig";
         // Eksik maçları tamamla: sezon sonunda tüm takımlar maxGames oynamış olmalı
-        const LIG_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34};
+        const LIG_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};
         const fillTeams=[...upd.teams];
         const maxG=LIG_MAX2[lg2]||34;
         let fillSeed=99999;
@@ -2473,10 +2491,12 @@ function App(){
         if(rank2===1&&lg2==="Elit Lig") updateRep(7,"Süper Lig Şampiyonluğu",lg2);
         else if(rank2===1) updateRep(12,"Lig Şampiyonluğu",lg2);
         else if(rank2<=3&&lg2==="1. Lig") updateRep(10,"Süper Lig yükselmesi",lg2);
+        else if(rank2<=3&&lg2==="İngiliz 2. Ligi") updateRep(10,"İngiliz Ligi yükselmesi",lg2);
         else if(rank2<=2) updateRep(6,"Üst 2 Bitiş (ASK hakkı)",lg2);
         else if(rank2<=4) updateRep(7,"Avrupa Ligi",lg2);
         else if(rank2<=6) updateRep(3,"Üst sıra bitiş",lg2);
         else if(rank2>lgT.length-3&&lg2==="Elit Lig") updateRep(-18,"Küme düşme: TFF 1. Lig",lg2);
+        else if(rank2>lgT.length-3&&lg2==="İngiliz Ligi") updateRep(-18,"Küme düşme: İngiliz 2. Ligi",lg2);
         else if(rank2>=lgT.length-2) updateRep(-10,"Alt sıra bitiş",lg2);
         else updateRep(1,"Sezon tamamlandı",lg2);
         // ── Kariyer istatistiklerini güncelle ──
@@ -2602,16 +2622,21 @@ function App(){
           uefaGroups=null;
         }
         const lgT_total=lgT.length;
-        const isPromoted=rank2<=3&&lg2==="1. Lig";
+        // Terfi: 1. Lig → Elit Lig, İngiliz 2. Ligi → İngiliz Ligi (ilk 3)
+        const PROMO_TO={"1. Lig":"Elit Lig","İngiliz 2. Ligi":"İngiliz Ligi"};
+        // Düşme: Elit Lig → 1. Lig, İngiliz Ligi → İngiliz 2. Ligi (son 3)
+        const RELEG_TO={"Elit Lig":"1. Lig","İngiliz Ligi":"İngiliz 2. Ligi"};
+        const isPromoted=rank2<=3&&!!PROMO_TO[lg2];
         const relegZone=lgT_total-2; // 19-2=17 → 17,18,19 düşer
-        const isRelegated=lg2==="Elit Lig"&&rank2>=relegZone;
+        const isRelegated=!!RELEG_TO[lg2]&&rank2>=relegZone;
+        const promoteTo=PROMO_TO[lg2]||"Elit Lig", relegateTo=RELEG_TO[lg2]||"1. Lig";
         // TFF tablosunu da hesapla — yükselen/düşen AI için gerekli
         const tffT=[...upd.teams].filter(t=>t.lg==="1. Lig").sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
         const slT=[...upd.teams].filter(t=>t.lg==="Elit Lig").sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
         // seasonNum: setCareerStats async olduğu için stale olmaması adına
         // yeni eklenen sezon dahil doğru sayıyı hesapla (prev.seasons.length+1)
         const correctSeasonNum=(careerStats.seasons||[]).length+1;
-        setTimeout(()=>setSeasonEndModal({rank:rank2,league:lg2,pts:myPts,teams:lgT,promoted:isPromoted,relegated:isRelegated,totalTeams:lgT_total,tffTable:tffT,slTable:slT,scenario:activeScenario,seasonNum:correctSeasonNum}),800);
+        setTimeout(()=>setSeasonEndModal({rank:rank2,league:lg2,pts:myPts,teams:lgT,promoted:isPromoted,relegated:isRelegated,promoteTo,relegateTo,totalTeams:lgT_total,tffTable:tffT,slTable:slT,scenario:activeScenario,seasonNum:correctSeasonNum}),800);
         return upd;
       }
       return upd;
@@ -4207,6 +4232,7 @@ function App(){
         "Fransız Ligi":["Metz FC","Lorient FC","Clermont FC"],
         "Hollanda Ligi":["NEC Nijmegen","Excelsior FC","Almere City"],
         "Portekiz Ligi":["Chaves FC","Estoril FC","Portimonense FC"],
+        "İngiliz 2. Ligi":["Reading FC","Luton Town","Leicester City"],
       };
       const _hazPool2=_endHazOpps2[lg]||["Ankaragucu FC","Altay FC","Eskisehirspor"];
       const _hazOpp2=_hazPool2[Math.floor(Math.random()*_hazPool2.length)];
@@ -4261,6 +4287,7 @@ function App(){
         "Fransız Ligi":{tr:70000,w:50000},"Elit Lig":{tr:25000,w:18000},
         "1. Lig":{tr:12000,w:8000},"Hollanda Ligi":{tr:40000,w:28000},
         "Portekiz Ligi":{tr:35000,w:24000},"Hollanda Ligi":{tr:45000,w:32000},
+        "İngiliz 2. Ligi":{tr:30000,w:22000},
       };
       const budgetBase=LIG_BUDGET[lg]||{tr:15000,w:10000};
       // Takım gücüne göre bütçe ayarla (%±25)
@@ -4352,7 +4379,7 @@ function App(){
             </div>
           </div>
           {/* İstatistikler */}
-          {(()=>{const ligMacSayisi=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34};const toplamLigMac=LIG_MAC_MAX[season.league||"1. Lig"]||34;return[["Puan",String(myTeam.pts),C.gd],["Sıra",String(myRank),C.grn2],["Bütçe",(()=>{const b=finans.budget;const abs=Math.abs(b);return (b<0?"-":"")+(abs>=1000?(abs/1000).toFixed(1)+"M€":abs+"K€");})(),C.gd],["Hafta",`${ligMacSayisi}/${toplamLigMac}`,C.dim]];})().map(([l,v,c],i)=>(
+          {(()=>{const ligMacSayisi=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const toplamLigMac=LIG_MAC_MAX[season.league||"1. Lig"]||34;return[["Puan",String(myTeam.pts),C.gd],["Sıra",String(myRank),C.grn2],["Bütçe",(()=>{const b=finans.budget;const abs=Math.abs(b);return (b<0?"-":"")+(abs>=1000?(abs/1000).toFixed(1)+"M€":abs+"K€");})(),C.gd],["Hafta",`${ligMacSayisi}/${toplamLigMac}`,C.dim]];})().map(([l,v,c],i)=>(
             <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",
               borderLeft:`1px solid rgba(77,166,255,0.22)`,paddingLeft:9,flexShrink:0,gap:1}}>
               <div style={{fontSize:".78rem",fontWeight:800,color:c,whiteSpace:"nowrap",letterSpacing:.5,fontFamily:"'Barlow Condensed',sans-serif"}}>{l}{v?" "+v:""}</div>
@@ -4589,7 +4616,7 @@ function App(){
           }}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:".54rem",fontWeight:800,color:"#4da6ff",letterSpacing:.5}}>
-                {pendingNewSeason.promoted?"🏆 Yeni sezon hazır — Süper Lig":pendingNewSeason.relegated?"⬇ Yeni sezon hazır — TFF 1. Lig":"⚽ Yeni sezon başlatmaya hazır"}
+                {pendingNewSeason.promoted?(pendingNewSeason.league==="İngiliz Ligi"?"🏆 Yeni sezon hazır — İngiliz Ligi":"🏆 Yeni sezon hazır — Süper Lig"):pendingNewSeason.relegated?(pendingNewSeason.league==="İngiliz 2. Ligi"?"⬇ Yeni sezon hazır — İngiliz 2. Ligi":"⬇ Yeni sezon hazır — TFF 1. Lig"):"⚽ Yeni sezon başlatmaya hazır"}
               </div>
               <div style={{fontSize:".42rem",color:"rgba(255,255,255,.4)",marginTop:1}}>İstediğin kadar istatistiklere göz at, hazır olunca başlat</div>
             </div>
@@ -4654,7 +4681,7 @@ function App(){
       <div style={{height:22,background:"#030508",borderTop:`1px solid rgba(77,166,255,0.22)`,
         display:"flex",alignItems:"center",overflowX:"auto",scrollbarWidth:"none",
         padding:"0 10px",gap:10,flexShrink:0}}>
-        {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
+        {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
           <span key={i} style={{fontSize:".5rem",letterSpacing:.8,color:C.dim,flexShrink:0,
             borderLeft:i>0?`1px solid rgba(77,166,255,0.22)`:"",paddingLeft:i>0?8:0}}>{v}</span>
         ))}
@@ -5236,13 +5263,13 @@ function App(){
             {seasonEndModal.promoted&&(
               <div style={{background:"rgba(46,204,113,.12)",border:"1px solid rgba(39,174,96,.3)",borderRadius:8,padding:"8px 10px",marginBottom:12,textAlign:"center"}}>
                 <div style={{fontSize:"1.2rem",marginBottom:2}}>🎊</div>
-                <div style={{fontSize:".68rem",fontWeight:700,color:"#30e070"}}>Süper Lig&apos;e Yükseldiniz!</div>
+                <div style={{fontSize:".68rem",fontWeight:700,color:"#30e070"}}>{seasonEndModal.promoteTo==="İngiliz Ligi"?"İngiliz Ligi'ne Yükseldiniz!":"Süper Lig'e Yükseldiniz!"}</div>
               </div>
             )}
             {seasonEndModal.relegated&&(
               <div style={{background:"rgba(232,64,64,.15)",border:"1px solid rgba(192,57,43,.4)",borderRadius:8,padding:"8px 10px",marginBottom:12,textAlign:"center"}}>
                 <div style={{fontSize:"1.2rem",marginBottom:2}}>⬇️</div>
-                <div style={{fontSize:".68rem",fontWeight:700,color:"#ff5050"}}>TFF 1. Lig&apos;e Düştünüz</div>
+                <div style={{fontSize:".68rem",fontWeight:700,color:"#ff5050"}}>{seasonEndModal.relegateTo==="İngiliz 2. Ligi"?"İngiliz 2. Ligi'ne Düştünüz":"TFF 1. Lig'e Düştünüz"}</div>
                 <div style={{fontSize:".5rem",color:"#cc2233",marginTop:2}}>{seasonEndModal.rank}. sıra — küme düşme bölgesi</div>
               </div>
             )}
@@ -5256,7 +5283,7 @@ function App(){
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               <button onClick={()=>{
                 setPendingNewSeason({
-                  league:seasonEndModal.promoted?"Elit Lig":seasonEndModal.relegated?"1. Lig":seasonEndModal.league,
+                  league:seasonEndModal.promoted?(seasonEndModal.promoteTo||"Elit Lig"):seasonEndModal.relegated?(seasonEndModal.relegateTo||"1. Lig"):seasonEndModal.league,
                   tffTable:seasonEndModal.tffTable||[],
                   slTable:seasonEndModal.slTable||[],
                   promoted:seasonEndModal.promoted,
@@ -5267,7 +5294,7 @@ function App(){
                 background:seasonEndModal.promoted?"linear-gradient(135deg,#27ae60,#2ecc71)":seasonEndModal.relegated?"linear-gradient(135deg,#922b21,#e74c3c)":"linear-gradient(135deg,#1a6ed8,#2485ff)",
                 border:"none",color:"#fff",fontSize:".7rem",fontWeight:800,cursor:"pointer",borderRadius:10,fontFamily:"inherit",letterSpacing:.5,
                 boxShadow:"0 6px 20px rgba(36,133,255,.3)"}}>
-                {seasonEndModal.promoted?"🏆 TAMAM — Süper Lig'e Geçmeye Hazırım":seasonEndModal.relegated?"⬇ TAMAM — Devam":"✓ TAMAM"}
+                {seasonEndModal.promoted?(seasonEndModal.promoteTo==="İngiliz Ligi"?"🏆 TAMAM — İngiliz Ligi'ne Geçmeye Hazırım":"🏆 TAMAM — Süper Lig'e Geçmeye Hazırım"):seasonEndModal.relegated?"⬇ TAMAM — Devam":"✓ TAMAM"}
               </button>
               <div style={{fontSize:".46rem",color:"rgba(255,255,255,.3)",textAlign:"center",letterSpacing:.5}}>
                 İstatistikleri inceledikten sonra menüden Yeni Sezon'u başlatabilirsin

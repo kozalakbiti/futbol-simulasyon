@@ -9,7 +9,7 @@ function MatchDetailModal({match,clubName,season,onClose}){
   const st=match.stats||{};
   const scorers=match.scorers||[];
   const assisters=match.assisters||[];
-  const compLabel=(c)=>c==="ZTK"?"🏆 Ulusal Kupa":c==="HAZ"?"⚽ Hazırlık":c==="CL"?"⭐ Avrupa Şampiyonlar Kupası":c==="UEFA"?"🇪🇺 AL":c==="SL"?"Elit Lig":c==="TFF1"?"1. Lig":c==="Portekiz Ligi"?"Portekiz Ligi":c==="Hollanda Ligi"?"Hollanda Ligi":c||"Lig Maçı";
+  const compLabel=(c)=>c==="ZTK"?"🏆 Ulusal Kupa":c==="HAZ"?"⚽ Hazırlık":c==="CL"?"⭐ Avrupa Şampiyonlar Kupası":c==="UEFA"?"🇪🇺 AL":c==="SL"?"Elit Lig":c==="TFF1"?"1. Lig":c==="Portekiz Ligi"?"Portekiz Ligi":c==="İngiliz 2. Ligi"?"İngiliz 2. Ligi":c==="Hollanda Ligi"?"Hollanda Ligi":c||"Lig Maçı";
 
   // Penaltı bilgisi: kayıtlıysa doğrudan kullan, yoksa aggregate'den hesapla
   const penInfo=(()=>{
@@ -181,7 +181,7 @@ function PageFikstur({season,clubName="Club Manager: Glory Road"}){
   });
   const orderedMonths=["Geçmiş",...MONTH_ORDER].filter(m=>byMonth[m]&&byMonth[m].length>0);
 
-  const compLabel=(c)=>c==="ZTK"?"🏆 KUPA":c==="HAZ"?"⚽ HAZ":c==="CL"?"⭐ ASK":c==="UEFA"?"🇪🇺 AL":c==="SL"?"Elit":c==="TFF1"?"1.Lig":c==="Portekiz Ligi"?"Por":c==="Hollanda Ligi"?"Hol":c||"Elit";
+  const compLabel=(c)=>c==="ZTK"?"🏆 KUPA":c==="HAZ"?"⚽ HAZ":c==="CL"?"⭐ ASK":c==="UEFA"?"🇪🇺 AL":c==="SL"?"Elit":c==="TFF1"?"1.Lig":c==="Portekiz Ligi"?"Por":c==="İngiliz 2. Ligi"?"Eng2":c==="Hollanda Ligi"?"Hol":c||"Elit";
   const compColor=(c)=>c==="ZTK"?C.red2:c==="HAZ"?"#7c3aed":c==="CL"?"#ffd060":c==="UEFA"?"#e67e22":C.ac2;
 
   return(
@@ -208,7 +208,7 @@ function PageFikstur({season,clubName="Club Manager: Glory Road"}){
               borderRadius:"0 3px 3px 0",
               transition:"background .12s"}}>
               <div style={{minWidth:30,fontSize:".52rem",color:f.comp==="ZTK"?C.red2:f.comp==="CL"?"#ffd060":f.comp==="UEFA"?"#e67e22":f.comp==="SUPERKUPA"?"#c0ff00":f.comp==="HAZ"?"#7c3aed":C.dmr,fontWeight:(f.comp==="ZTK"||f.comp==="HAZ"||f.comp==="CL"||f.comp==="UEFA"||f.comp==="SUPERKUPA")?700:400}}>
-                {f.comp==="ZTK"?"🏆":f.comp==="CL"?"⭐":f.comp==="UEFA"?"🇪🇺":f.comp==="SUPERKUPA"?"SK":f.comp==="HAZ"?"HAZ":f.comp==="SL"?"SL":f.comp==="TFF1"?"TFF":f.comp==="Portekiz Ligi"?"POR":f.comp==="Hollanda Ligi"?"HOL":f.comp==="İngiliz Ligi"?"ENG":f.comp==="İspanyol Ligi"?"ESP":f.comp==="Alman Ligi"?"GER":f.comp==="İtalyan Ligi"?"ITA":f.comp==="Fransız Ligi"?"FRA":"LIG"}{(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="SUPERKUPA"&&f.comp!=="HAZ")?f.w:""}
+                {f.comp==="ZTK"?"🏆":f.comp==="CL"?"⭐":f.comp==="UEFA"?"🇪🇺":f.comp==="SUPERKUPA"?"SK":f.comp==="HAZ"?"HAZ":f.comp==="SL"?"SL":f.comp==="TFF1"?"TFF":f.comp==="Portekiz Ligi"?"POR":f.comp==="İngiliz 2. Ligi"?"ENG2":f.comp==="Hollanda Ligi"?"HOL":f.comp==="İngiliz Ligi"?"ENG":f.comp==="İspanyol Ligi"?"ESP":f.comp==="Alman Ligi"?"GER":f.comp==="İtalyan Ligi"?"ITA":f.comp==="Fransız Ligi"?"FRA":"LIG"}{(f.comp!=="ZTK"&&f.comp!=="CL"&&f.comp!=="UEFA"&&f.comp!=="SUPERKUPA"&&f.comp!=="HAZ")?f.w:""}
               </div>
               <div style={{width:28,height:28,borderRadius:"50%",
                 background:f.comp==="ZTK"?"rgba(192,57,43,.2)":f.comp==="CL"?"rgba(232,184,58,.2)":f.comp==="UEFA"?"rgba(230,126,34,.2)":f.home?"rgba(45,143,255,.25)":"rgba(100,120,160,.1)",
