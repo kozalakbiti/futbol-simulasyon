@@ -834,19 +834,47 @@ function App(){
     // ── DB: yaş +1, emeklilik, yeni gençler ──
     // season.teams snapshot — stale closure'u önle
     const _seasonTeamsSnap=season.teams||[];
+    // Altyapıdan mezun/serbest kalanlar — setYouth updater'ının çalışma zamanına bağlı kalmamak için
+    // mevcut youth state'inden önceden hesaplanır ve ana setDb akışına (serbest havuz sınırından önce) eklenir
+    const _youthReleased=(youth||[])
+      .map(p=>({...p,age:p.age+1,youthYear:(p.youthYear||0)+1}))
+      .filter(p=>p.youthYear>=3)
+      .map(p=>({
+        ...p,club:"Serbest",lg:"Serbest",nat:"TUR",ct:0,st:"free",ch:65,
+        val:Math.round((p.pot-65)*0.25*10)/10,
+        sal:Math.round((30+(p.ovr-50)*4)/10)*10,
+      }));
     setDb(prev=>{
       const RETIRE_BASE2=35;
       const aged=prev.map(p=>{
-        const newCt=Math.max(0,p.ct-1);
-        let newSt=p.st;
-        if(newCt===0&&p.st!=="free") newSt="free";
-        else if(newCt===1&&p.st==="contracted") newSt="expiring";
         const newAge=p.age+1;
 
         // Kulüp gücü: önce season snapshot, yoksa INIT_TEAMS
         const liveTeam=_seasonTeamsSnap.find(t2=>t2.n===p.club);
         const initTeam=INIT_TEAMS.find(t2=>t2.n===p.club);
         const clubStr2=liveTeam?liveTeam.str:initTeam?initTeam.str:p.ovr>=80?75:62;
+
+        // ── Sözleşme: AI kulüp oyuncuları çoğunlukla mevcut kulübüyle uzatır ──
+        let newCt=Math.max(0,p.ct-1);
+        let newSt=p.st;
+        let expired=false;
+        if(newCt===0&&p.st!=="free"){
+          const isAiClubPlayer=p.club&&p.club!=="Serbest"&&p.club!==clubName;
+          // Taban: %78 uzatma (33+ yaş: %60). Kulüp uyumu: kulübün çok üstündeki oyuncu ayrılmaya,
+          // kulüp seviyesine uygun oyuncu kalmaya biraz daha meyilli
+          let renewP=newAge>=33?0.60:0.78;
+          const fitGap=(p.ovr||65)-clubStr2;
+          if(fitGap>8) renewP-=0.06; else if(Math.abs(fitGap)<=5) renewP+=0.04;
+          renewP=Math.max(0.5,Math.min(0.85,renewP));
+          if(isAiClubPlayer&&Math.random()<renewP){
+            newCt=1+Math.floor(Math.random()*3);
+            newSt="contracted";
+          } else {
+            newSt="free";
+            expired=true;
+          }
+        }
+        else if(newCt===1&&p.st==="contracted") newSt="expiring";
         const coachMult=clubStr2>=88?1.40
           :clubStr2>=82?1.20
           :clubStr2>=75?1.05
@@ -901,8 +929,8 @@ function App(){
         }
 
         return {...p,age:newAge,ovr:newOvr,val:newVal,ct:newCt,st:newSt,
-          club:newCt===0&&p.st!=="free"?"Serbest":p.club,
-          lg:newCt===0&&p.st!=="free"?"Serbest":p.lg};
+          club:expired?"Serbest":p.club,
+          lg:expired?"Serbest":p.lg};
       });
       const retired=[];
       const survived=aged.filter(p=>{
@@ -978,7 +1006,81 @@ function App(){
         }
       });
       
-      // Serbest oyuncular silinmez — haftalık AI transferleri ile doğal azalır
+      // Altyapıdan serbest kalanlar havuza katılır (sınır kontrolünden önce)
+      if(_youthReleased.length>0) remainingFree=[...remainingFree,..._youthReleased];
+
+      // ── AI KADRO DENGESİ: min 18 / en az 2 GK / max 32 ──
+      const SQ_MIN=18, SQ_MAX=32, SQ_SOFT=28, GK_MIN=2;
+      const aiTeams=INIT_TEAMS.filter(t=>!t.me&&t.n&&t.n!==clubName).map(t=>{
+        const live=_seasonTeamsSnap.find(t2=>t2.n===t.n);
+        return {n:t.n, lg:t.lg, str:live?.str||t.str||65};
+      });
+      const sqCount={}, gkCount={};
+      aiTeams.forEach(t=>{ sqCount[t.n]=0; gkCount[t.n]=0; });
+      remainingFree.forEach(p=>{
+        if(p.st!=="free"&&sqCount[p.club]!==undefined){
+          sqCount[p.club]++;
+          if(p.pos==="GK") gkCount[p.club]++;
+        }
+      });
+      const isFreeP=p=>p.st==="free"||p.club==="Serbest";
+      const signTo=(idx,t)=>{
+        const p=remainingFree[idx];
+        remainingFree[idx]={...p, club:t.n, lg:t.lg, st:"contracted", ct:1+Math.floor(Math.random()*3)};
+        sqCount[t.n]++;
+        if(p.pos==="GK") gkCount[t.n]++;
+      };
+      // Takım gücüne en uygun serbest oyuncuyu bul (OVR ≈ str-4); onlyGK ile kaleci
+      const bestFreeFor=(t,onlyGK)=>{
+        let best=-1, bestD=Infinity;
+        const target=t.str-4;
+        for(let i=0;i<remainingFree.length;i++){
+          const p=remainingFree[i];
+          if(!isFreeP(p)) continue;
+          if(onlyGK&&p.pos!=="GK") continue;
+          // Güçlü oyuncular zayıf kulübe düşmez
+          if(p.ovr>=80&&t.str<70) continue;
+          const d=Math.abs((p.ovr||60)-target);
+          if(d<bestD){ bestD=d; best=i; }
+        }
+        return best;
+      };
+      // Önce kalecisi eksik olanlar, sonra en küçük kadrolular
+      [...aiTeams].sort((a,b)=>(gkCount[a.n]-gkCount[b.n])||(sqCount[a.n]-sqCount[b.n])).forEach(t=>{
+        while(gkCount[t.n]<GK_MIN&&sqCount[t.n]<SQ_MAX){
+          const i=bestFreeFor(t,true); if(i<0) break; signTo(i,t);
+        }
+        while(sqCount[t.n]<SQ_MIN){
+          const i=bestFreeFor(t,false); if(i<0) break; signTo(i,t);
+        }
+      });
+
+      // ── SERBEST HAVUZ SINIRI: sezon başında 50–75 arası ──
+      const FREE_MAX=75;
+      const freeIdx=[];
+      remainingFree.forEach((p,i)=>{ if(isFreeP(p)) freeIdx.push(i); });
+      if(freeIdx.length>FREE_MAX){
+        const keepN=50+Math.floor(Math.random()*26); // 50–75
+        // En iyi / yüksek potansiyelli oyuncular serbest kalır; düşük-orta OVR fazlası dağıtılır
+        const score=p=>(p.ovr||60)+(p.age<=21?Math.max(0,(p.pot||0)-(p.ovr||0))*0.5:0);
+        freeIdx.sort((a,b)=>score(remainingFree[b])-score(remainingFree[a]));
+        const excess=freeIdx.slice(keepN);
+        const toRemove=new Set();
+        excess.forEach(i=>{
+          const p=remainingFree[i];
+          // Kadrosu 28'in altında, oyuncunun seviyesine uygun (±12) AI kulüp; en küçük kadro öncelikli
+          const cands=aiTeams.filter(t=>sqCount[t.n]<SQ_SOFT&&sqCount[t.n]<SQ_MAX
+            &&Math.abs((p.ovr||60)-(t.str-4))<=12&&!(p.ovr>=80&&t.str<70));
+          if(cands.length>0){
+            cands.sort((a,b)=>sqCount[a.n]-sqCount[b.n]);
+            signTo(i,cands[0]);
+          } else {
+            toRemove.add(i); // uygun kulüp yok → emekli/pasif havuz (DB'den çıkar)
+          }
+        });
+        if(toRemove.size>0) remainingFree=remainingFree.filter((_,i)=>!toRemove.has(i));
+      }
+
       // ── DB DOLULUK KONTROLÜ — 3000-4000 arası tut (ayrı setDb yok, burada birleştir) ──
       const MIN_DB2=3000;
       if(remainingFree.length<MIN_DB2){
@@ -994,18 +1096,12 @@ function App(){
     });
 
     // ── Altyapı yenileme — released oyuncular ana setDb'ye eklenir ──
-    let _youthReleased=[];
     setYouth(prev=>{
       const aged=prev.map(p=>({...p,age:p.age+1,youthYear:(p.youthYear||0)+1}));
       const released=aged.filter(p=>p.youthYear>=3);
       const kept=aged.filter(p=>p.youthYear<3);
       if(released.length>0){
-        // setDb çağırmak yerine dışarıdaki değişkene ata
-        _youthReleased=released.map(p=>({
-          ...p,club:"Serbest",lg:"Serbest",nat:"TUR",ct:0,st:"free",ch:65,
-          val:Math.round((p.pot-65)*0.25*10)/10,
-          sal:Math.round((30+(p.ovr-50)*4)/10)*10,
-        }));
+        // Serbest kalanlar (_youthReleased) yukarıda ana setDb akışına eklendi
         setTimeout(()=>showToast(`🎓 ${released.length} altyapı oyuncusu serbest kaldı, transfer pazarına eklendi`),1800);
       }
       const newCount=2+Math.floor(Math.random()*2)+Math.floor(academyLevel/2); // Lv1:2-3, Lv3:3-4, Lv5:4-5
@@ -1013,10 +1109,6 @@ function App(){
       setTimeout(()=>showToast(`⭐ Altyapıya ${newCount} yeni oyuncu keşfedildi${academyLevel>=3?" (Akademi Lv"+academyLevel+")":""}`),2400);
       return [...kept,...newKids];
     });
-    // Altyapıdan serbest kalan oyuncuları DB'ye ekle (setDb race condition önlemek için ayrı çağrı)
-    if(_youthReleased.length>0){
-      setDb(db=>[...db,..._youthReleased]);
-    }
 
     setSeasonEndModal(null);
     setRecentlyTransferred(new Set());
