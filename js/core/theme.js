@@ -102,6 +102,17 @@ const APP_ICON_PATHS={
   news:"M4 4h13v16H6a2 2 0 0 1-2-2zm13 4h3v10a2 2 0 0 1-2 2M8 8h5m-5 4h5m-5 4h3",
   close:"M6 6l12 12M18 6 6 18",
   chevron:"M9 6l6 6-6 6",
+  stadium:"M2 10c0-2.2 4.5-4 10-4s10 1.8 10 4v6c0 2.2-4.5 4-10 4S2 18.2 2 16zM2 10c0 2.2 4.5 4 10 4s10-1.8 10-4M7 13.6V20M17 13.6V20M12 14v6M5 6V2m14 4V2",
+  tactics:"M4 3h16v18H4zM4 12h16M12 3v3m0 12v3M8 8l2 2m0-2-2 2m6 6 2 2m0-2-2 2M9 15c2-3 4-4 6-6m0 0h-2.5M15 9v2.5",
+  briefcase:"M3 8h18v12H3zM8 8V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3M3 13h18M11 12h2v2h-2z",
+  transfer:"M4 8h14l-4-4M20 16H6l4 4",
+  whistle:"M14 8H8a5 5 0 1 0 4.9 6H21v-4l-7-2zM14 8V5h3M7 13h.01",
+  sprout:"M12 21v-9M12 12c0-4-3-7-8-7 0 4 3 7 8 7zm0-2c0-3.5 2.5-6 7-6 0 3.5-2.5 6-7 6zM7 21h10",
+  handshake:"M2 11l4-4 4 2 3-2 4 1 5 4-3 3M2 11l3 3m4 1 2 2c.6.6 1.4.6 2 0l5-5M8 13l3 3m-1-6 3 3",
+  medal:"M8 2l4 6 4-6M12 22a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-8.5 1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z",
+  shield:"M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z",
+  mic:"M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8",
+  book:"M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zm16 0h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z",
 };
 function AppIcon({name,size=16,color="currentColor",stroke=2,style={},title}){
   const d=APP_ICON_PATHS[name]||APP_ICON_PATHS.star;

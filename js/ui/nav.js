@@ -10,7 +10,7 @@ const NAV=[
   {i:"🔄",l:"Transfer",  p:"transfer"},
   {i:"⭐",l:"Altyapı",   p:"yetenek"},
   {i:"💰",l:"Finans",    p:"finans"},
-  {i:"📊",l:"İstatistik",p:"istatistik"},
+  {i:"📊",l:"İstatistik",p:"istatistik",ic:"chart"},
   {i:"⭐",l:"İtibar",    p:"itibar"},
   {i:"•••",l:"Diğer",   p:"diger"},
 ];
@@ -146,7 +146,100 @@ const DIGER_PAGES=[
   {i:"📖",l:"Oyun Rehberi", p:"rehber"},
   {i:"⚙️",l:"Ayarlar",       p:"ayarlar"},
 ];
-const LABELS={home:"Kulüp Yönetimi",kadro:"Kadro",fikstur:"Fikstür",formasyon:"Form & Taktik",
+const LABELS={merkez:"Kulüp Kampüsü",home:"Kulüp Yönetimi",kadro:"Kadro",fikstur:"Fikstür",formasyon:"Form & Taktik",
   antrenman:"Antrenman",transfer:"Transfer Pazarı",yetenek:"Altyapı",
   diger:"Diğer",kaydet:"Kaydet / Yükle",haberler:"Haberler",finans:"Finans",
   istatistik:"İstatistikler",takimlar:"Takımlar",ayarlar:"Ayarlar"};
+
+// ═══════════════════════════════════════════════════════════════
+// ALT NAVİGASYON (5 ana sekme) + CANLI DURUM & HABER BANDI
+// ═══════════════════════════════════════════════════════════════
+const HUB_TABS=[
+  {i:"🏟️",l:"Merkez", p:"merkez",ic:"stadium", pages:["merkez"]},
+  {i:"🏆",l:"Lig",    p:"home",ic:"trophy",   pages:["home","fikstur","takimlar"]},
+  {i:"👥",l:"Kadro",  p:"kadro",ic:"users",  pages:["kadro"]},
+  {i:"📋",l:"Taktik", p:"formasyon",ic:"tactics",pages:["formasyon"]},
+  {i:"💼",l:"Kulüp",  p:"kulup",ic:"briefcase",  pages:[]},
+];
+const KULUP_PAGES=[
+  {i:"🔄",l:"Transfer",   p:"transfer",ic:"transfer"},
+  {i:"🏋️",l:"Antrenman",  p:"antrenman",ic:"whistle"},
+  {i:"⭐",l:"Altyapı",    p:"yetenek",ic:"sprout"},
+  {i:"💰",l:"Finans",     p:"finans",ic:"money"},
+  {i:"📊",l:"İstatistik", p:"istatistik",ic:"chart"},
+  {i:"👥",l:"İlişkiler",  p:"taraftar",ic:"handshake"},
+  {i:"⚙️",l:"Ayarlar",    p:"ayarlar",ic:"settings"},
+  {i:"📅",l:"Fikstür",    p:"fikstur",ic:"calendar"},
+  {i:"🏅",l:"İtibar",     p:"itibar",ic:"medal"},
+  {i:"📰",l:"Haberler",   p:"haberler",ic:"news"},
+  {i:"🏟️",l:"Takımlar",   p:"takimlar",ic:"shield"},
+  {i:"🎤",l:"Basın",      p:"basin",ic:"mic"},
+  {i:"💾",l:"Kaydet",     p:"kaydet",ic:"save"},
+  {i:"📖",l:"Rehber",     p:"rehber",ic:"book"},
+];
+
+function StatusTicker({items=[],onMatch,matchDisabled=false,matchLabel="MAÇ"}){
+  const list=items.filter(Boolean);
+  const row=(k)=>(
+    <div key={k} style={{display:"flex",flexShrink:0,alignItems:"center"}}>
+      {list.map((t,i)=>(
+        <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"0 14px",whiteSpace:"nowrap",
+          fontSize:".52rem",fontWeight:600,color:t.c||C.wh,borderRight:`1px solid ${C.brd2}`}}>
+          {t.i&&<span>{t.i}</span>}{t.t}
+        </span>
+      ))}
+    </div>
+  );
+  // Süre içerik uzunluğuyla orantılı → her cihazda okunabilir hız
+  const dur=Math.max(18,list.reduce((a,t)=>a+String(t.t).length,0)*0.28);
+  return(
+    <div style={{display:"flex",alignItems:"stretch",height:30,flexShrink:0,background:C.nav,
+      borderTop:`1px solid ${C.brd}`}}>
+      <div style={{flexShrink:0,display:"flex",alignItems:"center",padding:"0 8px",background:C.red2,color:"#fff",
+        fontSize:".46rem",fontWeight:900,letterSpacing:1}}>CANLI</div>
+      <div style={{flex:1,overflow:"hidden",position:"relative",display:"flex",alignItems:"center"}}>
+        <div className="ticker-track" style={{display:"flex",animationDuration:`${dur}s`}}>{row("a")}{row("b")}</div>
+      </div>
+      <button onClick={onMatch} disabled={matchDisabled} title="Sonraki maça git" style={{flexShrink:0,border:"none",
+        padding:"0 14px",cursor:matchDisabled?"not-allowed":"pointer",fontFamily:"inherit",
+        background:matchDisabled?C.card2:"linear-gradient(135deg,#16a34a,#22c55e)",
+        color:matchDisabled?C.dmr:"#fff",fontSize:".62rem",fontWeight:900,letterSpacing:1,
+        boxShadow:matchDisabled?"none":"inset 0 1px 0 rgba(255,255,255,.25)"}}>⚽ {matchLabel}</button>
+    </div>
+  );
+}
+
+function BottomNav({page,kulupOpen,onTab,onKulupPick}){
+  const inKulup=KULUP_PAGES.some(k=>k.p===page)&&!HUB_TABS.some(t=>t.pages.includes(page));
+  return(
+    <div style={{position:"relative",flexShrink:0}}>
+      {kulupOpen&&(
+        <div className="fade-in-up" style={{position:"absolute",bottom:"100%",left:6,right:6,zIndex:60,marginBottom:36,
+          background:C.card,border:`1px solid ${C.brd}`,borderRadius:12,padding:8,
+          boxShadow:"0 -8px 30px rgba(0,0,0,.25)",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+          {KULUP_PAGES.map(k=>{const a=page===k.p;return(
+            <button key={k.p} onClick={()=>onKulupPick(k.p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+              padding:"8px 2px",borderRadius:9,cursor:"pointer",fontFamily:"inherit",
+              background:a?C.ac3:C.surface,border:`1px solid ${a?C.ac2:C.brd2}`,color:a?C.ac2:C.wh}}>
+              <AppIcon name={k.ic} size={20} stroke={1.8}/>
+              <span style={{fontSize:".46rem",fontWeight:700,letterSpacing:.3}}>{k.l}</span>
+            </button>);})}
+        </div>
+      )}
+      <div style={{display:"flex",height:52,background:C.nav,borderTop:`1px solid ${C.brd}`}}>
+        {HUB_TABS.map(t=>{
+          const a=t.p==="kulup"?(kulupOpen||inKulup):t.pages.includes(page);
+          return(
+            <button key={t.p} onClick={()=>onTab(t.p)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+              justifyContent:"center",gap:2,border:"none",cursor:"pointer",fontFamily:"inherit",position:"relative",
+              background:a?C.ac3:"transparent",color:a?C.ac2:C.dim}}>
+              {a&&<div style={{position:"absolute",top:0,left:"22%",right:"22%",height:3,borderRadius:"0 0 3px 3px",background:C.ac2}}/>}
+              <AppIcon name={t.ic} size={21} stroke={a?2.1:1.7}/>
+              <span style={{fontSize:".5rem",fontWeight:a?800:600,letterSpacing:.5}}>{t.l}{t.p==="kulup"?(kulupOpen?" ▾":" ▴"):""}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

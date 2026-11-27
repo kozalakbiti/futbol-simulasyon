@@ -53,3 +53,8 @@ html[data-theme="light"] #root { background: linear-gradient(160deg, #ffffff 0%,
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.22); }
 html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { color: #0f172a; }
 html[data-theme="light"] input::placeholder, html[data-theme="light"] textarea::placeholder { color: #64748b; }
+/* Canlı durum & haber bandı (js/ui/nav.js → StatusTicker) */
+@keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.ticker-track { animation: tickerScroll 30s linear infinite; will-change: transform; }
+.ticker-track:hover { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .ticker-track { animation: none; } }

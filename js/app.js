@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 function App(){
   useThemeMode(); // Gece/Gündüz değişince tüm ağaç yeniden render olur
-  const [page,setPage]=useState("home");
+  const [page,setPage]=useState("merkez");
   const [digerOpen,setDigerOpen]=useState(false);
   const [managerOpen,setManagerOpen]=useState(false);
   const [transferOffer,setTransferOffer]=useState(null);
@@ -3415,7 +3415,7 @@ function App(){
       }
       setOnboardingDone(true);
       setGameScreen("playing");
-      setPage("home");
+      setPage("merkez");
       showToast("✅ Oyun yüklendi: "+data.clubName);
     }catch(e){
       showToast("⚠️ Yükleme hatası!");
@@ -3487,7 +3487,7 @@ function App(){
     setWeeklyOfferedPlayers({});
     setSelectedPlayer(null);
     setReleaseConfirm(null);
-    setPage("home");
+    setPage("merkez");
     setDigerOpen(false);
     setManagerOpen(false);
     setSponsorModal(false);
@@ -3875,50 +3875,6 @@ function App(){
           </div>
         </div>
 
-        {/* Alt satır: NAV sekmeleri */}
-        <div style={{position:"relative"}}>
-          <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none",borderTop:`1px solid rgba(77,166,255,0.1)`}}>
-            {NAV.map((item,i)=>{
-              const isDiger=item.p==="diger";
-              const isActive=isDiger?digerOpen||DIGER_PAGES.some(d=>d.p===page):page===item.p;
-              return(
-                <button key={i} onClick={()=>{
-                  if(isDiger){setDigerOpen(o=>!o);}
-                  else{setPage(item.p);setDigerOpen(false);}
-                }} style={{
-                  display:"flex",alignItems:"center",gap:4,padding:"7px 11px",
-                  cursor:"pointer",flexShrink:0,fontFamily:"inherit",
-                  border:"none",borderBottom:`2.5px solid ${isActive?C.ac2:"transparent"}`,
-                  color:isActive?C.wh:C.dim,fontWeight:isActive?700:400,
-                  background:isActive?"rgba(77,168,255,0.08)":"transparent",
-                  transition:"color .18s,background .18s"}}>
-                  <span style={{fontSize:isDiger?".72rem":".82rem",letterSpacing:isDiger?2:0,filter:isActive?"drop-shadow(0 0 4px rgba(77,168,255,0.5))":"none",transition:"filter .18s"}}>{item.i}</span>
-                  <span style={{fontSize:".56rem",letterSpacing:.8,textTransform:"uppercase",whiteSpace:"nowrap",fontWeight:isActive?700:500}}>{item.l}</span>
-                  {isDiger&&<span style={{fontSize:".5rem",color:isActive?C.ac2:C.dmr}}>{digerOpen?"▲":"▼"}</span>}
-                </button>
-              );
-            })}
-          </div>
-          {/* Diğer dropdown */}
-          {digerOpen&&(
-            <div style={{position:"absolute",top:"100%",right:0,zIndex:50,
-              background:C.nav,border:`1px solid rgba(77,168,255,0.18)`,borderTop:"none",backdropFilter:"blur(8px)",
-              borderRadius:"0 0 6px 6px",boxShadow:"0 8px 24px rgba(0,0,0,.6)",
-              minWidth:160,overflow:"hidden"}}>
-              {DIGER_PAGES.map((item,i)=>(
-                <button key={i} onClick={()=>{setPage(item.p);setDigerOpen(false);}} style={{
-                  display:"flex",alignItems:"center",gap:8,width:"100%",padding:"9px 14px",
-                  cursor:"pointer",fontFamily:"inherit",border:"none",
-                  borderLeft:`3px solid ${page===item.p?C.ac2:"transparent"}`,
-                  color:page===item.p?C.wh:C.dim,textAlign:"left",
-                  background:page===item.p?"rgba(45,143,255,.15)":"transparent"}}>
-                  <span style={{fontSize:".82rem"}}>{item.i}</span>
-                  <span style={{fontSize:".64rem",letterSpacing:.5}}>{item.l}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ── İÇERİK (tam ekran, sağ+sol panel yok) ── */}
@@ -4104,6 +4060,7 @@ function App(){
         <div style={{flex:1,display:"flex",minHeight:0,overflow:"hidden"}}
           onClick={()=>digerOpen&&setDigerOpen(false)}>
           {page==="diger" ? <PageDigerMenu onSelect={(p)=>{setPage(p);setDigerOpen(false);}} currentPage={page}/>
+            : page==="merkez"     ? <ClubHub3D squad={squad} youth={youth} season={season} fans={fans} rep={rep} transferBudget={transferBudget} clubName={clubName} onNavigate={(p)=>{setPage(p);setDigerOpen(false);}}/>
             : page==="home"       ? <PageHome season={season} clubName={clubName} activeScenario={activeScenario} squad={squad} careerStats={careerStats} db={db}/>
             : page==="kadro"      ? <PageKadro squad={squad} onSelectPlayer={setSelectedPlayer} clubName={clubName}/>
             : page==="fikstur"    ? <PageFikstur season={season} clubName={clubName}/>
@@ -4142,23 +4099,25 @@ function App(){
 
       </div>
 
-      {/* ── STATUS BAR ── */}
-      <div style={{height:22,background:C.nav,borderTop:`1px solid rgba(77,166,255,0.22)`,
-        display:"flex",alignItems:"center",overflowX:"auto",scrollbarWidth:"none",
-        padding:"0 10px",gap:10,flexShrink:0}}>
-        {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
-          <span key={i} style={{fontSize:".5rem",letterSpacing:.8,color:C.dim,flexShrink:0,
-            borderLeft:i>0?`1px solid rgba(77,166,255,0.22)`:"",paddingLeft:i>0?8:0}}>{v}</span>
-        ))}
-        <div style={{flex:1,display:"flex",justifyContent:"flex-end",gap:3}}>
-          {season.form.slice(-6).map((f,i)=>(
-            <div key={i} style={{width:14,height:14,borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:".44rem",fontWeight:700,
-              background:f==="W"?"rgba(39,174,96,.25)":f==="D"?"rgba(200,153,42,.2)":"rgba(192,57,43,.2)",
-              color:f==="W"?C.grn2:f==="D"?C.gd:C.red2}}>{f}</div>
-          ))}
-        </div>
-      </div>
+      {/* ── CANLI DURUM & HABER BANDI + MAÇ butonu ── */}
+      {(()=>{
+        const compL={HAZ:"Hazırlık",ZTK:"Kupa",CL:"Şampiyonlar Kupası",UEFA:"Avrupa Ligi",CON:"Konferans",SUPERKUPA:"Süper Kupa"};
+        const injuredL=squad.filter(p=>(p.injured||0)>0);
+        const lastTr=[...news].reverse().find(n=>n&&/transfer/.test(n.type||""));
+        const items=[
+          nextFix?{i:"⚽",t:`Sonraki maç: ${nextFix.home?"(E)":"(D)"} ${nextFix.opp} · ${compL[nextFix.comp]||season.league||"Lig"}`}:{i:"🏁",t:"Sezonun tüm maçları oynandı"},
+          injuredL.length?{i:"🩹",t:`${injuredL.length} sakat: ${injuredL.slice(0,3).map(p=>p.n).join(", ")}${injuredL.length>3?"…":""}`,c:C.red2}:{i:"✅",t:"Kadroda sakat oyuncu yok",c:C.grn2},
+          {i:"🏛️",t:`İtibar ${rep?.pts??0} · Taraftar güveni %${fans?.trust??0} · Mutluluk %${fans?.happiness??0}`},
+          lastTr?{i:"📰",t:`${lastTr.player||""}${lastTr.club?" → "+lastTr.club:""}${lastTr.detail?" ("+lastTr.detail+")":""}`,c:C.ac2}:null,
+          season.form&&season.form.length?{i:"📈",t:`Form: ${season.form.slice(-5).join(" ")}`}:null,
+        ];
+        return <StatusTicker items={items} matchDisabled={!nextFix}
+          onMatch={()=>{ if(!nextFix) return; setDigerOpen(false); if(skipPreMatch) setMatchOverlay(nextFix); else setPreMatch(nextFix); }}/>;
+      })()}
+      {/* ── ALT NAVİGASYON: Merkez / Lig / Kadro / Taktik / Kulüp ── */}
+      <BottomNav page={page} kulupOpen={digerOpen}
+        onTab={(p)=>{ if(p==="kulup"){ setDigerOpen(o=>!o); } else { setPage(p); setDigerOpen(false); } }}
+        onKulupPick={(p)=>{ setPage(p); setDigerOpen(false); }}/>
 
       {/* ── OVERLAY'LER ── */}
       {matchOverlay&&(()=>{
