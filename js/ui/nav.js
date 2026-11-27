@@ -152,28 +152,25 @@ const LABELS={merkez:"Kulüp Kampüsü",home:"Kulüp Yönetimi",kadro:"Kadro",fi
   istatistik:"İstatistikler",takimlar:"Takımlar",ayarlar:"Ayarlar"};
 
 // ═══════════════════════════════════════════════════════════════
-// ALT NAVİGASYON (5 ana sekme) + CANLI DURUM & HABER BANDI
+// ALT NAVİGASYON (6 ana sekme) + CANLI DURUM & HABER BANDI
 // ═══════════════════════════════════════════════════════════════
 const HUB_TABS=[
   {i:"🏟️",l:"Merkez", p:"merkez",ic:"stadium", pages:["merkez"]},
-  {i:"🏆",l:"Lig",    p:"home",ic:"trophy",   pages:["home","fikstur","takimlar"]},
+  {i:"🏆",l:"Lig",    p:"home",ic:"trophy",   pages:["home","takimlar"]},
+  {i:"📅",l:"Fikstür",p:"fikstur",ic:"calendar",pages:["fikstur"]},
   {i:"👥",l:"Kadro",  p:"kadro",ic:"users",  pages:["kadro"]},
   {i:"📋",l:"Taktik", p:"formasyon",ic:"tactics",pages:["formasyon"]},
   {i:"💼",l:"Kulüp",  p:"kulup",ic:"briefcase",  pages:[]},
 ];
+// Kulüp çekmecesi (3×3). Transfer/Antrenman/Altyapı/Finans → 3D Kampüs; Fikstür → alt bar
 const KULUP_PAGES=[
-  {i:"🔄",l:"Transfer",   p:"transfer",ic:"transfer"},
-  {i:"🏋️",l:"Antrenman",  p:"antrenman",ic:"whistle"},
-  {i:"⭐",l:"Altyapı",    p:"yetenek",ic:"sprout"},
-  {i:"💰",l:"Finans",     p:"finans",ic:"money"},
   {i:"📊",l:"İstatistik", p:"istatistik",ic:"chart"},
   {i:"👥",l:"İlişkiler",  p:"taraftar",ic:"handshake"},
-  {i:"⚙️",l:"Ayarlar",    p:"ayarlar",ic:"settings"},
-  {i:"📅",l:"Fikstür",    p:"fikstur",ic:"calendar"},
   {i:"🏅",l:"İtibar",     p:"itibar",ic:"medal"},
   {i:"📰",l:"Haberler",   p:"haberler",ic:"news"},
-  {i:"🏟️",l:"Takımlar",   p:"takimlar",ic:"shield"},
   {i:"🎤",l:"Basın",      p:"basin",ic:"mic"},
+  {i:"🏟️",l:"Takımlar",   p:"takimlar",ic:"shield"},
+  {i:"⚙️",l:"Ayarlar",    p:"ayarlar",ic:"settings"},
   {i:"💾",l:"Kaydet",     p:"kaydet",ic:"save"},
   {i:"📖",l:"Rehber",     p:"rehber",ic:"book"},
 ];
@@ -216,7 +213,7 @@ function BottomNav({page,kulupOpen,onTab,onKulupPick}){
       {kulupOpen&&(
         <div className="fade-in-up" style={{position:"absolute",bottom:"100%",left:6,right:6,zIndex:60,marginBottom:36,
           background:C.card,border:`1px solid ${C.brd}`,borderRadius:12,padding:8,
-          boxShadow:"0 -8px 30px rgba(0,0,0,.25)",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+          boxShadow:"0 -8px 30px rgba(0,0,0,.25)",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
           {KULUP_PAGES.map(k=>{const a=page===k.p;return(
             <button key={k.p} onClick={()=>onKulupPick(k.p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,
               padding:"8px 2px",borderRadius:9,cursor:"pointer",fontFamily:"inherit",
@@ -230,12 +227,12 @@ function BottomNav({page,kulupOpen,onTab,onKulupPick}){
         {HUB_TABS.map(t=>{
           const a=t.p==="kulup"?(kulupOpen||inKulup):t.pages.includes(page);
           return(
-            <button key={t.p} onClick={()=>onTab(t.p)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+            <button key={t.p} onClick={()=>onTab(t.p)} style={{flex:"1 1 0",minWidth:0,padding:"0 1px",display:"flex",flexDirection:"column",alignItems:"center",
               justifyContent:"center",gap:2,border:"none",cursor:"pointer",fontFamily:"inherit",position:"relative",
               background:a?C.ac3:"transparent",color:a?C.ac2:C.dim}}>
               {a&&<div style={{position:"absolute",top:0,left:"22%",right:"22%",height:3,borderRadius:"0 0 3px 3px",background:C.ac2}}/>}
-              <AppIcon name={t.ic} size={21} stroke={a?2.1:1.7}/>
-              <span style={{fontSize:".5rem",fontWeight:a?800:600,letterSpacing:.5}}>{t.l}{t.p==="kulup"?(kulupOpen?" ▾":" ▴"):""}</span>
+              <AppIcon name={t.ic} size={20} stroke={a?2.1:1.7}/>
+              <span style={{fontSize:".47rem",fontWeight:a?800:600,letterSpacing:.2,whiteSpace:"nowrap",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis"}}>{t.l}{t.p==="kulup"?(kulupOpen?" ▾":" ▴"):""}</span>
             </button>
           );
         })}

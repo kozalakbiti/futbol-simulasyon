@@ -548,6 +548,9 @@ function App(){
       pts<20?1.00:pts<40?0.70:pts<60?0.42:pts<75?0.22:pts<88?0.10:0.04;
     const lossMult=(pts)=>
       pts<40?1.00:pts<60?1.10:pts<75?1.25:pts<88?1.45:1.70;
+    // ── Denge: kazanımlar %45 daha az, kayıplar %40 daha sert; 70+ itibarda ek zorluk ──
+    const GAIN_K=0.55, LOSS_K=1.40;
+    const hiGain=(pts)=>pts>=70?0.7:1, hiLoss=(pts)=>pts>=70?1.15:1;
 
     // 75+ itibar: sadece kupa/şampiyonluk kazanımına izin ver
     // Maç galibiyeti, sıralama, transfer vb. artık kazandırmaz (kayıplar hâlâ geçerli)
@@ -561,14 +564,17 @@ function App(){
 
     if(raw){
       // raw=true: maç galibiyet/mağlubiyet
+      const coin=Math.random();   // updater saf kalsın diye dışarıda
       setRep(prev=>{
         let scaledDelta=delta;
         if(delta>0){
           // 75+ ise maç galibiyeti artık kazandırmaz
           if(prev.pts>=75) return prev;
-          scaledDelta=Math.max(1,Math.round(delta*gainDecay(prev.pts)));
+          scaledDelta=Math.max(1,Math.round(delta*GAIN_K*gainDecay(prev.pts)*hiGain(prev.pts)));
+          if(prev.pts>=70&&scaledDelta===1&&coin<0.5) return prev; // 70+: sıradan galibiyet yarı yarıya kazandırmaz
         } else {
-          scaledDelta=Math.round(delta*lossMult(prev.pts));
+          // raw kayıplar zaten dengelenmiş taban değerle gelir (-2…-6); sadece itibar seviyesi çarpanı
+          scaledDelta=Math.max(-9,Math.round(delta*lossMult(prev.pts)*hiLoss(prev.pts)));
         }
         const npts=Math.max(0,Math.min(100,prev.pts+scaledDelta));
         const entry={reason,delta:scaledDelta,pts:npts,date:new Date().toLocaleDateString("tr-TR")};
@@ -598,13 +604,14 @@ function App(){
             reason.includes("Kupa")&&reason.includes("Şampiyonluğu")?1:
             reason.includes("CL")&&reason.includes("Şampiyonluğu")?7:
             Math.max(1,Math.round(delta*mult*gainDecay(prev.pts)));
-          const npts=Math.max(0,Math.min(100,prev.pts+trophyPts));
-          const entry={reason,delta:trophyPts,pts:npts,date:new Date().toLocaleDateString("tr-TR")};
+          const trophyPts2=Math.max(1,Math.round(trophyPts*GAIN_K));
+          const npts=Math.max(0,Math.min(100,prev.pts+trophyPts2));
+          const entry={reason,delta:trophyPts2,pts:npts,date:new Date().toLocaleDateString("tr-TR")};
           return{pts:npts,history:[entry,...(prev.history||[])].slice(0,30)};
         }
-        d=Math.max(1,Math.round(delta*mult*gainDecay(prev.pts)));
+        d=Math.max(1,Math.round(delta*mult*gainDecay(prev.pts)*GAIN_K*hiGain(prev.pts)));
       } else {
-        d=Math.round(delta*mult*lossMult(prev.pts));
+        d=Math.round(delta*mult*lossMult(prev.pts)*LOSS_K*hiLoss(prev.pts));
       }
       const npts=Math.max(0,Math.min(100,prev.pts+d));
       const entry={reason,delta:d,pts:npts,date:new Date().toLocaleDateString("tr-TR")};
@@ -1697,6 +1704,7 @@ function App(){
           addNews({type:"match",player:"Kupa",club:opp,val:0,detail:`🏆 Son 16: ${opp} ile eşleştiniz`,date:new Date().toLocaleDateString("tr-TR")});
         } else {
           setSeason(p=>({...p,kupaSonuc:{...p.kupaSonuc,elendi:true}}));
+          updateRep(-4,"Kupadan grup aşamasında erken elenme",season.league||"1. Lig");
           setTimeout(()=>showToast("❌ Kupa grup aşamasından elendинiz",3000),500);
         }
       }
@@ -1730,6 +1738,7 @@ function App(){
           setTimeout(()=>showToast(`❌ Kupa Son 16'da elendинiz${penMsg}`,3000),penMsg?4500:500);
           addNews({type:"match",player:"Kupa",club:fix.opp,val:0,detail:`❌ Son 16'da ${fix.opp}'e elendik${penMsg}`,date:new Date().toLocaleDateString("tr-TR")});
           setSeason(p=>({...p,kupaSonuc:{...p.kupaSonuc,elendi:true}}));
+          updateRep(-3,"Kupadan Son 16'da elenme",season.league||"1. Lig");
         }
       }
 
@@ -1763,6 +1772,7 @@ function App(){
           setTimeout(()=>showToast(`❌ Kupa Çeyrek Finale elendiniz${penMsg}`,3000),penMsg?4500:500);
           addNews({type:"match",player:"Kupa",club:fix.opp,val:0,detail:`❌ Çeyrek Final'de ${fix.opp}'e elendik${penMsg}`,date:new Date().toLocaleDateString("tr-TR")});
           setSeason(p=>({...p,kupaSonuc:{...p.kupaSonuc,elendi:true}}));
+          updateRep(-2,"Kupadan çeyrek finalde elenme",season.league||"1. Lig");
         }
       }
 
@@ -1794,6 +1804,7 @@ function App(){
           addNews({type:"match",player:"Kupa",club:opp,val:0,detail:`🏆🏆 Kupa FİNALİ! ${opp} ile - Mayıs${penMsg}`,date:new Date().toLocaleDateString("tr-TR")});
         } else {
           setSeason(p=>({...p,kupaSonuc:{...p.kupaSonuc,elendi:true}}));
+          updateRep(-1,"Kupadan yarı finalde elenme",season.league||"1. Lig");
           setTimeout(()=>showToast(`❌ Kupa Yarı Final'de elendiniz${penMsg}`,3000),penMsg?4500:500);
           addNews({type:"match",player:"Kupa",club:fix.opp,val:0,detail:`❌ Yarı Final'de ${fix.opp}'e elendik${penMsg}`,date:new Date().toLocaleDateString("tr-TR")});
         }
@@ -2080,6 +2091,7 @@ function App(){
               payPrim("playoff","Play-Off",1500);
             } else {
               setTimeout(()=>showToast(`😔 ${meta.icon} ${meta.name} lig aşamasında ${e.myRank}. sırada kalıp elendik.`,4000),600);
+              setTimeout(()=>updateRep(-5,`${meta.name} lig aşamasında elenme`,season.league||"Elit Lig"),2000);
             }
           }
           if(e.type==="round_start"&&e.tie){
@@ -2094,6 +2106,8 @@ function App(){
           if(e.type==="tie_end"&&!e.won){
             const pen=e.pen?" (penaltılarla)":"";
             setTimeout(()=>showToast(e.round==="fin"?`😔 ${meta.name} Finalini kaybettik${pen}. Gururluyuz!`:`😔 ${meta.name} ${EURO_KO_LABEL[e.round]} turunda elendik${pen} — rakip: ${e.opp}`,4000),900);
+            const earlyPen={po:-4,r16:-3,qf:-2}[e.round];             // erken eleme cezası
+            if(earlyPen) setTimeout(()=>updateRep(earlyPen,`${meta.name} ${EURO_KO_LABEL[e.round]} turunda elenme`,season.league||"Elit Lig"),2000);
           }
           if(e.type==="tie_end"&&e.round==="fin"){
             payPrim("finalist","Finalist",600);
@@ -2380,10 +2394,12 @@ function App(){
       const repGain=fix.comp==="CL"?3:fix.comp==="UEFA"?3:fix.comp==="CON"?2:fix.comp==="ZTK"?2:1;
       updateRep(repGain,"Galibiyet: "+fix.opp,rLg,true);
     } else if(result.res==="L"){
-      updateRep(fix.str>=75?-1:fix.str>=65?-2:-3,"Mağlubiyet: "+fix.opp,rLg);
-    } else if(result.res==="D"&&(fix.comp==="CL"||fix.comp==="UEFA"||fix.comp==="CON")){
-      updateRep(1,"Beraberlik: "+fix.opp+" ("+fix.comp+")",rLg,true); // Avrupa'da beraberlik
+      // Mağlubiyet: -2 (güçlü rakip) … -4 (zayıf rakip); favoriyken kaybetmek ekstra -1/-2
+      const favGap=calcMyStr()-(fix.str||65);
+      const favPen=favGap>=10?-2:favGap>=4?-1:0;
+      updateRep((fix.str>=75?-2:fix.str>=65?-3:-4)+favPen,"Mağlubiyet: "+fix.opp+(favPen?" (favoriyken)":""),rLg,true);
     }
+    // Beraberlik: itibar değişmez (Avrupa dahil)
     // Taraftar memnuniyeti — maç sonucuna göre
     const goalDiff=result.myG-result.opG;
     if(result.res==="W"){
@@ -4114,7 +4130,7 @@ function App(){
         return <StatusTicker items={items} matchDisabled={!nextFix}
           onMatch={()=>{ if(!nextFix) return; setDigerOpen(false); if(skipPreMatch) setMatchOverlay(nextFix); else setPreMatch(nextFix); }}/>;
       })()}
-      {/* ── ALT NAVİGASYON: Merkez / Lig / Kadro / Taktik / Kulüp ── */}
+      {/* ── ALT NAVİGASYON: Merkez / Lig / Fikstür / Kadro / Taktik / Kulüp ── */}
       <BottomNav page={page} kulupOpen={digerOpen}
         onTab={(p)=>{ if(p==="kulup"){ setDigerOpen(o=>!o); } else { setPage(p); setDigerOpen(false); } }}
         onKulupPick={(p)=>{ setPage(p); setDigerOpen(false); }}/>

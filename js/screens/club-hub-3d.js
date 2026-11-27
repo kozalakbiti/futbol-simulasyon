@@ -39,12 +39,38 @@ const hubNoise=(g,w,h,n,cols,a)=>{ for(let i=0;i<n;i++){ g.fillStyle=cols[i%cols
 const hubShade=(hex,k)=>{ const n=parseInt(String(hex).replace("#","").padEnd(6,"0").slice(0,6),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*k)));
   return `rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`; };
 
+// Organik çok tonlu çim (512², kenarları sarmalı → dikişsiz tekrar)
 function hubGrassTex(THREE){
+  const t=hubCanvasTex(THREE,512,512,(g,w,h)=>{
+    const wrap=(x,y,r,fn)=>{ for(const ox of [-w,0,w]) for(const oy of [-h,0,h]) if(x+ox>-r&&x+ox<w+r&&y+oy>-r&&y+oy<h+r) fn(x+ox,y+oy); };
+    g.fillStyle="#5a8f43"; g.fillRect(0,0,w,h);
+    // Geniş, yumuşak renk geçişleri (zeytin / çimen / koyu yeşil)
+    const tones=["rgba(108,132,58,","rgba(74,124,48,","rgba(52,96,38,","rgba(132,164,78,","rgba(96,118,52,"];
+    for(let i=0;i<70;i++){ const x=Math.random()*w, y=Math.random()*h, r=30+Math.random()*90, tc=tones[i%tones.length], a=.10+Math.random()*.14;
+      wrap(x,y,r,(px,py)=>{ const gr=g.createRadialGradient(px,py,0,px,py,r); gr.addColorStop(0,tc+a+")"); gr.addColorStop(1,tc+"0)"); g.fillStyle=gr; g.fillRect(px-r,py-r,2*r,2*r); }); }
+    // İnce çim sapları
+    const blades=["#3f7330","#4d8538","#6a9a48","#7fae58","#8a9c4c","#35652a","#9bbd6a"];
+    g.lineCap="round";
+    for(let i=0;i<16000;i++){ const x=Math.random()*w, y=Math.random()*h, l=2+Math.random()*5, a=-Math.PI/2+(Math.random()-.5)*1.1;
+      g.strokeStyle=blades[(Math.random()*blades.length)|0]; g.globalAlpha=.25+Math.random()*.45; g.lineWidth=.6+Math.random()*.8;
+      const dx=Math.cos(a)*l, dy=Math.sin(a)*l; wrap(x,y,8,(px,py)=>{ g.beginPath(); g.moveTo(px,py); g.lineTo(px+dx,py+dy); g.stroke(); }); }
+    g.globalAlpha=1;
+    // Toprak / kuru ot grenleri
+    hubNoise(g,w,h,5000,["#6b6a3a","#a2ad6a","#2f5626","#7c9446"],.35);
+  },30,30);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
+}
+// Kavşak karesi: şeritsiz düz asfalt
+function hubAsphaltTex(THREE){
+  return hubCanvasTex(THREE,128,128,(g,w,h)=>{ g.fillStyle="#3b3f46"; g.fillRect(0,0,w,h); hubNoise(g,w,h,1100,["#2d3136","#4a4f57","#585d65"],.7); });
+}
+// Modern ahşap kaplama (dikey çıtalar)
+function hubWoodTex(THREE,rep=2){
   return hubCanvasTex(THREE,256,256,(g,w,h)=>{
-    g.fillStyle="#5c9846"; g.fillRect(0,0,w,h);
-    for(let i=0;i<46;i++){ g.fillStyle=Math.random()<.5?"rgba(62,110,40,.22)":"rgba(150,185,85,.15)"; g.beginPath(); g.arc(Math.random()*w,Math.random()*h,8+Math.random()*28,0,7); g.fill(); }
-    hubNoise(g,w,h,6000,["#4b8939","#78b257","#3e7931","#8cbd62"],.55);
-  },52,52);
+    for(let x=0;x<w;x+=16){ g.fillStyle=["#9a6a3f","#a8774a","#8c5f37","#b0804f"][(x/16)%4]; g.fillRect(x,0,16,h); g.fillStyle="rgba(40,22,10,.45)"; g.fillRect(x+15,0,1,h); }
+    for(let i=0;i<220;i++){ g.strokeStyle="rgba(60,34,16,"+(.08+Math.random()*.14)+")"; g.lineWidth=.6; const x=Math.random()*w; g.beginPath(); g.moveTo(x,0); g.bezierCurveTo(x+2,h*.3,x-2,h*.7,x+1,h); g.stroke(); }
+  },rep,1);
 }
 function hubPitchTex(THREE){
   return hubCanvasTex(THREE,1024,672,(g,w,h)=>{
@@ -306,7 +332,7 @@ function ClubHub3D({squad=[],youth=[],season,fans,rep,transferBudget=0,clubName=
       // ── Malzemeler ──
       const M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:0.85,metalness:0,...o});
       const T={grass:hubGrassTex(THREE),pitch:hubPitchTex(THREE),park:hubParkingTex(THREE),plaza:hubPlazaTex(THREE)};
-      const mGround=M(0xffffff,{map:T.grass,roughness:1}), mPitch=M(0xffffff,{map:T.pitch,roughness:0.95}), mPark=M(0xffffff,{map:T.park});
+      const mGround=M(0xffffff,{map:T.grass,roughness:0.92}), mPitch=M(0xffffff,{map:T.pitch,roughness:0.95}), mPark=M(0xffffff,{map:T.park});
       const mPlaza=M(0xffffff,{map:T.plaza,roughness:0.9});
       const mConcrete=M(0xd3cfc6,{roughness:0.92}), mConcreteDark=M(0x8d8a84,{roughness:0.95});
       const mSteel=M(0xb8c0cb,{metalness:0.85,roughness:0.32}), mSteelDark=M(0x4b5563,{metalness:0.8,roughness:0.4});
@@ -326,12 +352,45 @@ function ClubHub3D({squad=[],youth=[],season,fans,rep,transferBudget=0,clubName=
 
       // ── Zemin, yollar, plazalar ──
       const ground=add(new THREE.CircleGeometry(260,48),mGround,0,0,0,scene,{cast:false}); ground.rotation.x=-Math.PI/2;
-      const road=(x,z,w,len,ry)=>flat(w,len,M(0xffffff,{map:hubRoadTex(THREE,Math.max(1,Math.round(len/w/2.5))),roughness:0.95}),x,0.03,z,scene,ry);
-      road(0,22.5,5,39,0);                 // ana bulvar (arena → çevre yolu)
-      road(-1,14.5,4.6,70,Math.PI/2);      // yatay cadde
-      road(-15,20.5,3.6,12,0);             // akademi bağlantısı
-      road(17,17,3.6,5,0);                 // kulüp plazası bağlantısı
-      road(10,6.75,3.6,15.5,0);            // sağlık merkezi bağlantısı
+      // Asfalt: polygonOffset + katman başına farklı y/units → üst üste binen yollarda z-fighting yok
+      const mAsphalt=(map,units)=>M(0xffffff,{map,roughness:0.95,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:units});
+      const road=(x,z,w,len,ry,y=0.03,units=-1)=>flat(w,len,mAsphalt(hubRoadTex(THREE,Math.max(1,Math.round(len/w/2.5))),units),x,y,z,scene,ry);
+      road(-1,14.5,4.6,70,Math.PI/2);                  // yatay cadde (alt katman)
+      road(0,22.5,5,39,0,0.031,-2);                    // ana bulvar (arena → çevre yolu)
+      road(-15,20.5,3.6,12,0,0.031,-2);                // akademi bağlantısı
+      road(17,17,3.6,5,0,0.031,-2);                    // kulüp plazası bağlantısı
+      road(10,6.75,3.6,15.5,0,0.031,-2);               // sağlık merkezi bağlantısı
+      // Kavşak kareleri: şeritleri keser, en üst katman (y + 0.002)
+      {const mJ=M(0xffffff,{map:hubAsphaltTex(THREE),roughness:0.95,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+        [[0,14.5,5,4.6],[-15,14.5,3.6,4.6],[17,14.5,3.6,4.6],[10,14.5,3.6,4.6],   // cadde kavşakları
+         [0,44,5,4.6],[-37,14.5,4.6,4.6],[35,14.5,4.6,4.6]]                      // çevre yolu bağlantıları
+          .forEach(([x,z,w,d])=>flat(w,d,mJ,x,0.034,z));
+      }
+      // Taş bordürler (açık gri) + kenar çalıları
+      const mCurb=M(0xcfcfca,{roughness:0.9});
+      const curbZ=(x,z0,z1)=>box(0.22,0.12,z1-z0,mCurb,x,0.06,(z0+z1)/2,scene,{cast:false});
+      const curbX=(z,x0,x1)=>box(x1-x0,0.12,0.22,mCurb,(x0+x1)/2,0.06,z,scene,{cast:false});
+      const curbFrame=(x0,z0,x1,z1,gaps={})=>{ // gaps: {n:[[x0,x1]..], s:.., w:[[z0,z1]..], e:..}
+        const run=(a,b,gs,fn)=>{ let s=a; (gs||[]).slice().sort((p,q)=>p[0]-q[0]).forEach(([g0,g1])=>{ if(g0>s) fn(s,g0); s=Math.max(s,g1); }); if(b>s) fn(s,b); };
+        run(x0,x1,gaps.n,(a,b)=>curbX(z0,a,b)); run(x0,x1,gaps.s,(a,b)=>curbX(z1,a,b));
+        run(z0,z1,gaps.w,(a,b)=>curbZ(x0,a,b)); run(z0,z1,gaps.e,(a,b)=>curbZ(x1,a,b)); };
+      [-2.6,2.6].forEach(x=>{ curbZ(x,6,12.2); curbZ(x,16.8,41.6); });          // bulvar
+      [[-34.6,-2.6],[2.6,8.1],[11.9,32.6]].forEach(([a,b])=>curbX(12.09,a,b));   // cadde kuzey
+      [[-34.6,-16.9],[-13.1,-2.6],[2.6,15.1],[18.9,32.6]].forEach(([a,b])=>curbX(16.91,a,b)); // cadde güney
+      [-16.9,-13.1].forEach(x=>curbZ(x,16.8,22));                                // akademi bağlantısı
+      [15.1,18.9].forEach(x=>curbZ(x,16.8,19));                                  // plaza bağlantısı
+      [8.1,11.9].forEach(x=>curbZ(x,6,12.2));                                    // sağlık bağlantısı
+      curbFrame(-18,-24,18,6,{s:[[-2.6,2.6],[8.1,11.9]],e:[[-18.75,-7.25]]});   // arena esplanadı
+      curbFrame(10,19,24,35,{n:[[15.1,18.9]]});                                  // kulüp plazası
+      const edgeBushPts=[];                                                      // aşağıdaki çalı örneklemesine eklenir
+      const shrub=(x,z,s=0.5)=>edgeBushPts.push([x+(Math.random()-.5)*0.3,z+(Math.random()-.5)*0.3,s*(0.8+Math.random()*0.4),Math.random()*6.28]);
+      for(let x=-34;x<=32;x+=3.4) if(x<-17.5||(x>-12.5&&x<-8)||(x>8&&x<14.5)||x>19.5) shrub(x,18.0);
+      for(let x=13;x<=31;x+=3.4) shrub(x,11.0);
+      for(let x=-12;x<=-8;x+=2) shrub(x,11.0);
+      for(let z=-22;z<=1;z+=3.2) shrub(-19,z,0.55);
+      for(let x=-16;x<=16;x+=3.2) shrub(x,-25,0.55);
+      for(let z=20.5;z<=34;z+=2.7){ shrub(9,z,0.45); shrub(25,z,0.45); }
+      for(let x=11;x<=23;x+=2.4) shrub(x,36,0.45);
       flat(17,11.5,mPark,23,0.035,-13);    // otopark
       flat(36,30,mPlaza,0,0.02,-9);        // arena esplanadı
       flat(14,16,mPlaza,17,0.025,27);      // kulüp plazası
@@ -349,9 +408,19 @@ function ClubHub3D({squad=[],youth=[],season,fans,rep,transferBudget=0,clubName=
           if(i<N){ const a=i*2; idx.push(a,a+2,a+1,a+1,a+2,a+3); } }
         const gg=new THREE.BufferGeometry(); gg.setAttribute("position",new THREE.Float32BufferAttribute(pos,3)); gg.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
         gg.setIndex(idx); gg.computeVertexNormals();
-        const rt=hubRoadTex(THREE,1); const rm=add(gg,M(0xffffff,{map:rt,roughness:0.95}),0,0,0,scene,{cast:false});
+        const rt=hubRoadTex(THREE,1); const rm=add(gg,mAsphalt(rt,-1),0,0,0,scene,{cast:false});
         if(gg.attributes.normal.array[1]<0){ gg.index.array.reverse(); gg.computeVertexNormals(); }
         rm.material.side=THREE.DoubleSide;
+        // Çevre yolu bordürleri (instanced); bağlantı ağızlarında iç kenar açık bırakılır
+        const NC=170, junc=[[0,44],[-37,14.5],[35,14.5]], m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(), pp=new THREE.Vector3(), up2=new THREE.Vector3(0,1,0), mats=[];
+        for(let i=0;i<NC;i++){ const u0=i/NC, u1=(i+1)/NC, a=ring.getPointAt(u0), b=ring.getPointAt(u1%1), tg=b.clone().sub(a), len=tg.length(); tg.normalize();
+          const nx=-tg.z, nz=tg.x, mx=(a.x+b.x)/2, mz=(a.z+b.z)/2;
+          [-1,1].forEach(s=>{ const x=mx+nx*s*2.42, z=mz+nz*s*2.42;
+            const inner=Math.hypot(x+1,z-7)<Math.hypot(mx+1,mz-7);
+            if(inner&&junc.some(([jx,jz])=>Math.hypot(x-jx,z-jz)<3.4)) return;
+            q.setFromAxisAngle(up2,Math.atan2(tg.x,tg.z)); sc.set(1,1,len+0.04); pp.set(x,0.06,z); mats.push(m4.compose(pp,q,sc).clone()); }); }
+        const ci=new THREE.InstancedMesh(new THREE.BoxGeometry(0.22,0.12,1),mCurb,mats.length); ci.receiveShadow=true;
+        mats.forEach((m,i)=>ci.setMatrixAt(i,m)); scene.add(ci);
       }
       // Sokak lambaları (instanced): bulvar + çevre yolu
       {const lp=[]; for(let z=5;z<=41;z+=6) [-3.3,3.3].forEach(x=>lp.push([x,z,x<0?0:Math.PI]));
@@ -492,9 +561,29 @@ function ClubHub3D({squad=[],youth=[],season,fans,rep,transferBudget=0,clubName=
       // ═══ 4) AKADEMİ ═══
       {const g=G.academy; pitch(9,6,g,true,2.6);
         dugout(g,-1.6,3.9,0,2); dugout(g,1.6,3.9,0,2);
-        const fm=M(0xffffff,{map:hubWhiteFacadeTex(THREE),roughness:0.55}); winMats.push(fm);
-        box(4.2,3,6,fm,8.2,1.5,0,g); box(4.8,0.25,6.6,M(0x7e22ce,{roughness:0.5}),8.2,3.12,0,g);
-        box(0.3,3.2,6.2,mGlass,6,1.6,0,g,{cast:false});
+        // Gençlik Akademisi & Yatakhane: cam lobi + ahşap çekirdek (zemin), beyaz konsol yatakhane (2 kat), ahşap lameller
+        {const BX=8.4, mWood=M(0xffffff,{map:hubWoodTex(THREE,2),roughness:0.7});
+          const fm=M(0xffffff,{map:hubWhiteFacadeTex(THREE),roughness:0.55}); winMats.push(fm);
+          const [wx,,wz]=g.position.toArray();
+          flat(5.8,8.2,mPlaza,BX,0.05,0,g);                                                   // taş avlu
+          curbFrame(wx+BX-2.9,wz-4.1,wx+BX+2.9,wz+4.1,{w:[[-1.2+wz,1.6+wz]]});              // avlu bordürü (saha tarafı girişli)
+          box(5,0.22,7,mConcrete,BX,0.16,0,g);                                                // kaide
+          box(4,2.4,4.4,mWood,BX+0.2,1.47,-1,g);                                              // ahşap çekirdek
+          box(4,2.4,2,mGlass,BX+0.2,1.47,2.2,g,{cast:false});                                 // cam lobi
+          [-1.8,-0.9,0,0.9,1.8].forEach(dx=>box(0.07,2.4,0.07,mSteelDark,BX+0.2+dx,1.47,3.2,g,{cast:false}));
+          box(4.8,3.6,6.8,fm,BX,4.47,0,g);                                                    // yatakhane katları
+          box(4.95,0.14,6.95,mWhite,BX,2.72,0,g,{cast:false});                                // döşeme bandı
+          [[-2.2,3.2],[-2.2,-3.2]].forEach(([dx,dz])=>add(new THREE.CylinderGeometry(0.08,0.08,2.45,8),mSteel,BX+dx,1.5,dz,g)); // konsol kolonları
+          {const n=15, fin=new THREE.InstancedMesh(new THREE.BoxGeometry(0.07,3.4,0.14),mWood,n), m4=new THREE.Matrix4(); // saha cephesi lameller
+            for(let i=0;i<n;i++){ m4.makeTranslation(BX-2.45,4.47,-3.15+i*0.45); fin.setMatrixAt(i,m4); } fin.castShadow=true; g.add(fin); }
+          box(5.3,0.22,7.3,mWhite,BX,6.38,0,g);                                               // çatı saçağı
+          box(2.6,0.12,1.4,mWood,BX+0.2,2.75,3.9,g);                                          // giriş saçağı
+          for(let i=0;i<3;i++){ const p=box(1.1,0.05,1.8,M(0x1e293b,{metalness:0.6,roughness:0.25}),BX-1.3+i*1.3,6.68,-1.2,g,{cast:false}); p.rotation.x=-0.3; } // güneş panelleri
+          const sign=add(new THREE.PlaneGeometry(3.4,0.6),new THREE.MeshStandardMaterial({roughness:0.5,map:hubCanvasTex(THREE,512,90,(c,w,h)=>{
+              c.fillStyle="#f8f7f3"; c.fillRect(0,0,w,h); c.fillStyle=col1; c.fillRect(0,0,14,h);
+              c.fillStyle="#1f2937"; c.font="bold 40px sans-serif"; c.textBaseline="middle"; c.fillText("GENÇLİK AKADEMİSİ",34,h/2); })}),BX,5.85,3.42,g,{cast:false});
+          [[BX+3.3,-3.5],[BX+3.3,-1.2],[BX+3.3,1.2],[BX+3.3,3.5],[BX-1.5,4.6],[BX+1.5,4.6]].forEach(([x,z])=>shrub(wx+x,wz+z,0.45)); // avlu çalıları
+        }
         const cn=new THREE.InstancedMesh(new THREE.ConeGeometry(0.12,0.3,8).translate(0,0.15,0),mCone,6); const m4=new THREE.Matrix4();
         for(let i=0;i<6;i++){ m4.makeTranslation(-2+i*0.8,0,-1.6); cn.setMatrixAt(i,m4); } cn.castShadow=true; g.add(cn);
       }
@@ -558,7 +647,7 @@ function ClubHub3D({squad=[],youth=[],season,fans,rep,transferBudget=0,clubName=
         shadowDirty();
       });
       instance("campus/tree-round",treePts,4.8,[[new THREE.ConeGeometry(1.3,3.6,7).translate(0,2.6,0),M(0x2f7d3a)],[new THREE.CylinderGeometry(0.15,0.2,1,5).translate(0,0.5,0),M(0x7a5233)]],true);
-      const bushPts=[]; for(let i=0;i<60;i++){ const a=R(0,6.28), r=R(44,70), x=Math.cos(a)*r, z=Math.sin(a)*r*0.85+7; if(!blocked(x,z)) bushPts.push([x,z,R(0.6,1.0),R(0,6.28)]); }
+      const bushPts=[]; for(let i=0;i<60;i++){ const a=R(0,6.28), r=R(44,70), x=Math.cos(a)*r, z=Math.sin(a)*r*0.85+7; if(!blocked(x,z)) bushPts.push([x,z,R(0.6,1.0),R(0,6.28)]); } bushPts.push(...edgeBushPts);
       instance(null,bushPts,1.6,[[new THREE.IcosahedronGeometry(0.85,0).scale(1.2,0.8,1.2).translate(0,0.55,0),M(0x3f7f34,{flatShading:true,roughness:0.9})]],true);
 
       // ── Tema tonu ──

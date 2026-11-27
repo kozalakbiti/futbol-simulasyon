@@ -53,7 +53,8 @@ function PageItibar({rep,league}){
           <span>⭐</span>
           <span>{ligInfo.cl}</span>
         </div>
-        <div style={{marginTop:4,fontSize:".44rem",color:C.dmr}}>Kazanım çarpanı lig seviyesine göre değişir. Kayıplar her zaman çarpansız işler.</div>
+        <div style={{marginTop:4,fontSize:".44rem",color:C.dmr}}>Lig çarpanı kazanım ve kayıplara uygulanır. İtibar kazanmak zordur, kaybetmek kolaydır: mağlubiyet −2…−4, favoriyken kaybetmek ve kupadan erken elenmek ek ceza getirir; beraberlik itibarı değiştirmez.</div>
+        {pts>=70&&<div style={{marginTop:3,fontSize:".44rem",color:"#ffd060"}}>⚠️ 70+ itibar: kazanımlar daha seyrek, kayıplar daha sert.</div>}
       </div>
       <div style={{marginBottom:12}}>
         <div style={{fontSize:".5rem",color:C.dmr,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Kademeler</div>

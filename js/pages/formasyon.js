@@ -1,5 +1,16 @@
 // ─── FORMASYON ────────────────────────────────────────────────
 // ─── FORMASYON & TAKTİK (BİRLEŞİK) ──────────────────────────
+// Mevki uyumluluk matrisi (yalnızca görsel vurgu; yerleştirme kuralı posPenalty'de kalır)
+const POS_COMPAT_SECONDARY={
+  GK:[], CB:["CDM","LB","RB"], LB:["CB","LM","RM","CDM"], RB:["CB","LM","RM","CDM"],
+  CDM:["CM","CB","CAM"], CM:["CDM","CAM","LM","RM"], CAM:["CM","ST","LM","RM"],
+  LM:["CAM","CM","ST","LB","RB"], RM:["CAM","CM","ST","LB","RB"], ST:["CAM","LM","RM"],
+};
+function getPosCompatibility(playerPos,slotPos){
+  if(playerPos===slotPos) return "primary";
+  return (POS_COMPAT_SECONDARY[playerPos]||[]).includes(slotPos)?"secondary":"none";
+}
+
 function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:startingXI,setLineup:setStartingXI,autoLineup,setAutoLineup,tactic,setTactic,nextFixture,myStr,initialTab="formasyon",onInitialTabUsed=()=>{}}){
   const [tab,setTab]=useState(initialTab==="taktik"?"taktik":"formasyon"); // "formasyon" | "taktik"
   const tacs=[
@@ -101,6 +112,7 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
   const [picking,setPicking]=useState(null);
   const [swapping,setSwapping]=useState(null);
   const [warnSlot,setWarnSlot]=useState(null);
+  const [selectedBenchPlayer,setSelectedBenchPlayer]=useState(null); // squad indeksi
 
   const slots=FDATA[formation];
   const startingSet=new Set(startingXI);
@@ -146,20 +158,29 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
     return result;
   };
 
-  const handleAutoLineup=()=>{setStartingXI(buildAutoLineupLocal(formation));setPicking(null);setSwapping(null);};
+  const handleAutoLineup=()=>{setStartingXI(buildAutoLineupLocal(formation));setPicking(null);setSwapping(null);setSelectedBenchPlayer(null);};
   const handleCircleClick=(idx)=>{
+    if(selectedBenchPlayer!==null){ if(placeSub(idx,selectedBenchPlayer)) setSelectedBenchPlayer(null); return; }
     if(picking!==null){if(picking===idx){setPicking(null);return;}handleCircleSwap(picking,idx);return;}
     if(swapping!==null){if(swapping===idx){setSwapping(null);return;}handleCircleSwap(swapping,idx);setSwapping(null);return;}
     setPicking(idx);
   };
-  const handleSubPick=(sqIdx)=>{
-    if(picking===null) return;
-    const slotPos=slots[picking].p;
+  const placeSub=(slotIdx,sqIdx)=>{
+    const slotPos=slots[slotIdx].p;
     const pl=squad[sqIdx];
-    if((pl.injured||0)>0){setWarnSlot(picking);setTimeout(()=>setWarnSlot(null),900);return;}
+    if(!pl) return;
+    if((pl.injured||0)>0){setWarnSlot(slotIdx);setTimeout(()=>setWarnSlot(null),900);return;}
     const pen=posPenalty(pl.pos,slotPos);
-    if(pen===-99){setWarnSlot(picking);setTimeout(()=>setWarnSlot(null),900);return;}
-    const nl=[...startingXI];nl[picking]=sqIdx;setStartingXI(nl);setPicking(null);
+    if(pen===-99){setWarnSlot(slotIdx);setTimeout(()=>setWarnSlot(null),900);return;}
+    const nl=[...startingXI];nl[slotIdx]=sqIdx;setStartingXI(nl);setPicking(null);
+    return true;
+  };
+  const handleSubPick=(sqIdx)=>{
+    if(picking===null){ // önce yedek seç → sahada uygun slotlar vurgulanır
+      if((squad[sqIdx]?.injured||0)>0) return;
+      setSelectedBenchPlayer(v=>v===sqIdx?null:sqIdx); setSwapping(null); return;
+    }
+    placeSub(picking,sqIdx);
   };
   const handleCircleSwap=(fromIdx,toIdx)=>{
     const aPlayer=squad[startingXI[fromIdx]];
@@ -171,7 +192,53 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
     if(penAtoB===-99||penBtoA===-99){setWarnSlot(penAtoB===-99?toIdx:fromIdx);setTimeout(()=>setWarnSlot(null),900);return;}
     const nl=[...startingXI];[nl[fromIdx],nl[toIdx]]=[nl[toIdx],nl[fromIdx]];setStartingXI(nl);setPicking(null);
   };
-  const cancel=()=>{setPicking(null);setSwapping(null);};
+  const cancel=()=>{setPicking(null);setSwapping(null);setSelectedBenchPlayer(null);};
+
+  // ── Sürükle-bırak (Pointer Events: fare + dokunmatik) ──
+  // src: {kind:"xi"|"sub", id: slot indeksi | squad indeksi}. <8px hareket = normal tıklama.
+  const dragRef=useRef(null);          // {src,x0,y0,pid,active}
+  const justDraggedRef=useRef(false);
+  const [ghost,setGhost]=useState(null); // {x,y,label,ovr,pos,over}
+  const readDrop=(x,y)=>{
+    const el=document.elementFromPoint(x,y);
+    const t=el&&el.closest&&el.closest("[data-drop]");
+    if(!t) return null;
+    const [kind,id]=t.getAttribute("data-drop").split(":");
+    return {kind,id:+id};
+  };
+  const dragHandlers=(src,pl)=>({
+    onPointerDown:e=>{
+      if(e.button!==undefined&&e.button!==0) return;
+      dragRef.current={src,x0:e.clientX,y0:e.clientY,pid:e.pointerId,active:false};
+      try{e.currentTarget.setPointerCapture(e.pointerId);}catch(_){}
+    },
+    onPointerMove:e=>{
+      const d=dragRef.current; if(!d||d.pid!==e.pointerId) return;
+      if(!d.active){
+        if(Math.hypot(e.clientX-d.x0,e.clientY-d.y0)<8) return;
+        d.active=true;
+      }
+      e.preventDefault();
+      const ov=readDrop(e.clientX,e.clientY);
+      setGhost({src:`${src.kind}:${src.id}`,x:e.clientX,y:e.clientY,label:(pl.n.includes(".")?pl.n.split(".")[1]:pl.n)||pl.n,ovr:pl.ovr,pos:pl.pos,
+        over:ov?`${ov.kind}:${ov.id}`:null});
+    },
+    onPointerUp:e=>{
+      const d=dragRef.current; dragRef.current=null;
+      if(!d||!d.active){ setGhost(null); return; }   // kısa dokunuş → onClick çalışır
+      justDraggedRef.current=true; setTimeout(()=>{justDraggedRef.current=false;},0);
+      try{e.currentTarget.releasePointerCapture(e.pointerId);}catch(_){}
+      setGhost(null);
+      const dst=readDrop(e.clientX,e.clientY); if(!dst) return;
+      if(src.kind==="xi"&&dst.kind==="xi"){ if(dst.id!==src.id) handleCircleSwap(src.id,dst.id); }
+      else if(src.kind==="sub"&&dst.kind==="xi") placeSub(dst.id,src.id);
+      else if(src.kind==="xi"&&dst.kind==="sub") placeSub(src.id,dst.id);
+      else return;
+      setPicking(null);setSwapping(null);setSelectedBenchPlayer(null);
+    },
+    onPointerCancel:()=>{ dragRef.current=null; setGhost(null); },
+  });
+  const clickGuard=fn=>()=>{ if(justDraggedRef.current) return; fn(); };
 
   const formasyonContent=(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",
@@ -225,6 +292,27 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
             fontSize:".5rem",fontWeight:700,padding:"5px 10px",cursor:"pointer",borderRadius:6,
             fontFamily:"inherit",transition:"all .15s",whiteSpace:"nowrap"}}>⚡ En İyi 11</button>
       </div>
+
+      {/* Sürükleme hayalet rozeti */}
+      {ghost&&(()=>{ const tc=posC(ghost.pos); return ReactDOM.createPortal(
+        <div style={{position:"fixed",left:ghost.x,top:ghost.y,transform:"translate(-50%,-130%) rotate(-3deg)",
+          zIndex:9999,pointerEvents:"none",display:"flex",alignItems:"center",gap:5,
+          background:"rgba(10,18,34,.92)",border:`1.5px solid ${ghost.over?"#ffd060":tc.c}`,borderRadius:999,
+          padding:"4px 10px 4px 4px",boxShadow:"0 10px 24px rgba(0,0,0,.55), 0 0 14px rgba(255,208,96,.25)",
+          fontSize:".5rem",fontWeight:800,color:"#fff",whiteSpace:"nowrap"}}>
+          <span style={{width:22,height:22,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+            background:tc.c,color:"#0b1220",fontSize:".46rem",fontWeight:900}}>{ghost.ovr}</span>
+          {ghost.label}<span style={{color:tc.c,fontSize:".42rem"}}>{ghost.pos}</span>
+        </div>,document.body); })()}
+
+      {/* Yedek seçili: renk açıklaması */}
+      {selectedBenchPlayer!==null&&squad[selectedBenchPlayer]&&<div style={{flexShrink:0,textAlign:"center",fontSize:".44rem",
+        color:C.wh,background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.25)",borderRadius:6,padding:"5px",fontWeight:700}}>
+        {squad[selectedBenchPlayer].n} ({squad[selectedBenchPlayer].pos}) → <span style={{color:"#22c55e"}}>● Ana mevki</span> · <span style={{color:"#f59e0b"}}>● Yan mevki</span> · sahada bir slota dokun
+        <button onClick={cancel} style={{marginLeft:8,background:"rgba(255,255,255,.1)",border:"none",
+          color:"rgba(255,255,255,.7)",cursor:"pointer",fontSize:".44rem",borderRadius:4,padding:"1px 6px",fontFamily:"inherit"}}>✕</button>
+      </div>}
+      <style>{"@keyframes fmPosPulse{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.95),0 0 10px 2px rgba(34,197,94,.55)}50%{box-shadow:0 0 0 4px rgba(34,197,94,.75),0 0 20px 6px rgba(34,197,94,.35)}}"}</style>
 
       {/* Hint */}
       {picking!==null&&<div style={{flexShrink:0,textAlign:"center",fontSize:".44rem",
@@ -300,6 +388,9 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           if(!pl) return null;
           const tc=posC(s.p);
           const isActive=picking===idx||swapping===idx;
+          // Vurgu: seçili yedek ya da sürüklenen yedek
+          const hlSq=selectedBenchPlayer!==null?selectedBenchPlayer:(ghost&&ghost.src&&ghost.src.startsWith("sub:")?+ghost.src.slice(4):null);
+          const comp=hlSq!==null&&squad[hlSq]?getPosCompatibility(squad[hlSq].pos,s.p):null;
           const pen=posPenalty(pl.pos,s.p);
           const eOvr=dispOvr(pl,s.p);
           const hasWarn=pen===-5;
@@ -308,14 +399,17 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           const circleColor=isWarnFlash?"rgba(255,50,50,.9)":isActive?"rgba(232,184,58,.92)":cantPlay?"rgba(192,57,43,.8)":hasWarn?"rgba(180,130,20,.7)":tc.bg.replace(",.1",",.85").replace(",.12",",.85").replace(",.15",",.88");
           const borderColor=isWarnFlash?"#ff3333":isActive?"#ffd060":cantPlay?"#ff5050":hasWarn?"#ffd060":tc.b.replace(",.2",",.85").replace(",.28",",.9").replace(",.3",",.9");
           return(
-            <div key={idx} onClick={()=>handleCircleClick(idx)}
-              style={{position:"absolute",left:`${s.x}%`,top:`${s.y}%`,
+            <div key={idx} data-drop={`xi:${idx}`} onClick={clickGuard(()=>handleCircleClick(idx))} {...dragHandlers({kind:"xi",id:idx},pl)}
+              style={{position:"absolute",left:`${s.x}%`,top:`${s.y}%`,touchAction:"none",userSelect:"none",
+                opacity:(ghost&&ghost.src===`xi:${idx}`)||comp==="none"?0.45:1,
+                outline:ghost&&ghost.over===`xi:${idx}`?"2px dashed #ffd060":"none",outlineOffset:3,borderRadius:8,
                 transform:"translate(-50%,-50%)",
                 display:"flex",flexDirection:"column",alignItems:"center",
                 cursor:"pointer",zIndex:isActive?10:3,filter:cantPlay?"brightness(.85)":"none"}}>
               <div style={{width:34,height:34,borderRadius:"50%",
                 background:circleColor,border:`2px solid ${borderColor}`,
-                boxShadow:isActive?"0 0 0 3px rgba(232,184,58,.35), 0 4px 14px rgba(0,0,0,.8), 0 0 20px rgba(232,184,58,.4)":cantPlay?"0 0 0 2px rgba(231,76,60,.3), 0 3px 10px rgba(0,0,0,.7)":`0 0 12px ${tc.c}44, 0 4px 12px rgba(0,0,0,.8)`,
+                animation:comp==="primary"?"fmPosPulse 1.2s ease-in-out infinite":"none",
+                boxShadow:comp==="secondary"?"0 0 0 3px #f59e0b, 0 0 14px rgba(245,158,11,.55)":isActive?"0 0 0 3px rgba(232,184,58,.35), 0 4px 14px rgba(0,0,0,.8), 0 0 20px rgba(232,184,58,.4)":cantPlay?"0 0 0 2px rgba(231,76,60,.3), 0 3px 10px rgba(0,0,0,.7)":`0 0 12px ${tc.c}44, 0 4px 12px rgba(0,0,0,.8)`,
                 display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
                 transition:"all .15s",position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:"50%",
@@ -332,6 +426,11 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                 textShadow:"0 1px 3px rgba(0,0,0,.9)",border:"1px solid rgba(255,255,255,.1)",letterSpacing:.1}}>
                 {(pl.n.includes(".")?pl.n.split(".")[1]:pl.n)||pl.n}
               </div>
+              {comp==="primary"&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:1,fontSize:".28rem",fontWeight:900,
+                color:"#fff",background:"rgba(34,197,94,.85)",padding:"0 4px",borderRadius:3,letterSpacing:.3,whiteSpace:"nowrap"}}>
+                <span style={{width:4,height:4,borderRadius:"50%",background:"#dcfce7"}}/>ANA MEVKİ</div>}
+              {comp==="secondary"&&<div style={{marginTop:1,fontSize:".28rem",fontWeight:900,color:"#1f1300",
+                background:"rgba(245,158,11,.9)",padding:"0 4px",borderRadius:3,letterSpacing:.3,whiteSpace:"nowrap"}}>YAN MEVKİ</div>}
               {hasWarn&&<div style={{fontSize:".3rem",color:"#ffd060",fontWeight:800,lineHeight:1,marginTop:1,
                 background:"rgba(200,153,42,.2)",padding:"0 3px",borderRadius:2,border:"1px solid rgba(200,153,42,.3)"}}>-5</div>}
               {isActive&&<div style={{position:"absolute",top:-4,right:-4,width:8,height:8,
@@ -364,8 +463,9 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
             const subWarn=!isInjured&&subPen===-5;
             const canSelect=picking!==null&&!subCant;
             return(
-              <div key={pl.id} onClick={()=>handleSubPick(pl.sqIdx)}
-                style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+              <div key={pl.id} data-drop={`sub:${pl.sqIdx}`} onClick={clickGuard(()=>handleSubPick(pl.sqIdx))} {...dragHandlers({kind:"sub",id:pl.sqIdx},pl)}
+                style={{flexShrink:0,touchAction:"pan-x",userSelect:"none",
+                  outline:ghost&&ghost.over===`sub:${pl.sqIdx}`?"2px dashed #ffd060":selectedBenchPlayer===pl.sqIdx?"2px solid #22c55e":"none",outlineOffset:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
                   padding:"5px 6px",borderRadius:7,minWidth:38,
                   opacity:subCant?0.32:1,
                   background:isInjured?"rgba(180,40,40,.12)":subCant?"rgba(192,57,43,.08)":subWarn?"rgba(232,184,58,.1)":canSelect?"rgba(21,98,204,.18)":C.card,
