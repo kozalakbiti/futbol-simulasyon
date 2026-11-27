@@ -6,6 +6,13 @@ const POS_COMPAT_SECONDARY={
   CDM:["CM","CB","CAM"], CM:["CDM","CAM","LM","RM"], CAM:["CM","ST","LM","RM"],
   LM:["CAM","CM","ST","LB","RB"], RM:["CAM","CM","ST","LB","RB"], ST:["CAM","LM","RM"],
 };
+// PES tarzı mevki rozet rengi: GK sarı, defans mavi, orta saha yeşil, forvet kırmızı
+function fmPesPosCol(p){
+  if(p==="GK") return "#facc15";
+  if(["CB","LB","RB","LWB","RWB","SW"].includes(p)) return "#3b82f6";
+  if(["CDM","CM","CAM","LM","RM","DM","AM"].includes(p)) return "#22c55e";
+  return "#ef4444";
+}
 function getPosCompatibility(playerPos,slotPos){
   if(playerPos===slotPos) return "primary";
   return (POS_COMPAT_SECONDARY[playerPos]||[]).includes(slotPos)?"secondary":"none";
@@ -329,57 +336,61 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
         border:"2px solid rgba(255,255,255,.15)",
         boxShadow:"0 4px 24px rgba(0,0,0,.6), inset 0 0 60px rgba(0,0,0,.2)"}}>
 
-        {/* Şeritli çim dokusu — gerçekçi saha */}
+        {/* PES taktik tahtası: yatay iki tonlu doğal çim şeritleri + ince çim grenleri */}
         <div style={{position:"absolute",inset:0,
-          background:`repeating-linear-gradient(
-            180deg,
-            #2d7a2d 0px, #2d7a2d 14px,
-            #338a33 14px, #338a33 28px
-          )`}}/>
-        {/* Hafif perspektif tonu — üst biraz koyu */}
-        <div style={{position:"absolute",inset:0,
-          background:"linear-gradient(180deg,rgba(0,0,0,.18) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 70%,rgba(0,0,0,.18) 100%)",
-          pointerEvents:"none"}}/>
+          background:`repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0 2px,rgba(0,0,0,.025) 2px 4px),
+            repeating-linear-gradient(180deg,#3d8a36 0 6.25%,#4a9a40 6.25% 12.5%)`}}/>
+        {/* Stadyum gölgesi: kenarlarda yumuşak vinyet */}
+        <div style={{position:"absolute",inset:0,pointerEvents:"none",
+          background:"radial-gradient(ellipse 75% 70% at 50% 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,.38) 100%),linear-gradient(90deg,rgba(0,0,0,.18),rgba(0,0,0,0) 12%,rgba(0,0,0,0) 88%,rgba(0,0,0,.18))"}}/>
+        {/* Sağ üst: aktif oyun tarzı · Sağ alt: diziliş kodu */}
+        <div style={{position:"absolute",top:6,right:6,zIndex:2,pointerEvents:"none",padding:"2px 7px",borderRadius:3,
+          background:"rgba(8,12,20,.72)",borderLeft:"3px solid #ffd060",color:"#fff",fontSize:".42rem",fontWeight:900,letterSpacing:.6,
+          textTransform:"uppercase",textShadow:"0 1px 3px #000"}}>
+          {tactic.tog0?"Kontra Atak":(["Kısa Pas","Karma Oyun","Uzun Top"][tactic.style??0])}</div>
+        <div style={{position:"absolute",bottom:6,right:6,zIndex:2,pointerEvents:"none",padding:"1px 7px",borderRadius:3,
+          background:"rgba(8,12,20,.72)",color:"#fff",fontSize:".62rem",fontWeight:900,letterSpacing:1,
+          fontFamily:"'Barlow Condensed',sans-serif",textShadow:"0 1px 3px #000"}}>{formation}</div>
 
         {/* Saha çizgileri — SVG tabanlı, keskin ve parlak */}
-        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",overflow:"visible"}}
+        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",overflow:"visible",filter:"drop-shadow(0 0 1px rgba(255,255,255,.45))"}}
           viewBox="0 0 100 160" preserveAspectRatio="none">
           {/* Dış çerçeve */}
-          <rect x="3" y="2" width="94" height="156" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <rect x="3" y="2" width="94" height="156" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Orta çizgi */}
-          <line x1="3" y1="80" x2="97" y2="80" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <line x1="3" y1="80" x2="97" y2="80" stroke="#ffffff" strokeWidth=".7"/>
           {/* Orta daire */}
-          <circle cx="50" cy="80" r="16" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <circle cx="50" cy="80" r="16" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Orta nokta */}
-          <circle cx="50" cy="80" r="1" fill="rgba(255,255,255,.90)"/>
+          <circle cx="50" cy="80" r="1" fill="#ffffff"/>
 
           {/* Alt ceza sahası (büyük) */}
-          <rect x="19" y="127" width="62" height="31" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <rect x="19" y="127" width="62" height="31" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Alt küçük ceza sahası */}
-          <rect x="35" y="147" width="30" height="11" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <rect x="35" y="147" width="30" height="11" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Alt kale */}
-          <rect x="43" y="156" width="14" height="3.5" fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="1"/>
+          <rect x="43" y="156" width="14" height="3.5" fill="none" stroke="#ffffff" strokeWidth="1"/>
           {/* Alt penaltı noktası */}
-          <circle cx="50" cy="140" r="0.8" fill="rgba(255,255,255,.85)"/>
+          <circle cx="50" cy="140" r="0.8" fill="#ffffff"/>
           {/* Alt ceza yayı */}
-          <path d="M 38 127 A 13 13 0 0 0 62 127" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <path d="M 38 127 A 13 13 0 0 0 62 127" fill="none" stroke="#ffffff" strokeWidth=".7"/>
 
           {/* Üst ceza sahası (büyük) */}
-          <rect x="19" y="2" width="62" height="31" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <rect x="19" y="2" width="62" height="31" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Üst küçük ceza sahası */}
-          <rect x="35" y="2" width="30" height="11" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <rect x="35" y="2" width="30" height="11" fill="none" stroke="#ffffff" strokeWidth=".7"/>
           {/* Üst kale */}
-          <rect x="43" y="-1.5" width="14" height="3.5" fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="1"/>
+          <rect x="43" y="-1.5" width="14" height="3.5" fill="none" stroke="#ffffff" strokeWidth="1"/>
           {/* Üst penaltı noktası */}
-          <circle cx="50" cy="20" r="0.8" fill="rgba(255,255,255,.85)"/>
+          <circle cx="50" cy="20" r="0.8" fill="#ffffff"/>
           {/* Üst ceza yayı */}
-          <path d="M 38 33 A 13 13 0 0 1 62 33" fill="none" stroke="rgba(255,255,255,.90)" strokeWidth=".7"/>
+          <path d="M 38 33 A 13 13 0 0 1 62 33" fill="none" stroke="#ffffff" strokeWidth=".7"/>
 
           {/* Köşe yayları */}
-          <path d="M 3 5 A 3 3 0 0 1 6 2" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth=".6"/>
-          <path d="M 94 2 A 3 3 0 0 1 97 5" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth=".6"/>
-          <path d="M 3 155 A 3 3 0 0 0 6 158" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth=".6"/>
-          <path d="M 94 158 A 3 3 0 0 0 97 155" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth=".6"/>
+          <path d="M 3 5 A 3 3 0 0 1 6 2" fill="none" stroke="#ffffff" strokeWidth=".6"/>
+          <path d="M 94 2 A 3 3 0 0 1 97 5" fill="none" stroke="#ffffff" strokeWidth=".6"/>
+          <path d="M 3 155 A 3 3 0 0 0 6 158" fill="none" stroke="#ffffff" strokeWidth=".6"/>
+          <path d="M 94 158 A 3 3 0 0 0 97 155" fill="none" stroke="#ffffff" strokeWidth=".6"/>
         </svg>
 
         {/* Oyuncular */}
@@ -396,8 +407,10 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           const hasWarn=pen===-5;
           const cantPlay=pen===-99;
           const isWarnFlash=warnSlot===idx;
-          const circleColor=isWarnFlash?"rgba(255,50,50,.9)":isActive?"rgba(232,184,58,.92)":cantPlay?"rgba(192,57,43,.8)":hasWarn?"rgba(180,130,20,.7)":tc.bg.replace(",.1",",.85").replace(",.12",",.85").replace(",.15",",.88");
-          const borderColor=isWarnFlash?"#ff3333":isActive?"#ffd060":cantPlay?"#ff5050":hasWarn?"#ffd060":tc.b.replace(",.2",",.85").replace(",.28",",.9").replace(",.3",",.9");
+          const pc=fmPesPosCol(s.p);
+          const borderColor=isWarnFlash?"#ff3333":isActive?"#ffd060":cantPlay?"#ff5050":hasWarn?"#ffd060":pc+"99";
+          const fit=Math.max(0,Math.min(100,100-(pl.fatigue||0)));
+          const ovrCol=cantPlay?"#ff7070":hasWarn?"#ffd060":eOvr>=85?"#ffd060":eOvr>=80?"#ff6b5a":"#ffffff";
           return(
             <div key={idx} data-drop={`xi:${idx}`} onClick={clickGuard(()=>handleCircleClick(idx))} {...dragHandlers({kind:"xi",id:idx},pl)}
               style={{position:"absolute",left:`${s.x}%`,top:`${s.y}%`,touchAction:"none",userSelect:"none",
@@ -406,25 +419,23 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                 transform:"translate(-50%,-50%)",
                 display:"flex",flexDirection:"column",alignItems:"center",
                 cursor:"pointer",zIndex:isActive?10:3,filter:cantPlay?"brightness(.85)":"none"}}>
-              <div style={{width:34,height:34,borderRadius:"50%",
-                background:circleColor,border:`2px solid ${borderColor}`,
+              {/* PES tarzı kompakt oyuncu etiketi: ★OVR / mevki rozeti / isim / kondisyon çizgisi */}
+              <div style={{minWidth:46,maxWidth:60,padding:"2px 4px 3px",borderRadius:5,
+                background:isActive?"rgba(60,45,8,.82)":"linear-gradient(180deg,rgba(8,12,20,.42),rgba(8,12,20,.72))",
+                border:`1.5px solid ${borderColor}`,
                 animation:comp==="primary"?"fmPosPulse 1.2s ease-in-out infinite":"none",
-                boxShadow:comp==="secondary"?"0 0 0 3px #f59e0b, 0 0 14px rgba(245,158,11,.55)":isActive?"0 0 0 3px rgba(232,184,58,.35), 0 4px 14px rgba(0,0,0,.8), 0 0 20px rgba(232,184,58,.4)":cantPlay?"0 0 0 2px rgba(231,76,60,.3), 0 3px 10px rgba(0,0,0,.7)":`0 0 12px ${tc.c}44, 0 4px 12px rgba(0,0,0,.8)`,
-                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                transition:"all .15s",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,height:"50%",
-                  background:"rgba(255,255,255,.15)",borderRadius:"50% 50% 0 0",pointerEvents:"none"}}/>
-                <span style={{fontSize:".3rem",color:"rgba(255,255,255,.85)",fontWeight:700,lineHeight:1.1,letterSpacing:.3}}>{s.p}</span>
-                <span style={{fontSize:".52rem",color:cantPlay?"#ff7070":hasWarn?"#ffd060":"#fff",
-                  fontWeight:900,lineHeight:1.1,textShadow:"0 1px 4px rgba(0,0,0,.8)"}}>
-                  {cantPlay?"✕":eOvr}
-                </span>
-              </div>
-              <div style={{marginTop:2,fontSize:".36rem",color:"#fff",fontWeight:700,
-                background:"rgba(0,0,0,.78)",padding:"1px 5px",borderRadius:3,
-                maxWidth:52,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-                textShadow:"0 1px 3px rgba(0,0,0,.9)",border:"1px solid rgba(255,255,255,.1)",letterSpacing:.1}}>
-                {(pl.n.includes(".")?pl.n.split(".")[1]:pl.n)||pl.n}
+                boxShadow:comp==="secondary"?"0 0 0 3px #f59e0b, 0 0 14px rgba(245,158,11,.55)":isActive?"0 0 0 3px rgba(232,184,58,.35), 0 4px 14px rgba(0,0,0,.8), 0 0 20px rgba(232,184,58,.4)":cantPlay?"0 0 0 2px rgba(231,76,60,.3), 0 3px 10px rgba(0,0,0,.7)":"0 3px 10px rgba(0,0,0,.55)",
+                display:"flex",flexDirection:"column",alignItems:"center",gap:1,
+                transition:"all .15s",position:"relative"}}>
+                <span style={{fontSize:".5rem",color:ovrCol,fontWeight:900,lineHeight:1,textShadow:"0 1px 3px #000"}}>
+                  {cantPlay?"✕":`★${eOvr}`}</span>
+                <span style={{fontSize:".32rem",fontWeight:900,lineHeight:1.15,letterSpacing:.5,color:pc,
+                  background:"rgba(0,0,0,.72)",padding:"0 5px",borderRadius:2,border:`1px solid ${pc}66`}}>{s.p}</span>
+                <span style={{fontSize:".38rem",color:"#fff",fontWeight:900,lineHeight:1.1,letterSpacing:.1,
+                  maxWidth:54,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textShadow:"0 1px 3px #000"}}>
+                  {(pl.n.includes(".")?pl.n.split(".")[1]:pl.n)||pl.n}</span>
+                <div title={`Kondisyon %${fit}`} style={{width:"100%",height:2,borderRadius:1,background:"rgba(255,255,255,.18)",overflow:"hidden"}}>
+                  <div style={{width:`${fit}%`,height:"100%",background:fit>=75?"#22c55e":fit>=50?"#f59e0b":"#ef4444"}}/></div>
               </div>
               {comp==="primary"&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:1,fontSize:".28rem",fontWeight:900,
                 color:"#fff",background:"rgba(34,197,94,.85)",padding:"0 4px",borderRadius:3,letterSpacing:.3,whiteSpace:"nowrap"}}>
