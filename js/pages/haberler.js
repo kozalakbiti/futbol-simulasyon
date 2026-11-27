@@ -57,7 +57,7 @@ function PageHaberler({news,season}){
     const col=typeColor[item.type]||C.ac2;
     return(
       <div style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:7,
-        background:"rgba(8,18,40,.7)",border:`1px solid rgba(77,166,255,0.22)`,borderRadius:6,
+        background:C.card,border:`1px solid rgba(77,166,255,0.22)`,borderRadius:6,
         borderLeft:`3px solid ${col}`}}>
         <div style={{fontSize:"1.4rem",flexShrink:0,lineHeight:1,paddingTop:2}}>{typeIcon[item.type]||"📰"}</div>
         <div style={{flex:1,minWidth:0}}>

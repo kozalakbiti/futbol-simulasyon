@@ -104,7 +104,7 @@ function PageAntrenman({coaches,onHire,onAssign,squad=[],trainFocus,setTrainFocu
         <div style={{flex:1,overflowY:"auto",padding:"10px 10px 16px"}}>
           {/* Aktif özet */}
           <div style={{display:"flex",gap:5,marginBottom:10,padding:"7px 10px",
-            background:"rgba(0,0,0,.3)",borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
+            background:C.inset,borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
             <div style={{flex:1,textAlign:"center"}}>
               <div style={{fontSize:".44rem",color:"#ffd060",letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Yardımcı Antrenör</div>
               <div style={{fontSize:".68rem",fontWeight:700,color:activeTeam.length?C.wh:C.dmr}}>
@@ -214,7 +214,7 @@ function PageAntrenman({coaches,onHire,onAssign,squad=[],trainFocus,setTrainFocu
                         </span>
                         <span style={{fontSize:".5rem",color:C.dmr}}>Yorgunluk: {pl.fatigue||0}%</span>
                       </div>
-                      <div style={{height:4,background:"rgba(255,255,255,.08)",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:4,background:C.surfaceHover,borderRadius:2,overflow:"hidden"}}>
                         <div style={{height:"100%",width:`${pl.fatigue||0}%`,
                           background:(pl.fatigue||0)>70?"#ff5050":(pl.fatigue||0)>40?"#e67e22":"#30e070",
                           borderRadius:2}}/>
@@ -234,10 +234,10 @@ function PageAntrenman({coaches,onHire,onAssign,squad=[],trainFocus,setTrainFocu
                       </div>
                       {/* Koruyucu antrenman toggle */}
                       <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",
-                        background:"rgba(255,255,255,.04)",borderRadius:4,cursor:"pointer"}}
+                        background:C.surface,borderRadius:4,cursor:"pointer"}}
                         onClick={()=>setSquad(prev=>prev.map(p=>p.id===pl.id?{...p,protectTrain:!p.protectTrain}:p))}>
                         <div style={{width:28,height:14,borderRadius:7,position:"relative",
-                          background:pl.protectTrain?"rgba(46,204,113,.5)":"rgba(255,255,255,.12)",
+                          background:pl.protectTrain?"rgba(46,204,113,.5)":C.surfaceHover,
                           transition:"background .2s"}}>
                           <div style={{position:"absolute",top:2,left:pl.protectTrain?14:2,width:10,height:10,
                             borderRadius:"50%",background:pl.protectTrain?"#30e070":"#888",transition:"left .2s"}}/>
@@ -392,7 +392,7 @@ function PageAntrenman({coaches,onHire,onAssign,squad=[],trainFocus,setTrainFocu
                       const disabled=assigned.length>=max;
                       return(
                         <div key={p.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",
-                          background:otherCoach?"rgba(255,255,255,.03)":"rgba(26,110,216,.04)",
+                          background:otherCoach?C.surface:"rgba(26,110,216,.04)",
                           border:`1px solid ${otherCoach?C.brd2:C.brd}`,borderRadius:5,
                           opacity:otherCoach||disabled?.5:1}}>
                           <PosTag pos={p.pos} small/>

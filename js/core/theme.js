@@ -20,7 +20,117 @@ const C={
   glow:"rgba(77,168,255,0.06)",
   surface:"rgba(255,255,255,0.03)",
   surfaceHover:"rgba(255,255,255,0.06)",
+  inset:"rgba(0,0,0,0.35)",
+  // Tema-duyarlı zemin gradientleri
+  gradNav:"linear-gradient(180deg,#0b1a38 0%,#060d1e 100%)",
+  gradCard:"linear-gradient(145deg,#0d1e3a,#070e1e)",
+  gradSel:"linear-gradient(135deg,rgba(21,98,204,.22) 0%,rgba(10,20,50,.9) 100%)",
+  gradScreen:"linear-gradient(160deg,#010814 0%,#040c20 40%,#020810 100%)",
 };
+
+// ═══════════════════════════════════════════════════════════════
+// GECE / GÜNDÜZ TEMA MOTORU
+// C global nesnesi yerinde (Object.assign) güncellenir; bileşenler C.x'i
+// render anında okuduğu için App yeniden çizildiğinde tüm sayfalar yeni
+// paleti alır. Tema değişince "fcym_theme_change" olayı yayılır.
+// ═══════════════════════════════════════════════════════════════
+const DARK_THEME={...C,
+  bg:"#030b1a",nav:"#06102a",card:"#0a1630",card2:"#10203f",
+  dim:"#7d9cc4",dmr:"#3a5478",
+};
+const LIGHT_THEME={
+  bg:"#f1f5f9",nav:"#ffffff",card:"#ffffff",card2:"#e2e8f0",
+  ac:"#1d4ed8",ac2:"#2563eb",ac3:"rgba(37,99,235,0.10)",
+  gd:"#b45309",gd2:"#92400e",
+  wh:"#0f172a",dim:"#334155",dmr:"#475569",
+  brd:"rgba(15,23,42,0.14)",brd2:"rgba(15,23,42,0.07)",
+  grn:"#16a34a",grn2:"#15803d",grn3:"rgba(21,128,61,0.10)",
+  red:"#b91c1c",red2:"#dc2626",red3:"rgba(220,38,38,0.09)",
+  pur:"#7e22ce",pur2:"#9333ea",
+  ora:"#c2410c",
+  glow:"rgba(37,99,235,0.05)",
+  surface:"rgba(15,23,42,0.04)",
+  surfaceHover:"rgba(15,23,42,0.07)",
+  inset:"rgba(15,23,42,0.05)",
+  gradNav:"linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
+  gradCard:"linear-gradient(145deg,#ffffff,#f8fafc)",
+  gradSel:"linear-gradient(135deg,rgba(37,99,235,.12) 0%,#ffffff 100%)",
+  gradScreen:"linear-gradient(160deg,#f8fafc 0%,#eef2f7 50%,#e2e8f0 100%)",
+};
+const THEME_LS_KEY="fcym_theme_mode";
+const getThemeMode=()=>{
+  try{ const v=localStorage.getItem(THEME_LS_KEY); return v==="dark"?"dark":"light"; }catch(e){ return "light"; }
+};
+const isLightTheme=()=>C.bg===LIGHT_THEME.bg;
+function applyTheme(mode,notify=true){
+  const m=mode==="light"?"light":"dark";
+  Object.assign(C,m==="light"?LIGHT_THEME:DARK_THEME);
+  try{ document.documentElement.setAttribute("data-theme",m); }catch(e){}
+  try{ localStorage.setItem(THEME_LS_KEY,m); }catch(e){}
+  if(notify){ try{ window.dispatchEvent(new Event("fcym_theme_change")); }catch(e){} }
+  return m;
+}
+const toggleTheme=()=>applyTheme(getThemeMode()==="light"?"dark":"light");
+// Bileşeni tema değişimine abone eder; değişince yeniden render olur
+function useThemeMode(){
+  const [mode,setMode]=useState(getThemeMode);
+  useEffect(()=>{
+    const h=()=>setMode(getThemeMode());
+    window.addEventListener("fcym_theme_change",h);
+    return ()=>window.removeEventListener("fcym_theme_change",h);
+  },[]);
+  return mode;
+}
+applyTheme(getThemeMode(),false);
+
+// ── Hafif inline SVG ikon seti (emoji yerine) ─────────────────
+const APP_ICON_PATHS={
+  sun:"M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z",
+  moon:"M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
+  save:"M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2 0v6h8V3M7 21v-7h10v7",
+  home:"M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  users:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  calendar:"M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM16 3v4M8 3v4M3 10h18",
+  trophy:"M8 21h8m-4-4v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4m10-4h3a3 3 0 0 1-3 4",
+  settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.5 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z",
+  play:"M6 4l14 8-14 8z",
+  folder:"M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  star:"M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9z",
+  ball:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 5 4 3-1.5 4.5h-5L8 10zm0-5v5m4 3 5-1m-6.5 5.5L17 20m-7.5-5.5L7 20m1-10-5-1",
+  chart:"M3 3v18h18M8 17v-5m4 5V8m4 9v-7",
+  money:"M3 6h18v12H3zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6 9v.01M18 15v.01",
+  news:"M4 4h13v16H6a2 2 0 0 1-2-2zm13 4h3v10a2 2 0 0 1-2 2M8 8h5m-5 4h5m-5 4h3",
+  close:"M6 6l12 12M18 6 6 18",
+  chevron:"M9 6l6 6-6 6",
+};
+function AppIcon({name,size=16,color="currentColor",stroke=2,style={},title}){
+  const d=APP_ICON_PATHS[name]||APP_ICON_PATHS.star;
+  const filled=name==="play";
+  return(
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled?color:"none"} stroke={color}
+      strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round"
+      style={{display:"inline-block",verticalAlign:"middle",flexShrink:0,...style}}
+      aria-hidden={title?undefined:"true"} role={title?"img":undefined}>
+      {title&&<title>{title}</title>}
+      <path d={d}/>
+    </svg>
+  );
+}
+// Tek dokunuşla Gündüz/Gece geçiş butonu (header ve Ayarlar'da kullanılır)
+function ThemeToggleButton({compact=false,style={}}){
+  const mode=useThemeMode();
+  const light=mode==="light";
+  return(
+    <button onClick={toggleTheme} title={light?"Gece temasına geç":"Gündüz temasına geç"}
+      style={{display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",
+        padding:compact?"5px 8px":"8px 14px",borderRadius:compact?8:10,
+        background:C.surface,border:`1px solid ${C.brd}`,color:light?C.gd:C.ac2,
+        fontSize:compact?".7rem":".8rem",fontWeight:700,...style}}>
+      <AppIcon name={light?"moon":"sun"} size={compact?14:16}/>
+      {!compact&&<span style={{color:C.wh}}>{light?"Gece":"Gündüz"}</span>}
+    </button>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // YARDIMCILAR

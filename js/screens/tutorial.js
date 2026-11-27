@@ -89,7 +89,7 @@ function TutorialOverlay({onClose,clubName}){
       {/* Kart */}
       <div style={{
         width:"100%",maxWidth:380,
-        background:"linear-gradient(145deg,#0a1628,#0d1e3a)",
+        background:C.gradCard,
         border:"1px solid rgba(36,133,255,.3)",
         borderRadius:18,overflow:"hidden",
         boxShadow:"0 32px 80px rgba(0,0,0,.9),0 0 0 1px rgba(36,133,255,.1)"
@@ -125,11 +125,11 @@ function TutorialOverlay({onClose,clubName}){
             <span style={{fontSize:".7rem"}}>{cur.icon}</span>
           </div>
 
-          <div style={{fontSize:".82rem",fontWeight:800,color:"#fff",marginBottom:10,lineHeight:1.3}}>
+          <div style={{fontSize:".82rem",fontWeight:800,color:C.wh,marginBottom:10,lineHeight:1.3}}>
             {cur.title}
           </div>
 
-          <div style={{fontSize:".58rem",color:"rgba(255,255,255,.65)",lineHeight:1.75,marginBottom:14}}>
+          <div style={{fontSize:".58rem",color:C.dim,lineHeight:1.75,marginBottom:14}}>
             {cur.desc}
           </div>
 
@@ -149,7 +149,7 @@ function TutorialOverlay({onClose,clubName}){
             {TUTORIAL_STEPS.map((_,i)=>(
               <div key={i} onClick={()=>setStep(i)} style={{
                 width:i===step?20:6,height:6,borderRadius:3,
-                background:i<step?"#30e070":i===step?"#4da6ff":"rgba(255,255,255,.15)",
+                background:i<step?"#30e070":i===step?"#4da6ff":C.brd,
                 transition:"all .3s",cursor:"pointer"
               }}/>
             ))}
@@ -160,9 +160,9 @@ function TutorialOverlay({onClose,clubName}){
             {step>0&&(
               <button onClick={()=>setStep(s=>s-1)} style={{
                 flex:1,padding:"10px 0",borderRadius:10,
-                border:"1px solid rgba(255,255,255,.1)",
-                background:"rgba(255,255,255,.05)",
-                color:"rgba(255,255,255,.5)",fontSize:".6rem",
+                border:`1px solid ${C.brd}`,
+                background:C.surfaceHover,
+                color:C.dim,fontSize:".6rem",
                 cursor:"pointer",fontFamily:"inherit"
               }}>← Geri</button>
             )}
@@ -190,7 +190,7 @@ function TutorialOverlay({onClose,clubName}){
       {/* Atla */}
       <button onClick={onClose} style={{
         marginTop:16,background:"none",border:"none",
-        color:"rgba(255,255,255,.25)",fontSize:".5rem",
+        color:C.dmr,fontSize:".5rem",
         cursor:"pointer",fontFamily:"inherit",letterSpacing:1
       }}>Rehberi Atla</button>
     </div>

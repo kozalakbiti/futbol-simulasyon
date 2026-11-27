@@ -26,7 +26,7 @@ function PageTakimAdi({clubName,setClubName}){
           maxLength={30}
           placeholder="Takım adını girin..."
           style={{width:"100%",boxSizing:"border-box",padding:"10px 12px",
-            background:"rgba(255,255,255,.04)",border:`1px solid ${val!==clubName?C.ac2:C.brd}`,
+            background:C.surface,border:`1px solid ${val!==clubName?C.ac2:C.brd}`,
             borderRadius:7,color:C.wh,fontSize:".7rem",fontFamily:"inherit",outline:"none",
             marginBottom:10,transition:"border .2s"}}
         />

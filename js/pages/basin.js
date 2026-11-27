@@ -202,7 +202,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
     }}>
       <div style={{
         width:"min(390px,96vw)",maxHeight:"88vh",overflowY:"auto",
-        background:"linear-gradient(160deg,#0d1b3e,#0a1628)",
+        background:C.gradCard,
         border:"1px solid rgba(26,110,216,.35)",
         borderRadius:14,padding:20,
         boxShadow:"0 20px 60px rgba(0,0,0,.7)",
@@ -213,7 +213,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
           <div style={{fontSize:".54rem",color:"rgba(180,200,255,.5)",textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>
             Maç Sonu Basın Toplantısı
           </div>
-          <div style={{fontSize:".8rem",fontWeight:800,color:"#f0f4ff",marginBottom:4}}>
+          <div style={{fontSize:".8rem",fontWeight:800,color:C.wh,marginBottom:4}}>
             {resIcon} {fix.opp} — {score}
           </div>
           <div style={{fontSize:".5rem",color:"rgba(180,200,255,.5)"}}>
@@ -225,7 +225,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
           {questions.map((q,qi)=>(
             <div key={qi} style={{marginBottom:14}}>
               <div style={{
-                fontSize:".54rem",color:"rgba(200,220,255,.8)",
+                fontSize:".54rem",color:C.wh,
                 fontWeight:600,marginBottom:8,lineHeight:1.4,
                 padding:"6px 10px",background:"rgba(26,110,216,.08)",
                 borderLeft:"2px solid rgba(26,110,216,.5)",borderRadius:"0 5px 5px 0",
@@ -238,10 +238,10 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
                   <button key={oi} onClick={()=>setAnswers(a=>({...a,[qi]:oi}))}
                     style={{
                       width:"100%",textAlign:"left",padding:"8px 12px",marginBottom:5,
-                      background:sel?"rgba(77,166,255,.25)":"rgba(255,255,255,.03)",
-                      border:`1px solid ${sel?"rgba(26,110,216,.6)":"rgba(255,255,255,.08)"}`,
+                      background:sel?"rgba(77,166,255,.25)":C.surface,
+                      border:`1px solid ${sel?"rgba(26,110,216,.6)":C.brd}`,
                       borderRadius:7,cursor:"pointer",fontFamily:"inherit",
-                      color:sel?"#f0f4ff":"rgba(200,220,255,.7)",
+                      color:sel?C.wh:C.dim,
                       fontSize:".54rem",lineHeight:1.4,transition:"all .12s",
                     }}>
                     {sel&&<span style={{color:"#4a9eff",marginRight:6}}>▶</span>}
@@ -269,7 +269,7 @@ function PostMatchBasinModal({fix,result,clubName,fans,mgmt,updateFans,updateMgm
             <div style={{fontSize:"1.4rem",marginBottom:6}}>
               {summary.totalFan>=3?"🎉":summary.totalFan>0?"👍":summary.totalFan===0?"😐":"😬"}
             </div>
-            <div style={{fontSize:".66rem",fontWeight:700,color:"#f0f4ff",marginBottom:4}}>
+            <div style={{fontSize:".66rem",fontWeight:700,color:C.wh,marginBottom:4}}>
               Basın toplantısı tamamlandı
             </div>
           </div>
@@ -458,7 +458,7 @@ function PageBasin({season,squad,clubName,fans,updateFans,addNews,rep,mgmt,updat
       <STitle extra="📰">Basın Toplantısı</STitle>
 
       {/* Sekmeler */}
-      <div style={{display:"flex",gap:2,marginBottom:12,background:"rgba(0,0,0,.3)",borderRadius:6,padding:3}}>
+      <div style={{display:"flex",gap:2,marginBottom:12,background:C.inset,borderRadius:6,padding:3}}>
         {[["gundem","📋 Gündem"],["arsiv","📂 Arşiv"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{
             flex:1,padding:"5px 8px",borderRadius:4,border:"none",cursor:"pointer",
@@ -500,7 +500,7 @@ function PageBasin({season,squad,clubName,fans,updateFans,addNews,rep,mgmt,updat
           </div>
         ))}
         <div style={{marginTop:10,padding:"8px 12px",borderRadius:7,
-          background:"rgba(8,18,40,.7)",border:`1px solid rgba(77,166,255,0.1)`,fontSize:".52rem",color:C.dmr}}>
+          background:C.card,border:`1px solid rgba(77,166,255,0.1)`,fontSize:".52rem",color:C.dmr}}>
           💡 İpucu: Cevaplarınız taraftar mutluluğunu hafifçe etkiler.
         </div>
       </>}
@@ -712,7 +712,7 @@ function PageBasin({season,squad,clubName,fans,updateFans,addNews,rep,mgmt,updat
         </div>}
         {history.map((h,i)=>(
           <div key={i} style={{display:"flex",gap:8,padding:"8px 10px",
-            marginBottom:5,background:"rgba(8,18,40,.7)",
+            marginBottom:5,background:C.card,
             border:`1px solid rgba(77,166,255,0.1)`,borderRadius:6}}>
             <div style={{flex:1}}>
               <div style={{fontSize:".6rem",color:C.wh,fontWeight:600}}>{h.title}</div>

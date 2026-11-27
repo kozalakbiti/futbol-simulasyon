@@ -2,6 +2,7 @@
 // ANA UYGULAMA
 // ═══════════════════════════════════════════════════════════════
 function App(){
+  useThemeMode(); // Gece/Gündüz değişince tüm ağaç yeniden render olur
   const [page,setPage]=useState("home");
   const [digerOpen,setDigerOpen]=useState(false);
   const [managerOpen,setManagerOpen]=useState(false);
@@ -3819,17 +3820,17 @@ function App(){
       fontFamily:"system-ui,sans-serif",overflow:"hidden",fontSize:"14px"}}>
 
       {/* ── HEADER (kaydırılabilir) ── */}
-      <div style={{flexShrink:0,background:"linear-gradient(180deg,#0b1a38 0%,#060d1e 100%)",borderBottom:"1px solid rgba(77,168,255,0.22)",boxShadow:"0 2px 20px rgba(0,0,0,0.9),0 1px 0 rgba(77,168,255,0.08)"}}>
+      <div style={{flexShrink:0,background:C.gradNav,borderBottom:"1px solid rgba(77,168,255,0.22)",boxShadow:"0 2px 20px rgba(0,0,0,0.9),0 1px 0 rgba(77,168,255,0.08)"}}>
         {/* Üst satır: başlık + takım bilgisi */}
         <div style={{display:"flex",alignItems:"center",height:46,overflowX:"auto",
           scrollbarWidth:"none",padding:"0 10px",gap:8}}>
-          <button onClick={()=>setManagerOpen(true)} style={{background:managerOpen?"rgba(77,168,255,.3)":"rgba(20,98,204,.9)",padding:"0 10px",height:"100%",display:"flex",alignItems:"center",gap:6,
+          <button onClick={()=>setManagerOpen(true)} style={{background:managerOpen?"rgba(13,74,158,.95)":"rgba(20,98,204,.9)",padding:"0 10px",height:"100%",display:"flex",alignItems:"center",gap:6,
             fontWeight:700,fontSize:".7rem",flexShrink:0,border:"none",cursor:"pointer",fontFamily:"inherit",
             borderRadius:"0 6px 6px 0",transition:"background .2s",boxShadow:managerOpen?"inset 0 0 0 1px rgba(77,168,255,0.3)":"none"}}>
             <ManagerAvatar id={manager.avatar} size={24}/>
             <div style={{textAlign:"left"}}>
-              <div style={{fontSize:".58rem",fontWeight:700,letterSpacing:.5,color:"#d8e8ff",whiteSpace:"nowrap"}}>{manager.firstName[0]}.{manager.lastName}</div>
-              <div style={{fontSize:".42rem",color:"rgba(255,255,255,.6)",letterSpacing:1}}>MENAJER</div>
+              <div style={{fontSize:".58rem",fontWeight:700,letterSpacing:.5,color:"#fff",whiteSpace:"nowrap"}}>{manager.firstName[0]}.{manager.lastName}</div>
+              <div style={{fontSize:".42rem",color:"rgba(255,255,255,0.85)",letterSpacing:1}}>MENAJER</div>
             </div>
           </button>
           <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
@@ -3837,7 +3838,7 @@ function App(){
               border:"1.5px solid rgba(45,143,255,0.5)",display:"flex",alignItems:"center",justifyContent:"center",
               fontSize:"1rem",boxShadow:"0 2px 8px rgba(45,143,255,0.3)"}}>⚽</div>
             <div>
-              <div style={{fontSize:".76rem",fontWeight:900,letterSpacing:2,whiteSpace:"nowrap",color:"#f0f6ff",fontFamily:"'Barlow Condensed',sans-serif"}}>{clubName.toUpperCase()}</div>
+              <div style={{fontSize:".76rem",fontWeight:900,letterSpacing:2,whiteSpace:"nowrap",color:C.wh,fontFamily:"'Barlow Condensed',sans-serif"}}>{clubName.toUpperCase()}</div>
               <div style={{fontSize:".44rem",color:C.ac2,fontWeight:600,letterSpacing:1}}>{season.league||"1. Lig"}</div>
             </div>
           </div>
@@ -3846,7 +3847,7 @@ function App(){
             <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",
               borderLeft:`1px solid rgba(77,166,255,0.22)`,paddingLeft:9,flexShrink:0,gap:1}}>
               <div style={{fontSize:".78rem",fontWeight:800,color:c,whiteSpace:"nowrap",letterSpacing:.5,fontFamily:"'Barlow Condensed',sans-serif"}}>{l}{v?" "+v:""}</div>
-              <div style={{fontSize:".40rem",color:"rgba(77,168,255,.45)",letterSpacing:1.4,textTransform:"uppercase",fontWeight:600}}>
+              <div style={{fontSize:".40rem",color:C.dim,letterSpacing:1.4,textTransform:"uppercase",fontWeight:600}}>
                 {i===0?"PUAN":i===1?"SIRA":i===2?"BÜTÇE":"HAFTA"}
               </div>
             </div>
@@ -3862,13 +3863,14 @@ function App(){
                 borderRadius:5,color:saveStatus==="saved"?C.grn2:saveStatus==="saving"?C.gd:C.dim,
                 padding:"4px 8px",cursor:"pointer",fontSize:".6rem",fontFamily:"inherit",
                 display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
-              {saveStatus==="saving"?"⏳":saveStatus==="saved"?"✅":"💾"}
+              {saveStatus==="saving"?"⏳":saveStatus==="saved"?"✅":<AppIcon name="save" size={12}/>}
               <span style={{fontSize:".5rem"}}>{saveStatus==="saving"?"Kaydediliyor":saveStatus==="saved"?"Kaydedildi":"Kaydet"}</span>
             </button>
+            <ThemeToggleButton compact style={{borderRadius:5,padding:"4px 7px"}}/>
             <button onClick={()=>setShowExitConfirm(true)} title="Ana Menü"
-              style={{background:"rgba(255,255,255,.04)",border:`1px solid rgba(77,166,255,0.22)`,
-                borderRadius:5,color:C.dmr,padding:"4px 7px",cursor:"pointer",fontSize:".7rem",fontFamily:"inherit"}}>
-              🏠
+              style={{background:C.surface,border:`1px solid rgba(77,166,255,0.22)`,
+                borderRadius:5,color:C.dim,padding:"4px 7px",cursor:"pointer",fontSize:".7rem",fontFamily:"inherit",display:"flex",alignItems:"center"}}>
+              <AppIcon name="home" size={13}/>
             </button>
           </div>
         </div>
@@ -3887,7 +3889,7 @@ function App(){
                   display:"flex",alignItems:"center",gap:4,padding:"7px 11px",
                   cursor:"pointer",flexShrink:0,fontFamily:"inherit",
                   border:"none",borderBottom:`2.5px solid ${isActive?C.ac2:"transparent"}`,
-                  color:isActive?"#fff":C.dim,fontWeight:isActive?700:400,
+                  color:isActive?C.wh:C.dim,fontWeight:isActive?700:400,
                   background:isActive?"rgba(77,168,255,0.08)":"transparent",
                   transition:"color .18s,background .18s"}}>
                   <span style={{fontSize:isDiger?".72rem":".82rem",letterSpacing:isDiger?2:0,filter:isActive?"drop-shadow(0 0 4px rgba(77,168,255,0.5))":"none",transition:"filter .18s"}}>{item.i}</span>
@@ -3900,7 +3902,7 @@ function App(){
           {/* Diğer dropdown */}
           {digerOpen&&(
             <div style={{position:"absolute",top:"100%",right:0,zIndex:50,
-              background:"rgba(4,10,22,.97)",border:`1px solid rgba(77,168,255,0.18)`,borderTop:"none",backdropFilter:"blur(8px)",
+              background:C.nav,border:`1px solid rgba(77,168,255,0.18)`,borderTop:"none",backdropFilter:"blur(8px)",
               borderRadius:"0 0 6px 6px",boxShadow:"0 8px 24px rgba(0,0,0,.6)",
               minWidth:160,overflow:"hidden"}}>
               {DIGER_PAGES.map((item,i)=>(
@@ -3966,7 +3968,7 @@ function App(){
           return(
           <div style={{
             position:"relative",overflow:"hidden",flexShrink:0,
-            background:`linear-gradient(135deg,#071830 0%,#0a0f1e 40%,#050810 100%)`,
+            background:C.gradCard,
             borderBottom:`1px solid rgba(${accentRgb},0.25)`,
             boxShadow:`inset 0 -1px 0 rgba(${accentRgb},0.15)`
           }}>
@@ -4009,7 +4011,7 @@ function App(){
                     borderRadius:3,padding:"1px 6px",
                     fontSize:".38rem",fontWeight:800,color:accentCol,letterSpacing:1.5,textTransform:"uppercase"
                   }}>SONRAKİ MAÇ</div>
-                  <div style={{fontSize:".38rem",color:"rgba(255,255,255,0.35)",fontWeight:600,letterSpacing:1}}>
+                  <div style={{fontSize:".38rem",color:C.dmr,fontWeight:600,letterSpacing:1}}>
                     {compLabel} · {nextFix.month.toUpperCase()}
                   </div>
                 </div>
@@ -4017,25 +4019,25 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   {/* Bizim takım */}
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:".78rem",fontWeight:900,color:"#f0f6ff",letterSpacing:.3,
+                    <div style={{fontSize:".78rem",fontWeight:900,color:C.wh,letterSpacing:.3,
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
                       textShadow:`0 0 20px rgba(${accentRgb},0.4)`}}>{clubName}</div>
                     <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2}}>
                       <span style={{fontSize:".4rem",fontWeight:700,
-                        color:isHome?C.grn2:"#7898c0",letterSpacing:.8,
+                        color:isHome?C.grn2:C.dim,letterSpacing:.8,
                         background:isHome?"rgba(26,184,85,0.12)":"rgba(120,152,192,0.1)",
                         border:`1px solid ${isHome?"rgba(26,184,85,0.3)":"rgba(120,152,192,0.2)"}`,
                         borderRadius:2,padding:"0px 4px"}}>{isHome?"🏠 EV":"✈️ DEP"}</span>
-                      <span style={{fontSize:".4rem",color:"rgba(255,255,255,0.3)"}}>GÜÇ</span>
+                      <span style={{fontSize:".4rem",color:C.dmr}}>GÜÇ</span>
                       <span style={{fontSize:".44rem",fontWeight:800,color:accentCol}}>{myStr}</span>
                     </div>
                   </div>
                   {/* VS + fark */}
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,flexShrink:0}}>
                     <div style={{
-                      background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",
+                      background:C.surfaceHover,border:`1px solid ${C.brd}`,
                       borderRadius:4,padding:"2px 7px",
-                      fontSize:".5rem",fontWeight:900,color:"rgba(255,255,255,0.5)",letterSpacing:2
+                      fontSize:".5rem",fontWeight:900,color:C.dim,letterSpacing:2
                     }}>VS</div>
                     <div style={{fontSize:".36rem",fontWeight:700,color:diffCol}}>
                       {diff>0?`+${diff}`:diff===0?"═":diff}
@@ -4043,12 +4045,12 @@ function App(){
                   </div>
                   {/* Rakip */}
                   <div style={{flex:1,minWidth:0,textAlign:"right"}}>
-                    <div style={{fontSize:".78rem",fontWeight:900,color:"#f0f6ff",letterSpacing:.3,
+                    <div style={{fontSize:".78rem",fontWeight:900,color:C.wh,letterSpacing:.3,
                       overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nextFix.opp}</div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:4,marginTop:2}}>
-                      <span style={{fontSize:".4rem",color:"rgba(255,255,255,0.3)"}}>GÜÇ</span>
+                      <span style={{fontSize:".4rem",color:C.dmr}}>GÜÇ</span>
                       <span style={{fontSize:".44rem",fontWeight:800,
-                        color:nextFixLive.str>=80?C.red2:nextFixLive.str>=70?C.gd:"rgba(255,255,255,0.5)"}}>{nextFixLive.str}</span>
+                        color:nextFixLive.str>=80?C.red2:nextFixLive.str>=70?C.gd:C.dim}}>{nextFixLive.str}</span>
                     </div>
                   </div>
                 </div>
@@ -4078,10 +4080,10 @@ function App(){
             borderTop:"1px solid rgba(77,166,255,.2)",
           }}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:".54rem",fontWeight:800,color:"#4da6ff",letterSpacing:.5}}>
+              <div style={{fontSize:".54rem",fontWeight:800,color:C.ac2,letterSpacing:.5}}>
                 {pendingNewSeason.promoted?(pendingNewSeason.league==="İngiliz Ligi"?"🏆 Yeni sezon hazır — İngiliz Ligi":"🏆 Yeni sezon hazır — Süper Lig"):pendingNewSeason.relegated?(pendingNewSeason.league==="İngiliz 2. Ligi"?"⬇ Yeni sezon hazır — İngiliz 2. Ligi":"⬇ Yeni sezon hazır — TFF 1. Lig"):"⚽ Yeni sezon başlatmaya hazır"}
               </div>
-              <div style={{fontSize:".42rem",color:"rgba(255,255,255,.4)",marginTop:1}}>İstediğin kadar istatistiklere göz at, hazır olunca başlat</div>
+              <div style={{fontSize:".42rem",color:C.dmr,marginTop:1}}>İstediğin kadar istatistiklere göz at, hazır olunca başlat</div>
             </div>
             <button onClick={()=>{
               promoteToLeague(pendingNewSeason.league,pendingNewSeason.tffTable,pendingNewSeason.slTable);
@@ -4141,7 +4143,7 @@ function App(){
       </div>
 
       {/* ── STATUS BAR ── */}
-      <div style={{height:22,background:"#030508",borderTop:`1px solid rgba(77,166,255,0.22)`,
+      <div style={{height:22,background:C.nav,borderTop:`1px solid rgba(77,166,255,0.22)`,
         display:"flex",alignItems:"center",overflowX:"auto",scrollbarWidth:"none",
         padding:"0 10px",gap:10,flexShrink:0}}>
         {(()=>{const ligMac=season.results.filter(r=>r.comp!=="ZTK"&&r.comp!=="HAZ"&&r.comp!=="CL"&&r.comp!=="UEFA"&&r.comp!=="CON"&&r.comp!=="SUPERKUPA").length;const LIG_MAC_MAX2={"1. Lig":38,"Elit Lig":34,"İngiliz Ligi":38,"İspanyol Ligi":38,"Alman Ligi":34,"İtalyan Ligi":38,"Fransız Ligi":34,"Hollanda Ligi":34,"Portekiz Ligi":34,"İngiliz 2. Ligi":46};const topMac=LIG_MAC_MAX2[season.league||"1. Lig"]||34;return[`● ${clubName.toUpperCase()}`,`P: ${myTeam.pts}`,`Sıra: ${myRank}`,`H: ${ligMac}/${topMac}`,`W:${season.wins} D:${season.draws} L:${season.losses}`];})().map((v,i)=>(
@@ -4194,7 +4196,7 @@ function App(){
       {incomingOffers.length>0&&!activeOffer&&(
         <div style={{position:"fixed",bottom:toast?60:6,left:"50%",transform:"translateX(-50%)",
           zIndex:200,display:"flex",alignItems:"center",gap:8,
-          background:"linear-gradient(135deg,#0a1e3d,#061228)",
+          background:C.gradCard,
           border:`1px solid ${C.gd}`,borderRadius:6,padding:"7px 12px",
           boxShadow:"0 4px 20px rgba(0,0,0,.7)",minWidth:260,maxWidth:340}}>
           <span style={{fontSize:"1rem"}}>📨</span>
@@ -4310,11 +4312,11 @@ function App(){
       {managerOpen&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:400,display:"flex",alignItems:"flex-start",justifyContent:"flex-start",padding:0}}
           onClick={()=>setManagerOpen(false)}>
-          <div style={{background:"#0a1428",border:`1px solid ${C.ac2}`,borderRadius:"0 0 12px 0",
+          <div style={{background:C.card,border:`1px solid ${C.ac2}`,borderRadius:"0 0 12px 0",
             boxShadow:"0 8px 32px rgba(0,0,0,.8)",minWidth:260,maxWidth:300,overflow:"hidden"}}
             onClick={e=>e.stopPropagation()}>
             {/* Header */}
-            <div style={{background:"linear-gradient(135deg,#0d1e3a,#071226)",padding:"14px 16px",borderBottom:`1px solid rgba(77,166,255,0.22)`,
+            <div style={{background:C.gradCard,padding:"14px 16px",borderBottom:`1px solid rgba(77,166,255,0.22)`,
               display:"flex",alignItems:"center",gap:12}}>
               {/* Avatar seçici */}
               <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(45,143,255,.15)",
@@ -4327,7 +4329,7 @@ function App(){
                 <div style={{fontSize:".54rem",color:C.gd,fontWeight:600,letterSpacing:1}}>⭐ MENAJER · {manager.age} yaş</div>
                 <div style={{fontSize:".48rem",color:C.dim,marginTop:1}}>Lisans: Pro Menajer</div>
               </div>
-              <button onClick={()=>setManagerOpen(false)} style={{marginLeft:"auto",background:"rgba(255,255,255,.06)",
+              <button onClick={()=>setManagerOpen(false)} style={{marginLeft:"auto",background:C.surfaceHover,
                 border:`1px solid rgba(77,166,255,0.22)`,color:C.dim,cursor:"pointer",fontSize:".7rem",
                 width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
                 fontFamily:"inherit",flexShrink:0}}>✕</button>
@@ -4342,7 +4344,7 @@ function App(){
                   {Object.keys(AVATAR_DEFS).map(avId=>(
                     <button key={avId} onClick={()=>setManager(m=>({...m,avatar:avId}))} style={{
                       width:"100%",aspectRatio:"1",borderRadius:8,cursor:"pointer",fontFamily:"inherit",padding:4,
-                      background:manager.avatar===avId?"rgba(36,133,255,.2)":"rgba(255,255,255,.04)",
+                      background:manager.avatar===avId?"rgba(36,133,255,.2)":C.surface,
                       border:`2px solid ${manager.avatar===avId?C.ac2:C.brd}`,
                       display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",overflow:"hidden"}}>
                       <ManagerAvatar id={avId} size={36}/>
@@ -4357,14 +4359,14 @@ function App(){
                   <div style={{fontSize:".44rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4,fontWeight:700}}>Ad</div>
                   <input value={manager.firstName}
                     onChange={e=>setManager(m=>({...m,firstName:e.target.value}))}
-                    style={{width:"100%",background:"rgba(255,255,255,.06)",border:`1px solid rgba(77,166,255,0.22)`,
+                    style={{width:"100%",background:C.surfaceHover,border:`1px solid rgba(77,166,255,0.22)`,
                       color:C.wh,padding:"6px 8px",borderRadius:5,fontSize:".68rem",fontFamily:"inherit",outline:"none"}}/>
                 </div>
                 <div>
                   <div style={{fontSize:".44rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4,fontWeight:700}}>Soyad</div>
                   <input value={manager.lastName}
                     onChange={e=>setManager(m=>({...m,lastName:e.target.value}))}
-                    style={{width:"100%",background:"rgba(255,255,255,.06)",border:`1px solid rgba(77,166,255,0.22)`,
+                    style={{width:"100%",background:C.surfaceHover,border:`1px solid rgba(77,166,255,0.22)`,
                       color:C.wh,padding:"6px 8px",borderRadius:5,fontSize:".68rem",fontFamily:"inherit",outline:"none"}}/>
                 </div>
               </div>
@@ -4374,7 +4376,7 @@ function App(){
                 <div style={{fontSize:".44rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4,fontWeight:700}}>Takım Adı</div>
                 <input value={clubName}
                   onChange={e=>setClubName(e.target.value)}
-                  style={{width:"100%",background:"rgba(255,255,255,.06)",border:`1px solid rgba(77,166,255,0.22)`,
+                  style={{width:"100%",background:C.surfaceHover,border:`1px solid rgba(77,166,255,0.22)`,
                     color:C.wh,padding:"6px 8px",borderRadius:5,fontSize:".68rem",fontFamily:"inherit",outline:"none"}}/>
               </div>
 
@@ -4399,7 +4401,7 @@ function App(){
                   {l:"Deneyim",v:manager.age>=55?"Veteran":manager.age>=45?"Tecrübeli":manager.age>=35?"Orta":"Genç",c:manager.age>=55?C.gd:manager.age>=45?C.grn2:C.ac2},
                   {l:"Lisans",v:"Pro",c:C.pur2},
                 ].map((x,i)=>(
-                  <div key={i} style={{background:"rgba(255,255,255,.04)",borderRadius:5,padding:"6px 8px",border:`1px solid rgba(77,166,255,0.1)`}}>
+                  <div key={i} style={{background:C.surface,borderRadius:5,padding:"6px 8px",border:`1px solid rgba(77,166,255,0.1)`}}>
                     <div style={{fontSize:".42rem",color:C.dmr,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>{x.l}</div>
                     <div style={{fontSize:".7rem",fontWeight:700,color:x.c}}>{x.v}</div>
                   </div>
@@ -4419,7 +4421,7 @@ function App(){
 
       {/* ─── TRANSFER TEKLİF SAYFASI (App seviyesi) ─── */}
       {transferOffer&&(
-        <div style={{position:"fixed",inset:0,zIndex:350,background:"#02050c",display:"flex",flexDirection:"column"}}>
+        <div style={{position:"fixed",inset:0,zIndex:350,background:C.bg,display:"flex",flexDirection:"column"}}>
           <OfferPage
             onOfferSent={(pid)=>setWeeklyOfferedPlayers(prev=>({...prev,[pid]:season.week}))}
             onOfferFailed={(pid)=>setWeeklyOfferedPlayers(prev=>{const n={...prev};delete n[pid];return n;})}
@@ -4481,7 +4483,7 @@ function App(){
 
       {toast&&(
         <div style={{position:"fixed",bottom:30,left:"50%",transform:"translateX(-50%)",
-          background:"rgba(10,22,45,.97)",color:"#fff",padding:"8px 16px",borderRadius:5,
+          background:C.nav,color:C.wh,padding:"8px 16px",borderRadius:5,
           fontSize:".76rem",border:`1px solid ${C.ac2}`,zIndex:999,
           boxShadow:"0 4px 20px rgba(0,0,0,.6)",pointerEvents:"none",whiteSpace:"nowrap"}}>
           ✓ {toast}
@@ -4496,10 +4498,10 @@ function App(){
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.8)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}
             onClick={()=>setReleaseConfirm(null)}>
-            <div style={{background:"#0a1428",border:"1px solid rgba(231,76,60,.4)",borderRadius:12,padding:20,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(0,0,0,.8)"}}
+            <div style={{background:C.card,border:"1px solid rgba(231,76,60,.4)",borderRadius:12,padding:20,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(0,0,0,.8)"}}
               onClick={e=>e.stopPropagation()}>
-              <div style={{fontSize:".8rem",fontWeight:800,color:"#fff",marginBottom:4}}>📤 {p.n} — Ne Yapmak İstiyorsun?</div>
-              <div style={{fontSize:".52rem",color:"#7898c0",marginBottom:16}}>{p.pos} · OVR {p.ovr} · {p.age} yaş</div>
+              <div style={{fontSize:".8rem",fontWeight:800,color:C.wh,marginBottom:4}}>📤 {p.n} — Ne Yapmak İstiyorsun?</div>
+              <div style={{fontSize:".52rem",color:C.dim,marginBottom:16}}>{p.pos} · OVR {p.ovr} · {p.age} yaş</div>
 
               {/* Transfer listesine ekle */}
               <div style={{background:"rgba(39,174,96,.08)",border:"1px solid rgba(39,174,96,.25)",borderRadius:8,padding:12,marginBottom:10,cursor:"pointer"}}
@@ -4511,8 +4513,8 @@ function App(){
                   setReleaseConfirm(null); setSelectedPlayer(null);
                 }}>
                 <div style={{fontSize:".64rem",fontWeight:700,color:"#27ae60",marginBottom:3}}>📋 Transfer Listesine Ekle</div>
-                <div style={{fontSize:".5rem",color:"#7898c0"}}>
-                  {transferWindowOpen?"Kulüpler hemen teklif yapabilir":"Pencere açılınca teklifler gelecek"} · Beklenen: <span style={{color:"#ffd060",fontWeight:700}}>{calcEffectiveVal(p)}M€</span>
+                <div style={{fontSize:".5rem",color:C.dim}}>
+                  {transferWindowOpen?"Kulüpler hemen teklif yapabilir":"Pencere açılınca teklifler gelecek"} · Beklenen: <span style={{color:C.gd,fontWeight:700}}>{calcEffectiveVal(p)}M€</span>
                 </div>
               </div>
 
@@ -4532,13 +4534,13 @@ function App(){
                   setReleaseConfirm(null); setSelectedPlayer(null);
                 }}>
                 <div style={{fontSize:".64rem",fontWeight:700,color:"#e74c3c",marginBottom:3}}>🔓 Serbest Bırak</div>
-                <div style={{fontSize:".5rem",color:"#7898c0"}}>Transfer geliri yok · Tazminat: <span style={{color:"#ff6b6b",fontWeight:700}}>{tazminat>0?tazminat+"K€":"—"}</span></div>
-                <div style={{fontSize:".44rem",color:"#5a7090",marginTop:3}}>{p.ct||0} yıl kalan sözleşme × {p.sal||0}K€ × 0.5</div>
+                <div style={{fontSize:".5rem",color:C.dim}}>Transfer geliri yok · Tazminat: <span style={{color:"#ff6b6b",fontWeight:700}}>{tazminat>0?tazminat+"K€":"—"}</span></div>
+                <div style={{fontSize:".44rem",color:C.dim,marginTop:3}}>{p.ct||0} yıl kalan sözleşme × {p.sal||0}K€ × 0.5</div>
               </div>
 
               <button onClick={()=>setReleaseConfirm(null)}
-                style={{width:"100%",padding:"8px 0",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.1)",
-                  color:"#7898c0",borderRadius:6,cursor:"pointer",fontSize:".56rem",fontFamily:"inherit"}}>İptal</button>
+                style={{width:"100%",padding:"8px 0",background:C.surface,border:`1px solid ${C.brd}`,
+                  color:C.dim,borderRadius:6,cursor:"pointer",fontSize:".56rem",fontFamily:"inherit"}}>İptal</button>
             </div>
           </div>
         );
@@ -4547,27 +4549,27 @@ function App(){
       {seasonEndModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.95)",zIndex:500,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{minHeight:"100%",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 12px 32px"}}>
-          <div style={{background:"linear-gradient(160deg,#0d1e3c,#060c1c)",border:"1px solid rgba(45,143,255,0.3)",borderRadius:16,padding:"18px 16px",maxWidth:340,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.9)"}}>
+          <div style={{background:C.gradCard,border:"1px solid rgba(45,143,255,0.3)",borderRadius:16,padding:"18px 16px",maxWidth:340,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.9)"}}>
 
             {/* Başlık */}
             <div style={{textAlign:"center",marginBottom:14,paddingBottom:14,borderBottom:"1px solid rgba(77,166,255,.12)"}}>
               <div style={{fontSize:"2.2rem",marginBottom:4}}>
                 {seasonEndModal.rank===1?"🏆":seasonEndModal.promoted?"🎉":seasonEndModal.relegated?"⬇️":seasonEndModal.rank<=3?"🥈":"🏁"}
               </div>
-              <div style={{fontSize:".58rem",fontWeight:700,letterSpacing:3,color:"rgba(77,166,255,.7)",textTransform:"uppercase",marginBottom:4}}>SEZON SONU</div>
-              <div style={{fontSize:"1.4rem",fontWeight:900,color:"#f0f4ff"}}>{seasonEndModal.league}</div>
+              <div style={{fontSize:".58rem",fontWeight:700,letterSpacing:3,color:C.ac2,textTransform:"uppercase",marginBottom:4}}>SEZON SONU</div>
+              <div style={{fontSize:"1.4rem",fontWeight:900,color:C.wh}}>{seasonEndModal.league}</div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:6}}>
                 <div style={{background:"rgba(77,166,255,.15)",border:"1px solid rgba(77,166,255,.3)",borderRadius:8,padding:"4px 14px",textAlign:"center"}}>
-                  <div style={{fontSize:".42rem",color:"#7898c0",textTransform:"uppercase",letterSpacing:1}}>Sıra</div>
-                  <div style={{fontSize:"1.2rem",fontWeight:900,color:"#4da6ff"}}>{seasonEndModal.rank}.</div>
+                  <div style={{fontSize:".42rem",color:C.dim,textTransform:"uppercase",letterSpacing:1}}>Sıra</div>
+                  <div style={{fontSize:"1.2rem",fontWeight:900,color:C.ac2}}>{seasonEndModal.rank}.</div>
                 </div>
                 <div style={{background:"rgba(77,166,255,.15)",border:"1px solid rgba(77,166,255,.3)",borderRadius:8,padding:"4px 14px",textAlign:"center"}}>
-                  <div style={{fontSize:".42rem",color:"#7898c0",textTransform:"uppercase",letterSpacing:1}}>Puan</div>
-                  <div style={{fontSize:"1.2rem",fontWeight:900,color:"#4da6ff"}}>{seasonEndModal.pts}</div>
+                  <div style={{fontSize:".42rem",color:C.dim,textTransform:"uppercase",letterSpacing:1}}>Puan</div>
+                  <div style={{fontSize:"1.2rem",fontWeight:900,color:C.ac2}}>{seasonEndModal.pts}</div>
                 </div>
                 <div style={{background:"rgba(77,166,255,.15)",border:"1px solid rgba(77,166,255,.3)",borderRadius:8,padding:"4px 14px",textAlign:"center"}}>
-                  <div style={{fontSize:".42rem",color:"#7898c0",textTransform:"uppercase",letterSpacing:1}}>Maç</div>
-                  <div style={{fontSize:"1.2rem",fontWeight:900,color:"#4da6ff"}}>{(seasonEndModal.teams.find(t=>t.me)||{}).w||0+((seasonEndModal.teams.find(t=>t.me)||{}).d||0)+((seasonEndModal.teams.find(t=>t.me)||{}).l||0)||season.played||0}</div>
+                  <div style={{fontSize:".42rem",color:C.dim,textTransform:"uppercase",letterSpacing:1}}>Maç</div>
+                  <div style={{fontSize:"1.2rem",fontWeight:900,color:C.ac2}}>{(seasonEndModal.teams.find(t=>t.me)||{}).w||0+((seasonEndModal.teams.find(t=>t.me)||{}).d||0)+((seasonEndModal.teams.find(t=>t.me)||{}).l||0)||season.played||0}</div>
                 </div>
               </div>
             </div>
@@ -4622,7 +4624,7 @@ function App(){
                   </div>
                   {scenGoals.map((g,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",
-                      borderBottom:i<scenGoals.length-1?"1px solid rgba(255,255,255,.05)":"none"}}>
+                      borderBottom:i<scenGoals.length-1?`1px solid ${C.brd2}`:"none"}}>
                       <div style={{fontSize:".9rem"}}>{g.done?"✅":"❌"}</div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:".56rem",color:g.done?C.wh:C.dim,fontWeight:g.done?600:400}}>{g.label}</div>
@@ -4646,21 +4648,21 @@ function App(){
               const GF=myTeam.gf||season.goals||0;
               const GA=myTeam.ga||season.conceded||0;
               return(
-                <div style={{background:"rgba(10,20,45,.6)",border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-                  <div style={{fontSize:".44rem",color:"rgba(77,166,255,.6)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>Sezon Performansı</div>
+                <div style={{background:C.card,border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{fontSize:".44rem",color:C.ac2,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>Sezon Performansı</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
                     {[["G","Galibiyet",W,"#30e070"],["B","Beraberlik",D,"#ffd060"],["M","Mağlubiyet",L,"#ff5050"]].map(([k,lbl,v,c])=>(
-                      <div key={k} style={{background:"rgba(255,255,255,.04)",borderRadius:7,padding:"6px 4px",textAlign:"center"}}>
+                      <div key={k} style={{background:C.surface,borderRadius:7,padding:"6px 4px",textAlign:"center"}}>
                         <div style={{fontSize:"1.1rem",fontWeight:900,color:c}}>{v}</div>
-                        <div style={{fontSize:".4rem",color:"#7898c0"}}>{lbl}</div>
+                        <div style={{fontSize:".4rem",color:C.dim}}>{lbl}</div>
                       </div>
                     ))}
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                     {[["Atılan",GF,"#30e070"],["Yenen",GA,"#ff5050"],["Averaj",GF-GA>=0?"+":"",GF-GA>=0?"#30e070":"#ff5050"]].map(([lbl,v,c],i)=>(
-                      <div key={lbl} style={{background:"rgba(255,255,255,.04)",borderRadius:7,padding:"6px 4px",textAlign:"center"}}>
+                      <div key={lbl} style={{background:C.surface,borderRadius:7,padding:"6px 4px",textAlign:"center"}}>
                         <div style={{fontSize:"1.0rem",fontWeight:900,color:c}}>{i===2?(GF-GA>=0?"+":"")+(GF-GA):v}</div>
-                        <div style={{fontSize:".4rem",color:"#7898c0"}}>{lbl}</div>
+                        <div style={{fontSize:".4rem",color:C.dim}}>{lbl}</div>
                       </div>
                     ))}
                   </div>
@@ -4673,15 +4675,15 @@ function App(){
               const scorers=squad.filter(p=>(p.seasonGoals||0)>0).sort((a,b)=>(b.seasonGoals||0)-(a.seasonGoals||0)).slice(0,3);
               if(scorers.length===0) return null;
               return(
-                <div style={{background:"rgba(10,20,45,.6)",border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-                  <div style={{fontSize:".44rem",color:"rgba(77,166,255,.6)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>⚽ Gol Krallığı (Kadro)</div>
+                <div style={{background:C.card,border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{fontSize:".44rem",color:C.ac2,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>⚽ Gol Krallığı (Kadro)</div>
                   {scorers.map((p,i)=>(
-                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:i<scorers.length-1?"1px solid rgba(255,255,255,.04)":"none"}}>
-                      <div style={{fontSize:".52rem",fontWeight:700,color:i===0?"#ffd060":i===1?"#c0c0c0":"#cd7f32",minWidth:16}}>{i+1}.</div>
-                      <div style={{flex:1,fontSize:".58rem",color:"#f0f4ff",fontWeight:600}}>{p.n}</div>
-                      <div style={{fontSize:".52rem",color:"#7898c0"}}>{p.pos}</div>
-                      <div style={{fontSize:".68rem",fontWeight:800,color:"#30e070"}}>{p.seasonGoals}⚽</div>
-                      {(p.seasonAssists||0)>0&&<div style={{fontSize:".52rem",color:"#4da6ff"}}>{p.seasonAssists}🅰️</div>}
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:i<scorers.length-1?`1px solid ${C.brd2}`:"none"}}>
+                      <div style={{fontSize:".52rem",fontWeight:700,color:i===0?C.gd:i===1?"#c0c0c0":"#cd7f32",minWidth:16}}>{i+1}.</div>
+                      <div style={{flex:1,fontSize:".58rem",color:C.wh,fontWeight:600}}>{p.n}</div>
+                      <div style={{fontSize:".52rem",color:C.dim}}>{p.pos}</div>
+                      <div style={{fontSize:".68rem",fontWeight:800,color:C.grn2}}>{p.seasonGoals}⚽</div>
+                      {(p.seasonAssists||0)>0&&<div style={{fontSize:".52rem",color:C.ac2}}>{p.seasonAssists}🅰️</div>}
                     </div>
                   ))}
                 </div>
@@ -4694,15 +4696,15 @@ function App(){
               if(rated.length===0) return null;
               const top=rated.map(p=>({...p,avg:p.seasonRatings.reduce((s,r)=>s+r,0)/p.seasonRatings.length})).sort((a,b)=>b.avg-a.avg).slice(0,3);
               return(
-                <div style={{background:"rgba(10,20,45,.6)",border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-                  <div style={{fontSize:".44rem",color:"rgba(77,166,255,.6)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>⭐ En İyi Ortalama Puan</div>
+                <div style={{background:C.card,border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{fontSize:".44rem",color:C.ac2,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>⭐ En İyi Ortalama Puan</div>
                   {top.map((p,i)=>(
-                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:i<top.length-1?"1px solid rgba(255,255,255,.04)":"none"}}>
-                      <div style={{fontSize:".52rem",fontWeight:700,color:i===0?"#ffd060":i===1?"#c0c0c0":"#cd7f32",minWidth:16}}>{i+1}.</div>
-                      <div style={{flex:1,fontSize:".58rem",color:"#f0f4ff",fontWeight:600}}>{p.n}</div>
-                      <div style={{fontSize:".52rem",color:"#7898c0"}}>{p.pos}</div>
-                      <div style={{fontSize:".68rem",fontWeight:800,color:"#ffd060"}}>{p.avg.toFixed(1)}</div>
-                      <div style={{fontSize:".44rem",color:"#7898c0"}}>{p.seasonRatings.length}m</div>
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:i<top.length-1?`1px solid ${C.brd2}`:"none"}}>
+                      <div style={{fontSize:".52rem",fontWeight:700,color:i===0?C.gd:i===1?"#c0c0c0":"#cd7f32",minWidth:16}}>{i+1}.</div>
+                      <div style={{flex:1,fontSize:".58rem",color:C.wh,fontWeight:600}}>{p.n}</div>
+                      <div style={{fontSize:".52rem",color:C.dim}}>{p.pos}</div>
+                      <div style={{fontSize:".68rem",fontWeight:800,color:C.gd}}>{p.avg.toFixed(1)}</div>
+                      <div style={{fontSize:".44rem",color:C.dim}}>{p.seasonRatings.length}m</div>
                     </div>
                   ))}
                 </div>
@@ -4710,14 +4712,14 @@ function App(){
             })()}
 
             {/* Lig tablosu - ilk 5 */}
-            <div style={{background:"rgba(10,20,45,.6)",border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-              <div style={{fontSize:".44rem",color:"rgba(77,166,255,.6)",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>📊 Lig Tablosu (İlk 5)</div>
+            <div style={{background:C.card,border:"1px solid rgba(77,166,255,.12)",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+              <div style={{fontSize:".44rem",color:C.ac2,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>📊 Lig Tablosu (İlk 5)</div>
               {seasonEndModal.teams.slice(0,5).map((t,i)=>(
                 <div key={i} style={{display:"flex",gap:8,padding:"4px 6px",borderRadius:5,background:t.me?"rgba(45,143,255,.12)":"",borderBottom:"1px solid rgba(100,140,220,.06)"}}>
-                  <span style={{fontSize:".52rem",color:i<3?"#30e070":"#7898c0",minWidth:18,fontWeight:700}}>{i+1}.</span>
-                  <span style={{flex:1,fontSize:".6rem",color:t.me?"#4da6ff":"#f0f4ff",fontWeight:t.me?700:400,display:"flex",alignItems:"center",gap:4}}><TeamBadge name={t.name||t.n} size="sm"/>{t.name||t.n}</span>
-                  <span style={{fontSize:".5rem",color:"#7898c0"}}>{(t.w||0)+(t.d||0)+(t.l||0)}m</span>
-                  <span style={{fontSize:".58rem",fontWeight:700,color:"#f0f4ff"}}>{t.pts}p</span>
+                  <span style={{fontSize:".52rem",color:i<3?C.grn2:C.dim,minWidth:18,fontWeight:700}}>{i+1}.</span>
+                  <span style={{flex:1,fontSize:".6rem",color:t.me?C.ac2:C.wh,fontWeight:t.me?700:400,display:"flex",alignItems:"center",gap:4}}><TeamBadge name={t.name||t.n} size="sm"/>{t.name||t.n}</span>
+                  <span style={{fontSize:".5rem",color:C.dim}}>{(t.w||0)+(t.d||0)+(t.l||0)}m</span>
+                  <span style={{fontSize:".58rem",fontWeight:700,color:C.wh}}>{t.pts}p</span>
                 </div>
               ))}
             </div>
@@ -4726,19 +4728,19 @@ function App(){
             {seasonEndModal.promoted&&(
               <div style={{background:"rgba(46,204,113,.12)",border:"1px solid rgba(39,174,96,.3)",borderRadius:8,padding:"8px 10px",marginBottom:12,textAlign:"center"}}>
                 <div style={{fontSize:"1.2rem",marginBottom:2}}>🎊</div>
-                <div style={{fontSize:".68rem",fontWeight:700,color:"#30e070"}}>{seasonEndModal.promoteTo==="İngiliz Ligi"?"İngiliz Ligi'ne Yükseldiniz!":"Süper Lig'e Yükseldiniz!"}</div>
+                <div style={{fontSize:".68rem",fontWeight:700,color:C.grn2}}>{seasonEndModal.promoteTo==="İngiliz Ligi"?"İngiliz Ligi'ne Yükseldiniz!":"Süper Lig'e Yükseldiniz!"}</div>
               </div>
             )}
             {seasonEndModal.relegated&&(
               <div style={{background:"rgba(232,64,64,.15)",border:"1px solid rgba(192,57,43,.4)",borderRadius:8,padding:"8px 10px",marginBottom:12,textAlign:"center"}}>
                 <div style={{fontSize:"1.2rem",marginBottom:2}}>⬇️</div>
-                <div style={{fontSize:".68rem",fontWeight:700,color:"#ff5050"}}>{seasonEndModal.relegateTo==="İngiliz 2. Ligi"?"İngiliz 2. Ligi'ne Düştünüz":"TFF 1. Lig'e Düştünüz"}</div>
+                <div style={{fontSize:".68rem",fontWeight:700,color:C.red2}}>{seasonEndModal.relegateTo==="İngiliz 2. Ligi"?"İngiliz 2. Ligi'ne Düştünüz":"TFF 1. Lig'e Düştünüz"}</div>
                 <div style={{fontSize:".5rem",color:"#cc2233",marginTop:2}}>{seasonEndModal.rank}. sıra — küme düşme bölgesi</div>
               </div>
             )}
             {seasonEndModal.league==="Elit Lig"&&seasonEndModal.rank<=2&&!seasonEndModal.relegated&&(
               <div style={{background:"rgba(232,184,58,.1)",border:"1px solid rgba(232,184,58,.3)",borderRadius:8,padding:"8px 10px",marginBottom:12,textAlign:"center"}}>
-                <div style={{fontSize:".68rem",fontWeight:700,color:"#ffd060"}}>⭐ Avrupa Şampiyonlar Kupası!</div>
+                <div style={{fontSize:".68rem",fontWeight:700,color:C.gd}}>⭐ Avrupa Şampiyonlar Kupası!</div>
               </div>
             )}
 
@@ -4759,7 +4761,7 @@ function App(){
                 boxShadow:"0 6px 20px rgba(36,133,255,.3)"}}>
                 {seasonEndModal.promoted?(seasonEndModal.promoteTo==="İngiliz Ligi"?"🏆 TAMAM — İngiliz Ligi'ne Geçmeye Hazırım":"🏆 TAMAM — Süper Lig'e Geçmeye Hazırım"):seasonEndModal.relegated?"⬇ TAMAM — Devam":"✓ TAMAM"}
               </button>
-              <div style={{fontSize:".46rem",color:"rgba(255,255,255,.3)",textAlign:"center",letterSpacing:.5}}>
+              <div style={{fontSize:".46rem",color:C.dmr,textAlign:"center",letterSpacing:.5}}>
                 İstatistikleri inceledikten sonra menüden Yeni Sezon'u başlatabilirsin
               </div>
             </div>
@@ -4778,7 +4780,7 @@ function App(){
         return(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:610,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{minHeight:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 14px 40px"}}>
-            <div style={{background:"linear-gradient(160deg,#1a1200,#0a0800)",border:"1px solid rgba(255,200,40,.45)",borderRadius:18,padding:"24px 18px",maxWidth:340,width:"100%",boxShadow:"0 0 80px rgba(255,180,0,.18), 0 24px 80px rgba(0,0,0,.95)",position:"relative",overflow:"hidden"}}>
+            <div style={{background:C.gradCard,border:"1px solid rgba(255,200,40,.45)",borderRadius:18,padding:"24px 18px",maxWidth:340,width:"100%",boxShadow:"0 0 80px rgba(255,180,0,.18), 0 24px 80px rgba(0,0,0,.95)",position:"relative",overflow:"hidden"}}>
               {/* Altın parıltı arka plan */}
               <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 0%,rgba(255,190,0,.13) 0%,transparent 70%)",pointerEvents:"none"}}/>
 
@@ -4786,14 +4788,14 @@ function App(){
               <div style={{textAlign:"center",marginBottom:20}}>
                 <div style={{fontSize:"3rem",marginBottom:4,filter:"drop-shadow(0 0 16px rgba(255,200,0,.7))"}}>🏅</div>
                 <div style={{fontSize:".48rem",fontWeight:800,letterSpacing:4,color:"rgba(255,190,40,.7)",textTransform:"uppercase",marginBottom:6}}>Sezonun En İyisi</div>
-                <div style={{fontSize:"1.25rem",fontWeight:900,color:"#ffd060",letterSpacing:.5,textShadow:"0 0 20px rgba(255,200,0,.5)"}}>ALTIN TOP ÖDÜLÜ</div>
+                <div style={{fontSize:"1.25rem",fontWeight:900,color:C.gd,letterSpacing:.5,textShadow:"0 0 20px rgba(255,200,0,.5)"}}>ALTIN TOP ÖDÜLÜ</div>
               </div>
 
               {/* Oyuncu Kartı */}
               <div style={{background:"rgba(255,190,0,.07)",border:"1px solid rgba(255,190,0,.25)",borderRadius:14,padding:"16px 14px",marginBottom:18,textAlign:"center"}}>
                 <div style={{fontSize:".52rem",fontWeight:700,color:"rgba(255,190,40,.6)",letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>KAZANAN</div>
-                <div style={{fontSize:"1.4rem",fontWeight:900,color:"#fff",marginBottom:4}}>{w.n}</div>
-                <div style={{fontSize:".58rem",color:"rgba(255,255,255,.55)",marginBottom:14}}>{w.club} · {posLabel}</div>
+                <div style={{fontSize:"1.4rem",fontWeight:900,color:C.wh,marginBottom:4}}>{w.n}</div>
+                <div style={{fontSize:".58rem",color:C.dim,marginBottom:14}}>{w.club} · {posLabel}</div>
 
                 {/* İstatistik kutuları */}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:8}}>
@@ -4803,16 +4805,16 @@ function App(){
                     {label:"ASİST",val:w.seasonAssists||0,col:"#f59e0b"},
                     {label:"ORT",val:avgR,col:"#e879f9"},
                   ].map(s=>(
-                    <div key={s.label} style={{background:"rgba(0,0,0,.35)",borderRadius:8,padding:"8px 4px"}}>
+                    <div key={s.label} style={{background:C.inset,borderRadius:8,padding:"8px 4px"}}>
                       <div style={{fontSize:"1.0rem",fontWeight:900,color:s.col}}>{s.val}</div>
-                      <div style={{fontSize:".42rem",color:"rgba(255,255,255,.4)",fontWeight:600,letterSpacing:1}}>{s.label}</div>
+                      <div style={{fontSize:".42rem",color:C.dmr,fontWeight:600,letterSpacing:1}}>{s.label}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Piyasa değeri artışı */}
                 <div style={{background:"rgba(255,190,0,.12)",border:"1px solid rgba(255,190,0,.3)",borderRadius:8,padding:"7px 10px",marginTop:4}}>
-                  <span style={{fontSize:".6rem",color:"#ffd060",fontWeight:700}}>📈 Piyasa Değeri +{altinTopModal.valArtis.toFixed(1)}M€ → {w.val.toFixed(1)}M€</span>
+                  <span style={{fontSize:".6rem",color:C.gd,fontWeight:700}}>📈 Piyasa Değeri +{altinTopModal.valArtis.toFixed(1)}M€ → {w.val.toFixed(1)}M€</span>
                 </div>
               </div>
 
@@ -4820,10 +4822,10 @@ function App(){
               <div style={{textAlign:"center",marginBottom:18}}>
                 {isMe
                   ?<div style={{background:"rgba(255,190,0,.1)",border:"1px solid rgba(255,190,0,.35)",borderRadius:10,padding:"10px 12px"}}>
-                    <div style={{fontSize:".7rem",fontWeight:900,color:"#ffd060",marginBottom:3}}>🌟 Kadronuzdaki oyuncu kazandı!</div>
-                    <div style={{fontSize:".56rem",color:"rgba(255,255,255,.6)"}}>Bu ödül kulübünüzün değerini de yükseltiyor.</div>
+                    <div style={{fontSize:".7rem",fontWeight:900,color:C.gd,marginBottom:3}}>🌟 Kadronuzdaki oyuncu kazandı!</div>
+                    <div style={{fontSize:".56rem",color:C.dim}}>Bu ödül kulübünüzün değerini de yükseltiyor.</div>
                   </div>
-                  :<div style={{fontSize:".56rem",color:"rgba(255,255,255,.5)",lineHeight:1.5}}>
+                  :<div style={{fontSize:".56rem",color:C.dim,lineHeight:1.5}}>
                     Bu oyuncu geçen sezon tüm ligdeki en yüksek performansı gösterdi.
                   </div>
                 }
@@ -4853,23 +4855,23 @@ function App(){
         return(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",zIndex:600,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{minHeight:"100%",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 12px 40px"}}>
-          <div style={{background:"linear-gradient(160deg,#0d1e3c,#060c1c)",border:`1px solid rgba(${rgbK},.4)`,borderRadius:16,padding:"20px 16px",maxWidth:380,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.8)"}}>
+          <div style={{background:C.gradCard,border:`1px solid rgba(${rgbK},.4)`,borderRadius:16,padding:"20px 16px",maxWidth:380,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,.8)"}}>
             <div style={{textAlign:"center",marginBottom:14,paddingBottom:12,borderBottom:`1px solid rgba(${rgbK},.2)`}}>
               <div style={{fontSize:"2.4rem",marginBottom:6}}>{km.icon}</div>
               <div style={{fontSize:".5rem",fontWeight:700,letterSpacing:3,color:`rgba(${rgbK},.8)`,textTransform:"uppercase",marginBottom:4}}>{km.upper}</div>
-              <div style={{fontSize:"1.05rem",fontWeight:900,color:"#f0f4ff",marginBottom:4}}>LİG AŞAMASI KURASI</div>
-              <div style={{fontSize:".5rem",color:"rgba(255,255,255,.45)"}}>36 takım · {km.pots} torba · {km.md} maç ({km.md/2} ev / {km.md/2} deplasman)</div>
+              <div style={{fontSize:"1.05rem",fontWeight:900,color:C.wh,marginBottom:4}}>LİG AŞAMASI KURASI</div>
+              <div style={{fontSize:".5rem",color:C.dim}}>36 takım · {km.pots} torba · {km.md} maç ({km.md/2} ev / {km.md/2} deplasman)</div>
             </div>
             <div style={{fontSize:".5rem",fontWeight:800,letterSpacing:2,color:colK,marginBottom:6}}>RAKİPLERİN</div>
             {(kuraModal.opps||[]).map((o,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",marginBottom:4,borderRadius:8,
                 background:`rgba(${rgbK},.05)`,border:`1px solid rgba(${rgbK},.12)`}}>
-                <span style={{fontSize:".44rem",color:"rgba(255,255,255,.45)",width:40}}>{o.md}. hafta<br/>{o.month}</span>
+                <span style={{fontSize:".44rem",color:C.dim,width:40}}>{o.md}. hafta<br/>{o.month}</span>
                 <TeamBadge name={o.n} size="sm"/>
-                <span style={{flex:1,fontSize:".6rem",color:"#f0f4ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.n}</span>
-                <span style={{fontSize:".42rem",color:"rgba(255,255,255,.4)"}}>{o.lg}</span>
+                <span style={{flex:1,fontSize:".6rem",color:C.wh,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.n}</span>
+                <span style={{fontSize:".42rem",color:C.dmr}}>{o.lg}</span>
                 <span style={{fontSize:".44rem",color:colK,width:22,textAlign:"center"}}>T{o.pot}</span>
-                <span style={{fontSize:".52rem",width:14,color:o.home?"#4da8ff":"rgba(255,255,255,.4)"}}>{o.home?"⌂":"✈"}</span>
+                <span style={{fontSize:".52rem",width:14,color:o.home?"#4da8ff":C.dmr}}>{o.home?"⌂":"✈"}</span>
               </div>
             ))}
             <div style={{fontSize:".5rem",fontWeight:800,letterSpacing:2,color:colK,margin:"12px 0 6px"}}>TORBALAR</div>
@@ -4884,7 +4886,7 @@ function App(){
                 </div>
               ))}
             </div>
-            <div style={{fontSize:".46rem",color:"rgba(255,255,255,.45)",margin:"10px 2px",lineHeight:1.5}}>
+            <div style={{fontSize:".46rem",color:C.dim,margin:"10px 2px",lineHeight:1.5}}>
               1–8 doğrudan Son 16 · 9–24 Şubat'ta çift maçlı Play-Off · 25–36 elenir. Aynı ligden takımlar eşleşmez.
             </div>
             <button onClick={()=>setKuraModal(null)} style={{
@@ -4918,12 +4920,12 @@ function App(){
 
       {showExitConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.82)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"#0d1b2e",border:"1px solid rgba(77,166,255,.25)",borderRadius:16,padding:24,width:"100%",maxWidth:300,textAlign:"center"}}>
+          <div style={{background:C.card,border:"1px solid rgba(77,166,255,.25)",borderRadius:16,padding:24,width:"100%",maxWidth:300,textAlign:"center"}}>
             <div style={{fontSize:"2rem",marginBottom:8}}>🏠</div>
-            <div style={{fontSize:".85rem",fontWeight:800,color:"#f0f4ff",marginBottom:6}}>Ana Menüye Dön?</div>
-            <div style={{fontSize:".54rem",color:"#7898c0",marginBottom:20}}>Kaydedilmemiş ilerleme kaybolur.</div>
+            <div style={{fontSize:".85rem",fontWeight:800,color:C.wh,marginBottom:6}}>Ana Menüye Dön?</div>
+            <div style={{fontSize:".54rem",color:C.dim,marginBottom:20}}>Kaydedilmemiş ilerleme kaybolur.</div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setShowExitConfirm(false)} style={{flex:1,padding:"11px",background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.1)",borderRadius:9,color:"#aaa",cursor:"pointer",fontFamily:"inherit",fontSize:".68rem",fontWeight:600}}>
+              <button onClick={()=>setShowExitConfirm(false)} style={{flex:1,padding:"11px",background:C.surfaceHover,border:`1px solid ${C.brd}`,borderRadius:9,color:"#aaa",cursor:"pointer",fontFamily:"inherit",fontSize:".68rem",fontWeight:600}}>
                 İptal
               </button>
               <button onClick={()=>{setShowExitConfirm(false);setGameScreen("mainmenu");}} style={{flex:1,padding:"11px",background:"linear-gradient(135deg,#1a6ed8,#2485ff)",border:"none",borderRadius:9,color:"#fff",cursor:"pointer",fontFamily:"inherit",fontSize:".68rem",fontWeight:700}}>

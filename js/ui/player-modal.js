@@ -57,7 +57,7 @@ function PlayerModal({player,onClose,onList,onLoan,onSell,onRenew}){
             <div style={{background:"rgba(26,110,216,.06)",border:`1px solid rgba(77,166,255,0.1)`,borderRadius:6,padding:"8px 10px"}}>
               <div style={{fontSize:".44rem",color:C.dmr,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4}}>Moral</div>
               <div style={{fontSize:".7rem",fontWeight:700,color:moralCol}}>{moralLabel}</div>
-              <div style={{height:4,background:"rgba(255,255,255,.06)",borderRadius:2,marginTop:4,overflow:"hidden"}}>
+              <div style={{height:4,background:C.surfaceHover,borderRadius:2,marginTop:4,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${moral}%`,background:moralCol,borderRadius:2,transition:"width .4s"}}/>
               </div>
               <div style={{fontSize:".44rem",color:C.dmr,marginTop:2}}>{moral}/100</div>

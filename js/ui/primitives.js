@@ -50,9 +50,9 @@ function Modal({title,onClose,children,wide}){
       boxShadow:"0 20px 60px rgba(0,0,0,0.8)"}}>
       <div style={{padding:"12px 16px",borderBottom:`1px solid rgba(77,166,255,0.22)`,
         display:"flex",justifyContent:"space-between",alignItems:"center",
-        background:"linear-gradient(135deg,#0c1e3a,#071020)",flexShrink:0}}>
+        background:C.gradCard,flexShrink:0}}>
         <span style={{fontSize:".68rem",letterSpacing:2,color:C.wh,textTransform:"uppercase",fontWeight:700}}>{title}</span>
-        <button onClick={onClose} style={{background:"rgba(255,255,255,.06)",border:`1px solid rgba(77,166,255,0.22)`,
+        <button onClick={onClose} style={{background:C.surfaceHover,border:`1px solid rgba(77,166,255,0.22)`,
           color:C.dim,cursor:"pointer",fontSize:".9rem",lineHeight:1,borderRadius:4,
           width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
       </div>

@@ -58,7 +58,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
       </div>
       <div style={{display:"flex",gap:4,padding:"6px 10px",overflowX:"auto",flexShrink:0,
         borderBottom:"1px solid rgba(45,143,255,0.12)",scrollbarWidth:"none",
-        position:"relative",zIndex:1,background:"rgba(1,4,9,.95)",backdropFilter:"blur(10px)",borderBottom:"2px solid rgba(77,166,255,0.15)"}}>
+        position:"relative",zIndex:1,background:C.nav,backdropFilter:"blur(10px)",borderBottom:"2px solid rgba(77,166,255,0.15)"}}>
         {tabs.map(tab=>{
           const isActive=selTab===tab.id;
           const isMe=tab.id===myLg&&!tab.euro;
@@ -69,12 +69,12 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
             borderRadius:5,flexShrink:0,fontWeight:isActive?700:500,
             background:isActive
               ?tab.euro?`rgba(${tab.id==="CL"?"240,192,64":"232,116,42"},.15)`
-                :isMe?"rgba(77,166,255,.25)":"rgba(255,255,255,.08)"
-              :"rgba(255,255,255,.03)",
+                :isMe?"rgba(77,166,255,.25)":C.surfaceHover
+              :C.surface,
             border:`1px solid ${isActive
               ?tab.euro?(tab.id==="CL"?"rgba(240,192,64,.5)":"rgba(232,116,42,.5)")
-                :isMe?"rgba(45,143,255,.5)":"rgba(255,255,255,.2)"
-              :"rgba(255,255,255,.06)"}`,
+                :isMe?"rgba(45,143,255,.5)":C.brd
+              :C.brd2}`,
             color:isActive?tabColor:C.dim,
             transition:"all .15s"}}>
             {isMe?"▶ ":""}{tab.lbl}
@@ -105,7 +105,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
               </div>
               <div style={{height:1,background:`linear-gradient(90deg,transparent,${skGold}66,transparent)`,marginBottom:10}}/>
               {skFix?(
-                <div style={{background:"rgba(0,0,0,.35)",borderRadius:8,padding:"10px",border:`1px solid ${skGoldBg}.15)`}}>
+                <div style={{background:C.inset,borderRadius:8,padding:"10px",border:`1px solid ${skGoldBg}.15)`}}>
                   <div style={{fontSize:".58rem",fontWeight:700,color:"#fff8e1"}}>🆚 {skFix.opp}</div>
                   <div style={{fontSize:".5rem",color:skGoldDim,marginTop:2}}>
                     Deplasman · {skFix.month} · Rakip Güç: <span style={{color:skFix.str>=85?"#ff6060":skFix.str>=75?"#ffb040":skGold,fontWeight:700}}>{skFix.str}</span>
@@ -119,7 +119,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
                         textAlign:"center",letterSpacing:2}}>
                         {skResult.r==="W"?"🏆 ŞAMPİYON!":skResult.r==="L"?"😔 Finalist":skResult.r==="D"?"⚽ Berabere":""}
                       </div>
-                      <div style={{textAlign:"center",fontSize:"1.4rem",fontWeight:900,color:"#fff",letterSpacing:4,marginTop:2}}>
+                      <div style={{textAlign:"center",fontSize:"1.4rem",fontWeight:900,color:C.wh,letterSpacing:4,marginTop:2}}>
                         {skResult.myG} – {skResult.opG}
                       </div>
                     </div>
@@ -131,7 +131,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
                   )}
                 </div>
               ):(
-                <div style={{marginTop:10,padding:"10px",borderRadius:8,background:"rgba(0,0,0,.2)",
+                <div style={{marginTop:10,padding:"10px",borderRadius:8,background:C.inset,
                   border:`1px solid ${skGoldBg}.15)`,fontSize:".52rem",color:skGoldDim,textAlign:"center",lineHeight:1.7}}>
                   Önceki sezonda ASK veya AL şampiyonu olunması gerekiyor
                 </div>
@@ -363,7 +363,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
                       {primData.map((p,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 10px",
                           borderBottom:i<primData.length-1?`1px solid rgba(77,166,255,0.1)`:"none",
-                          background:i%2===0?"rgba(255,255,255,.02)":""}}>
+                          background:i%2===0?C.surface:""}}>
                           <span style={{fontSize:".7rem",minWidth:18}}>{p.icon}</span>
                           <span style={{flex:1,fontSize:".56rem",color:C.dim}}>{p.label}</span>
                           <span style={{fontSize:".62rem",fontWeight:700,color:"#ffd060"}}>{isSlPrim?p.sl:p.tff1}</span>
@@ -497,9 +497,9 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
                                 const w=sr.winners[mi]||a;
                                 return(
                                   <div key={mi} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 0",fontSize:".46rem"}}>
-                                    <span style={{flex:1,color:w===a?C.wh:"rgba(255,255,255,.3)",fontWeight:w===a?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w===a?"✅":""} {a}</span>
+                                    <span style={{flex:1,color:w===a?C.wh:C.dmr,fontWeight:w===a?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w===a?"✅":""} {a}</span>
                                     <span style={{color:C.dmr,fontSize:".4rem",flexShrink:0}}>vs</span>
-                                    <span style={{flex:1,textAlign:"right",color:w===b?C.wh:"rgba(255,255,255,.3)",fontWeight:w===b?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b} {w===b?"✅":""}</span>
+                                    <span style={{flex:1,textAlign:"right",color:w===b?C.wh:C.dmr,fontWeight:w===b?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b} {w===b?"✅":""}</span>
                                   </div>
                                 );
                               })}
@@ -562,7 +562,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:"4px 8px",padding:"5px 10px",
         borderTop:"1px solid rgba(45,143,255,0.1)",flexShrink:0,fontSize:".42rem",
-        background:"rgba(3,6,14,.6)"}}>
+        background:C.card}}>
         {selTab===myLg&&promoLine&&<span style={{color:C.grn2,fontWeight:700}}>▲ İlk {promoLine}: {selTab==="1. Lig"?"Elit Lig":"ASK"}</span>}
         {selTab===myLg&&euLine&&<span style={{color:C.ora,fontWeight:700}}>🇪🇺 3-4: UEFA</span>}
         {selTab===myLg&&relLine&&<span style={{color:C.red2,fontWeight:700}}>▼ Son 3: Düşme</span>}
@@ -605,7 +605,7 @@ function PageHome({season,clubName="Club Manager: Glory Road",activeScenario=nul
         const topA=[...lgPlayers].sort((a,b)=>b.a-a.a).filter(p=>p.a>0).slice(0,5);
         if(topG.length===0) return null;
         return(
-          <div style={{borderTop:"1px solid rgba(45,143,255,0.1)",flexShrink:0,background:"rgba(3,6,14,.7)"}}>
+          <div style={{borderTop:"1px solid rgba(45,143,255,0.1)",flexShrink:0,background:C.card}}>
             <div style={{display:"flex",gap:0}}>
               <div style={{flex:1,borderRight:"1px solid rgba(45,143,255,0.1)"}}>
                 <div style={{padding:"3px 8px",fontSize:".42rem",fontWeight:700,color:C.grn2,letterSpacing:1,background:"rgba(39,174,96,.07)",borderBottom:"1px solid rgba(39,174,96,.15)"}}>⚽ GOL KRALLARI</div>

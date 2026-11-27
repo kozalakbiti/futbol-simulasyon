@@ -152,8 +152,8 @@ function EuroSimWidget({season,clubName,db}){
       <div style={{display:"flex",gap:4,marginBottom:8}}>
         {EURO_COMP_LIST.map(c=>(
           <button key={c} onClick={()=>setComp(c)} style={{flex:1,padding:"5px 4px",borderRadius:5,fontSize:".52rem",fontWeight:700,cursor:"pointer",
-            background:comp===c?`rgba(${EURO_META[c].rgb},.18)`:"rgba(255,255,255,.03)",color:comp===c?EURO_META[c].color:C.dim,
-            border:`1px solid ${comp===c?`rgba(${EURO_META[c].rgb},.45)`:"rgba(255,255,255,.06)"}`}}>
+            background:comp===c?`rgba(${EURO_META[c].rgb},.18)`:C.surface,color:comp===c?EURO_META[c].color:C.dim,
+            border:`1px solid ${comp===c?`rgba(${EURO_META[c].rgb},.45)`:C.brd2}`}}>
             {EURO_META[c].icon} {EURO_META[c].short}{c===mine?" ▶":""}
           </button>
         ))}
@@ -302,7 +302,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                   <span style={{textAlign:"center",fontSize:".76rem",fontWeight:800,color:barCol}}>{val}</span>
                 </div>
                 {/* Bar */}
-                <div style={{height:3,background:"rgba(255,255,255,.05)",borderRadius:2,overflow:"hidden",marginLeft:48}}>
+                <div style={{height:3,background:C.surfaceHover,borderRadius:2,overflow:"hidden",marginLeft:48}}>
                   <div style={{height:"100%",width:`${barW}%`,background:barCol,borderRadius:2,
                     opacity: i<3?1:0.6}}/>
                 </div>
@@ -327,7 +327,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
               :"—",c:C.ac2,icon:"⭐"},
             {l:"Sakatlar",v:(squad||[]).filter(p=>p.injured>0).length,c:C.red2,icon:"🏥"},
           ].map((x,i)=>(
-            <div key={i} style={{background:"rgba(255,255,255,.04)",border:`1px solid rgba(255,255,255,.08)`,
+            <div key={i} style={{background:C.surface,border:`1px solid ${C.brd}`,
               borderRadius:5,padding:"5px 4px",textAlign:"center"}}>
               <div style={{fontSize:".9rem"}}>{x.icon}</div>
               <div style={{fontSize:".82rem",fontWeight:900,color:x.c}}>{x.v}</div>
@@ -373,7 +373,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                 <span style={{textAlign:"center",fontSize:".68rem",fontWeight:600,color:C.grn2}}>{s.a}</span>
                 <span style={{textAlign:"center",fontSize:".62rem",fontWeight:700,color:ratingCol}}>{s.avgRating||"—"}</span>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-                  <div style={{width:16,height:3,background:"rgba(255,255,255,.1)",borderRadius:2,overflow:"hidden"}}>
+                  <div style={{width:16,height:3,background:C.surfaceHover,borderRadius:2,overflow:"hidden"}}>
                     <div style={{height:"100%",width:`${s.fatigue||0}%`,background:fatCol,borderRadius:2}}/>
                   </div>
                   <span style={{fontSize:".38rem",color:fatCol}}>{s.fatigue||0}</span>
@@ -422,7 +422,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
               {l:"Beraberlik",v:(season.teams||[]).find(t=>t.me)?.d||0,c:C.gd},
               {l:"Mağlubiyet",v:(season.teams||[]).find(t=>t.me)?.l||0,c:C.red2},
             ].map((x,i)=>(
-              <div key={i} style={{background:"rgba(255,255,255,.04)",borderRadius:4,padding:"6px 4px",border:`1px solid rgba(255,255,255,.06)`}}>
+              <div key={i} style={{background:C.surface,borderRadius:4,padding:"6px 4px",border:`1px solid ${C.brd2}`}}>
                 <div style={{fontSize:"1.1rem",fontWeight:900,color:x.c}}>{x.v}</div>
                 <div style={{fontSize:".44rem",color:C.dmr}}>{x.l}</div>
               </div>
@@ -496,13 +496,13 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
           const rankColor=lastRank<=3?C.grn2:lastRank<=6?C.gd:lastRank<=10?C.wh:C.red;
           return(<>
             <STitle extra={`Şu an: ${lastRank}. sıra`}>Sıra Grafiği</STitle>
-            <div style={{background:"rgba(0,0,0,.3)",borderRadius:8,border:`1px solid rgba(77,166,255,.15)`,marginBottom:12,overflow:"hidden"}}>
+            <div style={{background:C.inset,borderRadius:8,border:`1px solid rgba(77,166,255,.15)`,marginBottom:12,overflow:"hidden"}}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block"}}>
                 {/* Grid yatay çizgiler */}
                 {[1,Math.ceil(maxRank/4),Math.ceil(maxRank/2),Math.ceil(maxRank*3/4),maxRank].map((r,i)=>(
                   <g key={i}>
-                    <line x1={pad} y1={yScale(r)} x2={pad+chartW} y2={yScale(r)} stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
-                    <text x={pad-3} y={yScale(r)+4} textAnchor="end" fill="rgba(255,255,255,.3)" fontSize="7">{r}</text>
+                    <line x1={pad} y1={yScale(r)} x2={pad+chartW} y2={yScale(r)} stroke={C.brd2} strokeWidth="1"/>
+                    <text x={pad-3} y={yScale(r)+4} textAnchor="end" fill={C.dmr} fontSize="7">{r}</text>
                   </g>
                 ))}
                 {/* Alan dolgusu */}
@@ -512,13 +512,13 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                 {/* Son nokta */}
                 <circle cx={xScale(rh[rh.length-1].w)} cy={yScale(lastRank)} r="4" fill={rankColor} stroke="#0a0f1e" strokeWidth="2"/>
                 {/* Eksen */}
-                <line x1={pad} y1={pad} x2={pad} y2={pad+chartH} stroke="rgba(255,255,255,.15)" strokeWidth="1"/>
-                <line x1={pad} y1={pad+chartH} x2={pad+chartW} y2={pad+chartH} stroke="rgba(255,255,255,.15)" strokeWidth="1"/>
+                <line x1={pad} y1={pad} x2={pad} y2={pad+chartH} stroke={C.brd} strokeWidth="1"/>
+                <line x1={pad} y1={pad+chartH} x2={pad+chartW} y2={pad+chartH} stroke={C.brd} strokeWidth="1"/>
               </svg>
             </div>
             {/* Puan grafiği */}
             <STitle extra="">Puan Gelişimi</STitle>
-            <div style={{background:"rgba(0,0,0,.3)",borderRadius:8,border:`1px solid rgba(77,166,255,.15)`,marginBottom:12,overflow:"hidden"}}>
+            <div style={{background:C.inset,borderRadius:8,border:`1px solid rgba(77,166,255,.15)`,marginBottom:12,overflow:"hidden"}}>
               {(()=>{
                 const maxPts=Math.max(...rh.map(p=>p.pts),1);
                 const yPts=(p)=>pad+(1-p/maxPts)*chartH;
@@ -529,15 +529,15 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                   <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block"}}>
                     {[0,Math.ceil(maxPts/4),Math.ceil(maxPts/2),Math.ceil(maxPts*3/4),maxPts].map((p2,i)=>(
                       <g key={i}>
-                        <line x1={pad} y1={yPts(p2)} x2={pad+chartW} y2={yPts(p2)} stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
-                        <text x={pad-3} y={yPts(p2)+4} textAnchor="end" fill="rgba(255,255,255,.3)" fontSize="7">{p2}</text>
+                        <line x1={pad} y1={yPts(p2)} x2={pad+chartW} y2={yPts(p2)} stroke={C.brd2} strokeWidth="1"/>
+                        <text x={pad-3} y={yPts(p2)+4} textAnchor="end" fill={C.dmr} fontSize="7">{p2}</text>
                       </g>
                     ))}
                     <polygon points={ptsArea2} fill="rgba(77,166,255,.12)"/>
                     <polyline points={ptsPts} fill="none" stroke={C.ac2} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
                     <circle cx={xScale(rh[rh.length-1].w)} cy={yPts(lastPts)} r="4" fill={C.ac2} stroke="#0a0f1e" strokeWidth="2"/>
-                    <line x1={pad} y1={pad} x2={pad} y2={pad+chartH} stroke="rgba(255,255,255,.15)" strokeWidth="1"/>
-                    <line x1={pad} y1={pad+chartH} x2={pad+chartW} y2={pad+chartH} stroke="rgba(255,255,255,.15)" strokeWidth="1"/>
+                    <line x1={pad} y1={pad} x2={pad} y2={pad+chartH} stroke={C.brd} strokeWidth="1"/>
+                    <line x1={pad} y1={pad+chartH} x2={pad+chartW} y2={pad+chartH} stroke={C.brd} strokeWidth="1"/>
                   </svg>
                 );
               })()}
@@ -566,7 +566,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
               return total>0&&(
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
                   {[[`${w}G ${d}B ${l}M`,"Sonuçlar",C.wh],[`${gf}-${ga}`,"Gol Averajı",gf>ga?C.grn2:gf<ga?C.red:C.wh],[`%${Math.round(w/total*100)}`,"Galibiyet",C.ac2]].map(([v,lbl,c],i)=>(
-                    <div key={i} style={{background:"rgba(0,0,0,.3)",borderRadius:6,padding:"8px",border:"1px solid rgba(77,166,255,.1)",textAlign:"center"}}>
+                    <div key={i} style={{background:C.inset,borderRadius:6,padding:"8px",border:"1px solid rgba(77,166,255,.1)",textAlign:"center"}}>
                       <div style={{fontSize:".72rem",fontWeight:800,color:c}}>{v}</div>
                       <div style={{fontSize:".42rem",color:C.dmr,marginTop:2}}>{lbl}</div>
                     </div>
@@ -614,7 +614,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                   ["Mağlubiyet",allL,C.red2],
                 ].map(([l,v,c])=>(
                   <div key={l} style={{textAlign:"center",padding:"7px 4px",
-                    background:"rgba(0,0,0,.2)",borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
+                    background:C.inset,borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
                     <div style={{fontSize:".42rem",color:C.dmr,marginBottom:2}}>{l}</div>
                     <div style={{fontSize:".88rem",fontWeight:900,color:c}}>{v}</div>
                   </div>
@@ -627,7 +627,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                   ["Gol Farkı",allGD>=0?"+"+allGD:allGD,allGD>=0?C.grn2:C.red2],
                 ].map(([l,v,c])=>(
                   <div key={l} style={{textAlign:"center",padding:"7px 4px",
-                    background:"rgba(0,0,0,.2)",borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
+                    background:C.inset,borderRadius:6,border:`1px solid rgba(77,166,255,0.1)`}}>
                     <div style={{fontSize:".42rem",color:C.dmr,marginBottom:2}}>{l}</div>
                     <div style={{fontSize:".88rem",fontWeight:900,color:c}}>{v}</div>
                   </div>
@@ -647,7 +647,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
                 <div style={{height:"100%",
                   background:`linear-gradient(90deg,${C.grn2},${C.ac2})`,
                   width:`${allWR}%`,borderRadius:3,transition:"width .4s"}}/>
-                <div style={{position:"absolute",top:0,left:"50%",width:1,height:"100%",background:"rgba(255,255,255,.2)"}}/>
+                <div style={{position:"absolute",top:0,left:"50%",width:1,height:"100%",background:C.brd}}/>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginTop:3,fontSize:".4rem",color:C.dmr}}>
                 <span>W:{allW} D:{allD} L:{allL}</span>
@@ -703,7 +703,7 @@ function PageIstatistik({season,squad,clubName="FC Yildiz",careerStats,pendingEu
               ?cs.seasons.slice().reverse().map((s,i)=>(
                 <div key={i} style={{display:"grid",gridTemplateColumns:"auto 1fr repeat(5,auto)",gap:"4px 8px",
                   padding:"6px 10px",marginBottom:2,
-                  background:"rgba(8,18,40,.7)",border:`1px solid rgba(77,166,255,0.1)`,borderRadius:5,
+                  background:C.card,border:`1px solid rgba(77,166,255,0.1)`,borderRadius:5,
                   fontSize:".54rem",alignItems:"center"}}>
                   <span style={{color:C.dmr,fontSize:".44rem"}}>{cs.seasons.length-i}</span>
                   <span style={{color:C.dim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.league}</span>

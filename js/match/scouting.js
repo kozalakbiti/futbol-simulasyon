@@ -112,10 +112,10 @@ function ScoutReportCard({opp, report, tactic, danger=null, compact=false}){
   const mLbl=match>=2?"Çok uygun":match>0?"Uygun":match===0?"Nötr":match>-2?"Uyumsuz":"Ters taktik";
   const accCol=report.acc>=100?"#30e070":report.acc>=80?"#e8b83a":"#ff9050";
   return(
-    <div style={{background:"linear-gradient(135deg,rgba(10,20,42,.85),rgba(7,14,30,.65))",
+    <div style={{background:C.gradCard,
       borderRadius:8,padding:compact?"8px 10px":"10px 12px",border:`1px solid ${st.col}33`,marginBottom:12}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,marginBottom:6}}>
-        <div style={{fontSize:".46rem",letterSpacing:1.2,color:"rgba(77,166,255,.55)",textTransform:"uppercase",fontWeight:700}}>
+        <div style={{fontSize:".46rem",letterSpacing:1.2,color:C.dim,textTransform:"uppercase",fontWeight:700}}>
           🔎 Scout Raporu · {opp}
         </div>
         <div style={{fontSize:".4rem",fontWeight:700,color:accCol,background:`${accCol}15`,
@@ -127,23 +127,23 @@ function ScoutReportCard({opp, report, tactic, danger=null, compact=false}){
         <div style={{fontSize:"1.2rem",lineHeight:1}}>{st.icon}</div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:".62rem",fontWeight:800,color:st.col}}>{st.l}</div>
-          <div style={{fontSize:".44rem",color:"rgba(160,185,220,.7)",lineHeight:1.4}}>{st.desc}</div>
+          <div style={{fontSize:".44rem",color:C.dim,lineHeight:1.4}}>{st.desc}</div>
         </div>
         <div style={{textAlign:"center",flexShrink:0}}>
-          <div style={{fontSize:".38rem",color:"rgba(255,255,255,.35)"}}>DİZİLİŞ</div>
-          <div style={{fontSize:".56rem",fontWeight:800,color:"#f0f6ff"}}>{report.formation}</div>
+          <div style={{fontSize:".38rem",color:C.dmr}}>DİZİLİŞ</div>
+          <div style={{fontSize:".56rem",fontWeight:800,color:C.wh}}>{report.formation}</div>
         </div>
       </div>
-      {danger&&<div style={{fontSize:".46rem",color:"rgba(255,150,120,.85)",marginBottom:6}}>
+      {danger&&<div style={{fontSize:".46rem",color:C.red2,marginBottom:6}}>
         ⚠️ Tehlikeli oyuncu: <b>{danger.n}</b> ({danger.pos}, OVR {danger.ovr})
       </div>}
-      {!compact&&<div style={{fontSize:".46rem",color:"rgba(232,184,58,.85)",lineHeight:1.5,marginBottom:6}}>💡 {st.tip}</div>}
+      {!compact&&<div style={{fontSize:".46rem",color:C.gd,lineHeight:1.5,marginBottom:6}}>💡 {st.tip}</div>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"5px 8px",borderRadius:6,background:`${mCol}12`,border:`1px solid ${mCol}30`}}>
-        <span style={{fontSize:".46rem",color:"rgba(200,215,240,.75)"}}>Taktik eşleşmesi</span>
+        <span style={{fontSize:".46rem",color:C.dim}}>Taktik eşleşmesi</span>
         <span style={{fontSize:".54rem",fontWeight:900,color:mCol}}>{match>0?"+"+match:match} · {mLbl}</span>
       </div>
-      {report.acc<100&&<div style={{fontSize:".4rem",color:"rgba(120,152,192,.5)",marginTop:5,fontStyle:"italic"}}>
+      {report.acc<100&&<div style={{fontSize:".4rem",color:C.dim,marginTop:5,fontStyle:"italic"}}>
         {report.src?`${report.src} raporu hazırladı.`:"Analist yok — rapor yanılıyor olabilir."} Tam isabet için Antrenman'dan Maç Analisti tut.
       </div>}
     </div>
@@ -157,27 +157,27 @@ function PreMatchModal({fix, report, tactic, danger, myStr, onTactics, onStart, 
     <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.78)",
       display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto",
-        background:"linear-gradient(160deg,#0b1630,#060c1c)",borderRadius:12,
+        background:C.gradCard,borderRadius:12,
         border:"1px solid rgba(77,166,255,.25)",boxShadow:"0 12px 40px rgba(0,0,0,.6)",padding:"14px 14px 12px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <div style={{fontSize:".7rem",fontWeight:900,color:"#f0f6ff",letterSpacing:1}}>📋 MAÇ HAZIRLIĞI</div>
-          <button onClick={onClose} style={{background:"none",border:"none",color:"rgba(255,255,255,.5)",
+          <div style={{fontSize:".7rem",fontWeight:900,color:C.wh,letterSpacing:1}}>📋 MAÇ HAZIRLIĞI</div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.dim,
             fontSize:".9rem",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
         </div>
-        <div style={{fontSize:".5rem",color:"rgba(160,185,220,.75)",marginBottom:10}}>
-          {fix.home?"🏠 Ev":"✈️ Deplasman"} · Rakip gücü <b style={{color:"#f0f6ff"}}>{fix.str}</b> · Senin gücün <b style={{color:"#f0f6ff"}}>{myStr}</b>
+        <div style={{fontSize:".5rem",color:C.dim,marginBottom:10}}>
+          {fix.home?"🏠 Ev":"✈️ Deplasman"} · Rakip gücü <b style={{color:C.wh}}>{fix.str}</b> · Senin gücün <b style={{color:C.wh}}>{myStr}</b>
         </div>
         <ScoutReportCard opp={fix.opp} report={report} tactic={tactic} danger={danger}/>
         <div style={{display:"flex",gap:8}}>
           <button onClick={onTactics} style={{flex:1,padding:"10px 8px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
-            background:"rgba(77,166,255,.12)",border:"1px solid rgba(77,166,255,.35)",color:"#9cc8ff",
+            background:"rgba(77,166,255,.12)",border:"1px solid rgba(77,166,255,.35)",color:C.ac2,
             fontSize:".58rem",fontWeight:800}}>⚙️ Taktiğe Git</button>
           <button onClick={onStart} style={{flex:1,padding:"10px 8px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
             background:"linear-gradient(135deg,#1ab855,#12883e)",border:"1px solid rgba(48,224,112,.5)",color:"#fff",
             fontSize:".58rem",fontWeight:900,letterSpacing:1}}>▶ MAÇA BAŞLA</button>
         </div>
         <button onClick={onSkipForever} style={{marginTop:10,width:"100%",background:"none",border:"none",cursor:"pointer",
-          fontFamily:"inherit",fontSize:".42rem",color:"rgba(120,152,192,.55)",textDecoration:"underline"}}>
+          fontFamily:"inherit",fontSize:".42rem",color:C.dim,textDecoration:"underline"}}>
           Bu ekranı bir daha gösterme (Ayarlar'dan geri açılabilir)
         </button>
       </div>

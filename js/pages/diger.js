@@ -10,7 +10,7 @@ function PageDigerMenu({onSelect,currentPage}){
           style={{width:"100%",maxWidth:240,padding:"10px 16px",
             background:currentPage===item.p?"rgba(45,143,255,.25)":"rgba(11,21,37,.8)",
             border:`1px solid ${currentPage===item.p?"#4da6ff":"rgba(77,166,255,0.2)"}`,
-            borderRadius:6,color:currentPage===item.p?"#4da6ff":"#f0f4ff",
+            borderRadius:6,color:currentPage===item.p?"#4da6ff":C.wh,
             fontSize:".6rem",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
             transition:"all .15s"}}>
           <span style={{fontSize:".75rem"}}>{item.i}</span>

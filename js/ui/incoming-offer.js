@@ -44,7 +44,7 @@ function IncomingOfferModal({offer,onAccept,onReject,onClose,squad=[]}){
 
   return(
     <div style={{
-      background:"linear-gradient(145deg,#0d1e3a,#070e1e)",
+      background:C.gradCard,
       border:`2px solid ${C.gd}`,borderRadius:14,
       padding:0,maxWidth:310,width:"100%",
       boxShadow:`0 0 40px rgba(232,184,58,.2),0 16px 48px rgba(0,0,0,.95)`,
@@ -61,7 +61,7 @@ function IncomingOfferModal({offer,onAccept,onReject,onClose,squad=[]}){
             <div style={{fontSize:".44rem",color:C.dmr}}>{offer.club}</div>
           </div>
         </div>
-        <button onClick={onClose} style={{background:"rgba(255,255,255,.05)",border:`1px solid rgba(77,166,255,0.22)`,
+        <button onClick={onClose} style={{background:C.surfaceHover,border:`1px solid rgba(77,166,255,0.22)`,
           color:C.dim,cursor:"pointer",fontSize:".7rem",width:24,height:24,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✕</button>
       </div>
@@ -72,9 +72,9 @@ function IncomingOfferModal({offer,onAccept,onReject,onClose,squad=[]}){
           background:`linear-gradient(135deg,rgba(26,110,216,.1),rgba(26,110,216,.04))`,
           border:`1px solid ${gc}33`,borderRadius:9}}>
           <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
-            background:`conic-gradient(${gc} ${pl.ovr*3.6}deg,rgba(255,255,255,.05) 0deg)`,
+            background:`conic-gradient(${gc} ${pl.ovr*3.6}deg,${C.surfaceHover} 0deg)`,
             display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <div style={{width:32,height:32,borderRadius:"50%",background:"#071226",
+            <div style={{width:32,height:32,borderRadius:"50%",background:C.card,
               display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
               <div style={{fontSize:".8rem",fontWeight:900,color:gc,lineHeight:1}}>{pl.ovr}</div>
               <div style={{fontSize:".32rem",color:gc,opacity:.8}}>{pl.pos}</div>

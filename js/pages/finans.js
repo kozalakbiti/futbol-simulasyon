@@ -77,7 +77,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
                 <span style={{fontSize:".5rem",color:C.grn2}}>📈 Toplam Gelir</span>
                 <span style={{fontSize:".54rem",fontWeight:700,color:C.grn2}}>{fmt(totalGelir)}</span>
               </div>
-              <div style={{height:8,background:"rgba(255,255,255,.05)",borderRadius:4,overflow:"hidden"}}>
+              <div style={{height:8,background:C.surfaceHover,borderRadius:4,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${Math.round(totalGelir/maxVal*100)}%`,background:`linear-gradient(90deg,#1e8449,#27ae60)`,borderRadius:4}}/>
               </div>
             </div>
@@ -86,7 +86,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
                 <span style={{fontSize:".5rem",color:C.red2}}>📉 Toplam Gider</span>
                 <span style={{fontSize:".54rem",fontWeight:700,color:C.red2}}>{fmt(totalGider2)}</span>
               </div>
-              <div style={{height:8,background:"rgba(255,255,255,.05)",borderRadius:4,overflow:"hidden"}}>
+              <div style={{height:8,background:C.surfaceHover,borderRadius:4,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${Math.round(totalGider2/maxVal*100)}%`,background:`linear-gradient(90deg,#922b21,#e74c3c)`,borderRadius:4}}/>
               </div>
             </div>
@@ -108,7 +108,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
               <span style={{fontSize:".52rem",color:C.wh}}>{r.icon} {r.label}</span>
               <span style={{fontSize:".56rem",fontWeight:700,color:r.val>0?r.col:C.dmr}}>{r.val>0?fmt(r.val):"—"}</span>
             </div>
-            <div style={{height:5,background:"rgba(255,255,255,.05)",borderRadius:3,overflow:"hidden"}}>
+            <div style={{height:5,background:C.surfaceHover,borderRadius:3,overflow:"hidden"}}>
               <div style={{height:"100%",width:pct(r.val,maxGelir)+"%",background:r.col,borderRadius:3,transition:"width .4s"}}/>
             </div>
           </div>
@@ -202,7 +202,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
                 <span style={{fontSize:".52rem",color:C.wh}}>{r.icon} {r.label}</span>
                 <span style={{fontSize:".56rem",fontWeight:700,color:r.col}}>{fmt(r.val)}</span>
               </div>
-              <div style={{height:4,background:"rgba(255,255,255,.05)",borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:4,background:C.surfaceHover,borderRadius:2,overflow:"hidden"}}>
                 <div style={{height:"100%",width:pct(r.val,maxGelir)+"%",background:r.col,borderRadius:2,transition:"width .4s"}}/>
               </div>
             </div>
@@ -247,7 +247,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
                 </div>
                 <div style={{fontSize:"1rem",fontWeight:900,color:r.col}}>{fmt(r.val)}</div>
               </div>
-              <div style={{height:10,background:"rgba(255,255,255,.06)",borderRadius:5,overflow:"hidden"}}>
+              <div style={{height:10,background:C.surfaceHover,borderRadius:5,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${Math.min(100,r.val/r.max*100)}%`,
                   background:`linear-gradient(90deg,${r.col}88,${r.col})`,borderRadius:5,transition:"width .5s"}}/>
               </div>
@@ -376,7 +376,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px",
             borderBottom:`1px solid rgba(77,166,255,0.1)`,fontSize:".6rem"}}>
             <span style={{minWidth:28,fontSize:".5rem",color:C.dmr,
-              background:"rgba(255,255,255,.05)",borderRadius:3,padding:"1px 3px",textAlign:"center"}}>{p.pos}</span>
+              background:C.surfaceHover,borderRadius:3,padding:"1px 3px",textAlign:"center"}}>{p.pos}</span>
             <span style={{flex:1,color:C.wh}}>{p.n}</span>
             <span style={{color:C.gd,fontWeight:700,minWidth:55,textAlign:"right"}}>{fmt(p.sal||0)}/yıl</span>
           </div>
@@ -395,7 +395,7 @@ function PageFinans({finans,squad,coaches=[],clubName="Club Manager: Glory Road"
           {coachSalTotal>0&&(
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 6px",
               borderBottom:`1px solid rgba(77,166,255,0.1)`,fontSize:".6rem",
-              background:"rgba(8,18,40,.7)"}}>
+              background:C.card}}>
               <span style={{minWidth:28}}/>
               <span style={{flex:1,color:C.pur2,fontWeight:700}}>🏋️ {coaches.filter(c=>c.hired).length} Antrenör</span>
               <span style={{color:C.red2,fontWeight:700,minWidth:55,textAlign:"right"}}>{fmt(coachSalTotal)}/yıl</span>

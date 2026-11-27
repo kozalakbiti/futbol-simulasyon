@@ -177,7 +177,7 @@ function PageIliskiler({fans,updateFans,season,clubName,addNews,mgmt,updateMgmt}
               </div>
               <div style={{fontSize:"1.8rem",fontWeight:900,color:mTCol,lineHeight:1}}>{mT}</div>
             </div>
-            <div style={{height:8,background:"rgba(255,255,255,.06)",borderRadius:4,overflow:"hidden",marginBottom:6}}>
+            <div style={{height:8,background:C.surfaceHover,borderRadius:4,overflow:"hidden",marginBottom:6}}>
               <div style={{height:"100%",width:`${mT}%`,
                 background:mT>=70?C.grn2:mT>=40?"#e67e22":C.red2,
                 borderRadius:4,transition:"width .5s"}}/>

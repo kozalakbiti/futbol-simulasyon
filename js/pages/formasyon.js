@@ -78,15 +78,15 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
   // ── Tab bar ──
   const tabBar=(
     <div style={{flexShrink:0,display:"flex",gap:3,padding:"6px 8px",
-      background:"rgba(5,9,26,.95)",borderBottom:"1px solid rgba(77,166,255,0.1)"}}>
+      background:C.nav,borderBottom:"1px solid rgba(77,166,255,0.1)"}}>
       {[["formasyon","🎯","Formasyon"],["taktik","⚙️","Taktik"]].map(([id,icon,label])=>{
         const active=tab===id;
         return(
           <button key={id} onClick={()=>setTab(id)} style={{
             flex:1,padding:"7px 4px",cursor:"pointer",borderRadius:7,fontFamily:"inherit",
             border:active?"1px solid rgba(77,166,255,.4)":"1px solid rgba(77,166,255,.1)",
-            background:active?"linear-gradient(135deg,rgba(21,98,204,.4),rgba(21,98,204,.2))":"rgba(10,20,42,.4)",
-            color:active?"#e8f4ff":"rgba(120,152,192,.55)",
+            background:active?"linear-gradient(135deg,rgba(21,98,204,.4),rgba(21,98,204,.2))":C.surface,
+            color:active?C.wh:C.dim,
             fontSize:".58rem",fontWeight:active?800:500,letterSpacing:active?.3:0,
             boxShadow:active?"0 0 10px rgba(77,166,255,.15)":"none",
             transition:"all .15s"}}>
@@ -175,12 +175,12 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
 
   const formasyonContent=(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",
-      padding:"8px 8px 6px",gap:5,background:"rgba(3,6,18,.5)"}}>
+      padding:"8px 8px 6px",gap:5,background:C.surface}}>
       {/* Üst bar */}
       <div style={{flexShrink:0,display:"flex",gap:4,alignItems:"center",flexWrap:"wrap",
-        background:"rgba(5,9,26,.92)",borderRadius:9,padding:"6px 8px",
+        background:C.nav,borderRadius:9,padding:"6px 8px",
         border:"1px solid rgba(77,166,255,0.1)"}}>
-        <div style={{display:"flex",gap:3,background:"rgba(0,0,0,.4)",borderRadius:6,
+        <div style={{display:"flex",gap:3,background:C.inset,borderRadius:6,
           padding:"2px",border:"1px solid rgba(77,166,255,0.07)"}}>
           {Object.keys(FDATA).map(f=>{
             const active=f===formation;
@@ -201,7 +201,7 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
               }}
               style={{background:active?"linear-gradient(135deg,rgba(21,98,204,.5),rgba(21,98,204,.25))":"transparent",
                 border:active?"1px solid rgba(77,166,255,.4)":"1px solid transparent",
-                color:active?"#e8f4ff":"rgba(120,152,192,.5)",
+                color:active?C.wh:C.dim,
                 fontSize:".56rem",letterSpacing:active?.6:0,fontWeight:active?800:500,
                 padding:"5px 10px",cursor:"pointer",borderRadius:5,fontFamily:"inherit",
                 boxShadow:active?"0 0 10px rgba(77,166,255,.15)":"none",
@@ -214,21 +214,21 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           title="Her maç sonrası otomatik en iyi 11 seçilir"
           style={{background:autoLineup?"linear-gradient(135deg,rgba(26,184,92,.25),rgba(26,184,92,.1))":"rgba(100,120,160,.08)",
             border:autoLineup?"1px solid rgba(26,184,92,.3)":"1px solid rgba(77,166,255,.08)",
-            color:autoLineup?"#30e070":"rgba(120,152,192,.4)",
+            color:autoLineup?C.grn2:C.dmr,
             fontSize:".5rem",fontWeight:700,padding:"5px 10px",cursor:"pointer",borderRadius:6,
             fontFamily:"inherit",transition:"all .15s",whiteSpace:"nowrap"}}>
           {autoLineup?"🤖 Oto Açık":"🤖 Oto Kapalı"}
         </button>
         <button onClick={handleAutoLineup}
           style={{marginLeft:"auto",background:"linear-gradient(135deg,rgba(21,98,204,.3),rgba(21,98,204,.15))",
-            border:"1px solid rgba(77,166,255,.2)",color:"rgba(150,190,255,.8)",
+            border:"1px solid rgba(77,166,255,.2)",color:C.ac2,
             fontSize:".5rem",fontWeight:700,padding:"5px 10px",cursor:"pointer",borderRadius:6,
             fontFamily:"inherit",transition:"all .15s",whiteSpace:"nowrap"}}>⚡ En İyi 11</button>
       </div>
 
       {/* Hint */}
       {picking!==null&&<div style={{flexShrink:0,textAlign:"center",fontSize:".44rem",
-        color:"#ffd060",background:"rgba(232,184,58,.08)",border:"1px solid rgba(232,184,58,.2)",
+        color:C.gd,background:"rgba(232,184,58,.08)",border:"1px solid rgba(232,184,58,.2)",
         borderRadius:6,padding:"5px",fontWeight:700}}>
         👆 Yedek seç veya sahada başka oyuncuya tıkla (yer değiştir)
         <button onClick={cancel} style={{marginLeft:8,background:"rgba(255,255,255,.1)",border:"none",
@@ -342,14 +342,14 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
       </div>
 
       {/* Yedekler */}
-      <div style={{flexShrink:0,background:"rgba(5,9,26,.92)",
+      <div style={{flexShrink:0,background:C.nav,
         borderRadius:9,border:"1px solid rgba(77,166,255,0.08)",padding:"6px 8px"}}>
         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-          <div style={{fontSize:".4rem",color:picking!==null?"#ffd060":"rgba(77,166,255,.3)",
+          <div style={{fontSize:".4rem",color:picking!==null?C.gd:C.dim,
             textTransform:"uppercase",letterSpacing:1.5,fontWeight:picking!==null?800:600}}>
             {picking!==null?"👇 Yedek Seç":"Yedek Oyuncular"}
           </div>
-          {picking===null&&<div style={{fontSize:".4rem",color:"rgba(77,166,255,.2)",
+          {picking===null&&<div style={{fontSize:".4rem",color:C.dim,
             padding:"1px 6px",borderRadius:8,background:"rgba(77,166,255,.05)",
             border:"1px solid rgba(77,166,255,.08)"}}>{subs.length} oyuncu</div>}
           {picking!==null&&<div style={{fontSize:".38rem",color:"rgba(232,184,58,.6)",fontStyle:"italic"}}>❌ oynayamaz · ⚠️ -5 ceza</div>}
@@ -368,7 +368,7 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                 style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
                   padding:"5px 6px",borderRadius:7,minWidth:38,
                   opacity:subCant?0.32:1,
-                  background:isInjured?"rgba(180,40,40,.12)":subCant?"rgba(192,57,43,.08)":subWarn?"rgba(232,184,58,.1)":canSelect?"rgba(21,98,204,.18)":"rgba(10,20,40,.5)",
+                  background:isInjured?"rgba(180,40,40,.12)":subCant?"rgba(192,57,43,.08)":subWarn?"rgba(232,184,58,.1)":canSelect?"rgba(21,98,204,.18)":C.card,
                   border:`1px solid ${isInjured?"rgba(231,76,60,.35)":subCant?"rgba(231,76,60,.2)":subWarn?"rgba(232,184,58,.25)":canSelect?"rgba(77,166,255,.3)":"rgba(77,166,255,.07)"}`,
                   boxShadow:canSelect?"0 0 10px rgba(77,166,255,.1)":"none",
                   cursor:subCant?"not-allowed":picking!==null?"pointer":"default",transition:"all .15s"}}>
@@ -382,7 +382,7 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                   {isInjured?"🏥":subCant?"✕":pl.ovr}
                 </div>
                 <div style={{fontSize:".35rem",
-                  color:isInjured?"rgba(255,100,100,.7)":subCant?"rgba(255,80,80,.6)":subWarn?"#ffd060":picking!==null?"rgba(200,220,255,.9)":"rgba(120,152,192,.7)",
+                  color:isInjured?"rgba(255,100,100,.7)":subCant?"rgba(255,80,80,.6)":subWarn?C.gd:picking!==null?C.wh:C.dim,
                   whiteSpace:"nowrap",fontWeight:700,maxWidth:44,overflow:"hidden",textOverflow:"ellipsis",letterSpacing:.1}}>
                   {(pl.n.includes(".")?pl.n.split(".")[1]:pl.n)||pl.n}
                 </div>
@@ -391,12 +391,12 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                   border:`1px solid ${isInjured?"rgba(231,76,60,.3)":tc.b}`,whiteSpace:"nowrap",letterSpacing:.3}}>
                   {isInjured?`${pl.injured}h`:pl.pos}
                 </span>
-                {subWarn&&<span style={{fontSize:".3rem",color:"#ffd060",fontWeight:800,
+                {subWarn&&<span style={{fontSize:".3rem",color:C.gd,fontWeight:800,
                   background:"rgba(200,153,42,.15)",padding:"0 3px",borderRadius:2}}>-5</span>}
               </div>
             );
           })}
-          {subs.length===0&&<div style={{padding:"8px 0",fontSize:".5rem",color:"rgba(77,166,255,.2)",fontStyle:"italic"}}>Yedek oyuncu yok</div>}
+          {subs.length===0&&<div style={{padding:"8px 0",fontSize:".5rem",color:C.dim,fontStyle:"italic"}}>Yedek oyuncu yok</div>}
         </div>
       </div>
     </div>
@@ -404,17 +404,17 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
 
   const taktikContent=(
     <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
-      <div style={{flex:1,overflowY:"auto",padding:"10px 12px",background:"rgba(3,6,18,.4)"}}>
+      <div style={{flex:1,overflowY:"auto",padding:"10px 12px",background:C.surface}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <div style={{fontSize:".6rem",fontWeight:900,color:"rgba(230,240,255,.9)",letterSpacing:.5}}>Takım Taktikleri</div>
-          <div style={{fontSize:".42rem",color:"#30e070",background:"rgba(48,224,112,.1)",
+          <div style={{fontSize:".6rem",fontWeight:900,color:C.wh,letterSpacing:.5}}>Takım Taktikleri</div>
+          <div style={{fontSize:".42rem",color:C.grn2,background:"rgba(48,224,112,.1)",
             border:"1px solid rgba(48,224,112,.2)",padding:"2px 8px",borderRadius:10,fontWeight:700}}>⚡ Maça Etki Ediyor</div>
         </div>
-        <div style={{fontSize:".46rem",color:"rgba(232,151,90,.8)",marginBottom:12,
+        <div style={{fontSize:".46rem",color:C.ora,marginBottom:12,
           padding:"7px 10px",background:"linear-gradient(135deg,rgba(232,151,90,.1),rgba(232,151,90,.03))",
           borderRadius:7,border:"1px solid rgba(232,151,90,.18)",display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:".7rem",flexShrink:0}}>💡</span>
-          <span>Rakip gücüne, sahaya ve rakibin oyun tarzına göre maç sonucunu <b style={{color:"#e8975a"}}>±7 OVR</b> kadar etkiler</span>
+          <span>Rakip gücüne, sahaya ve rakibin oyun tarzına göre maç sonucunu <b style={{color:C.ora}}>±7 OVR</b> kadar etkiler</span>
         </div>
         {scoutReport&&<ScoutReportCard opp={opp} report={scoutReport} tactic={tactic}/>}
         {tacs.map((t,ti)=>{
@@ -422,15 +422,15 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
           const icons=["🔵","⚪","🔴"];
           const optCols=["#5dade2","#7898c0","#ff6060"];
           return(
-          <div key={ti} style={{marginBottom:14,background:"linear-gradient(135deg,rgba(10,20,42,.8),rgba(7,14,30,.6))",
+          <div key={ti} style={{marginBottom:14,background:C.gradCard,
             borderRadius:8,padding:"8px 10px",border:"1px solid rgba(77,166,255,0.07)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
-              <div style={{fontSize:".46rem",letterSpacing:1.2,color:"rgba(77,166,255,.5)",textTransform:"uppercase",fontWeight:700}}>{t.l}</div>
+              <div style={{fontSize:".46rem",letterSpacing:1.2,color:C.dim,textTransform:"uppercase",fontWeight:700}}>{t.l}</div>
               <div style={{fontSize:".42rem",color:optCols[activeOpt],fontWeight:700,
                 background:`${optCols[activeOpt]}15`,border:`1px solid ${optCols[activeOpt]}30`,
                 padding:"1px 7px",borderRadius:8}}>{t.opts[activeOpt]}</div>
             </div>
-            <div style={{display:"flex",gap:3,marginBottom:7,background:"rgba(0,0,0,.3)",
+            <div style={{display:"flex",gap:3,marginBottom:7,background:C.inset,
               borderRadius:6,padding:"2px",border:"1px solid rgba(77,166,255,0.06)"}}>
               {t.opts.map((o,oi)=>{
                 const active=activeOpt===oi;
@@ -440,24 +440,24 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
                   flex:1,padding:"6px 4px",cursor:"pointer",borderRadius:5,fontFamily:"inherit",
                   border:active?`1px solid ${col}55`:"1px solid transparent",
                   background:active?`linear-gradient(135deg,${col}30,${col}15)`:"transparent",
-                  color:active?"#fff":"rgba(120,152,192,.45)",
+                  color:active?C.wh:C.dim,
                   fontSize:".52rem",fontWeight:active?800:500,
                   boxShadow:active?`0 0 10px ${col}18`:"none",transition:"all .15s"}}>{o}</button>
                 );
               })}
             </div>
-            <div style={{fontSize:".44rem",color:"rgba(120,152,192,.45)",fontStyle:"italic",lineHeight:1.4,paddingLeft:2}}>{t.desc[activeOpt]}</div>
+            <div style={{fontSize:".44rem",color:C.dmr,fontStyle:"italic",lineHeight:1.4,paddingLeft:2}}>{t.desc[activeOpt]}</div>
           </div>
           );
         })}
-        <div style={{marginTop:6,background:"linear-gradient(135deg,rgba(10,20,42,.8),rgba(7,14,30,.6))",
+        <div style={{marginTop:6,background:C.gradCard,
           borderRadius:8,padding:"8px 10px",border:"1px solid rgba(77,166,255,0.07)"}}>
-          <div style={{fontSize:".46rem",color:"rgba(77,166,255,.4)",letterSpacing:1.2,
+          <div style={{fontSize:".46rem",color:C.dim,letterSpacing:1.2,
             textTransform:"uppercase",fontWeight:700,marginBottom:8}}>Özel Talimatlar</div>
           {["Hızlı Kontra","Set Pres","Geri Çekil","Oyunu Yavaşlat","İki Kanat","Orta Sahaya Baskı"].map((t,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",
               padding:"7px 2px",borderBottom:"1px solid rgba(77,166,255,0.06)"}}>
-              <span style={{fontSize:".58rem",color:tactic[`tog${i}`]?"rgba(200,220,255,.85)":"rgba(120,152,192,.55)",
+              <span style={{fontSize:".58rem",color:tactic[`tog${i}`]?C.wh:C.dim,
                 fontWeight:tactic[`tog${i}`]?600:400,transition:"color .2s"}}>{t}</span>
               <div onClick={()=>setTactic(p=>({...p,[`tog${i}`]:!p[`tog${i}`]}))}
                 style={{width:30,height:15,borderRadius:8,flexShrink:0,cursor:"pointer",
@@ -474,10 +474,10 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
         </div>
       </div>
       <div style={{width:194,minHeight:0,borderLeft:"1px solid rgba(77,166,255,0.07)",
-        background:"rgba(2,5,15,.6)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        background:C.card,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{flexShrink:0,padding:"10px 10px 0",display:"flex",flexDirection:"column",gap:8}}>
         {nextFixture?<div style={{flexShrink:0,
-          background:`linear-gradient(135deg,${effStr>=oppStr?"rgba(26,184,92,.13)":"rgba(231,76,60,.13)"},rgba(10,20,42,.8))`,
+          background:`linear-gradient(135deg,${effStr>=oppStr?"rgba(26,184,92,.13)":"rgba(231,76,60,.13)"},${C.card})`,
           border:`1px solid ${effStr>=oppStr?"rgba(26,184,92,.22)":"rgba(231,76,60,.22)"}`,
           borderRadius:8,overflow:"hidden"}}>
           <div style={{height:2,background:`linear-gradient(90deg,transparent,${effStr>=oppStr?"#30e070":"#ff5050"},transparent)`}}/>
@@ -485,47 +485,47 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
               <div style={{display:"flex",alignItems:"center",gap:5}}>
                 <TeamBadge name={opp} size="md"/>
-                <div style={{fontSize:".58rem",fontWeight:800,color:"rgba(230,240,255,.9)"}}>{opp}</div>
+                <div style={{fontSize:".58rem",fontWeight:800,color:C.wh}}>{opp}</div>
               </div>
               <span style={{fontSize:".42rem",fontWeight:700,
-                color:home?"#30e070":"#ffd060",background:home?"rgba(48,224,112,.1)":"rgba(255,208,96,.1)",
+                color:home?C.grn2:C.gd,background:home?"rgba(48,224,112,.1)":"rgba(255,208,96,.1)",
                 border:home?"1px solid rgba(48,224,112,.2)":"1px solid rgba(255,208,96,.2)",
                 padding:"1px 5px",borderRadius:6,flexShrink:0}}>{home?"🏠 Ev":"✈️ Dep."}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{textAlign:"center"}}>
-                <div style={{fontSize:".32rem",color:"rgba(77,166,255,.35)",letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Bizim Güç</div>
-                <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:effStr>=oppStr?"#30e070":"#ff5050",textShadow:effStr>=oppStr?"0 0 12px #30e07055":"0 0 12px #ff505055"}}>{effStr}</div>
+                <div style={{fontSize:".32rem",color:C.dim,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Bizim Güç</div>
+                <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:effStr>=oppStr?C.grn2:C.red2,textShadow:effStr>=oppStr?"0 0 12px #30e07055":"0 0 12px #ff505055"}}>{effStr}</div>
               </div>
               <div style={{textAlign:"center",padding:"0 6px"}}>
-                <div style={{fontSize:".52rem",fontWeight:800,color:effStr>=oppStr+8?"#30e070":effStr>=oppStr+3?"#6fcf97":effStr>=oppStr-3?"#ffd060":"#ff6060"}}>
+                <div style={{fontSize:".52rem",fontWeight:800,color:effStr>=oppStr+8?C.grn2:effStr>=oppStr+3?"#6fcf97":effStr>=oppStr-3?C.gd:"#ff6060"}}>
                   {effStr>=oppStr+8?"🔥":effStr>=oppStr+3?"✅":effStr>=oppStr-3?"⚖️":"⚠️"}
                 </div>
-                <div style={{fontSize:".32rem",color:"rgba(120,152,192,.4)",marginTop:1}}>
+                <div style={{fontSize:".32rem",color:C.dmr,marginTop:1}}>
                   {effStr>=oppStr+8?"Favori":effStr>=oppStr+3?"Avantaj":effStr>=oppStr-3?"Dengeli":"Dezav."}
                 </div>
               </div>
               <div style={{textAlign:"center"}}>
-                <div style={{fontSize:".32rem",color:"rgba(77,166,255,.35)",letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Rakip</div>
-                <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:oppStr>=75?"#ff6060":oppStr>=65?"#ffd060":"#30e070"}}>{oppStr}</div>
+                <div style={{fontSize:".32rem",color:C.dim,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Rakip</div>
+                <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:oppStr>=75?"#ff6060":oppStr>=65?C.gd:C.grn2}}>{oppStr}</div>
               </div>
             </div>
           </div>
-        </div>:<div style={{background:`linear-gradient(135deg,rgba(26,184,92,.12),rgba(10,20,42,.8))`,
+        </div>:<div style={{background:`linear-gradient(135deg,rgba(26,184,92,.12),${C.card})`,
           border:"1px solid rgba(26,184,92,.2)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-          <div style={{fontSize:".32rem",color:"rgba(77,166,255,.35)",letterSpacing:.8,textTransform:"uppercase",marginBottom:4}}>Efektif Güç</div>
-          <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:"#30e070"}}>{effStr}</div>
+          <div style={{fontSize:".32rem",color:C.dim,letterSpacing:.8,textTransform:"uppercase",marginBottom:4}}>Efektif Güç</div>
+          <div style={{fontSize:".9rem",fontWeight:900,lineHeight:1,color:C.grn2}}>{effStr}</div>
         </div>}
-        <div style={{flexShrink:0,background:"linear-gradient(135deg,rgba(10,20,42,.9),rgba(7,14,30,.8))",
+        <div style={{flexShrink:0,background:C.gradCard,
           border:"1px solid rgba(77,166,255,0.08)",borderRadius:8,padding:"8px 10px"}}>
-          <div style={{fontSize:".38rem",color:"rgba(77,166,255,.35)",textTransform:"uppercase",letterSpacing:1.2,marginBottom:8,fontWeight:700}}>Maç Tahmini</div>
+          <div style={{fontSize:".38rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.2,marginBottom:8,fontWeight:700}}>Maç Tahmini</div>
           {[["Galibiyet",winProb,C.grn2],["Beraberlik",drawProb,C.gd],["Mağlubiyet",loseProb,C.red2]].map(([l,v,cc])=>(
             <div key={l} style={{marginBottom:7}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,alignItems:"center"}}>
-                <span style={{fontSize:".44rem",color:"rgba(120,152,192,.6)",fontWeight:500}}>{l}</span>
+                <span style={{fontSize:".44rem",color:C.dim,fontWeight:500}}>{l}</span>
                 <span style={{fontSize:".52rem",color:cc,fontWeight:800,textShadow:`0 0 8px ${cc}44`}}>{v}%</span>
               </div>
-              <div style={{height:5,background:"rgba(255,255,255,.04)",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:5,background:C.surface,borderRadius:3,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${v}%`,background:`linear-gradient(90deg,${cc}88,${cc})`,
                   borderRadius:3,boxShadow:`0 0 6px ${cc}44`,transition:"width .4s ease"}}/>
               </div>
@@ -534,40 +534,40 @@ function PageFormasyonTaktik({squad,coaches,formation,setFormation,lineup:starti
         </div>
         </div>
         <div style={{flex:1,overflowY:"auto",minHeight:0,padding:"0 10px 16px",display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{background:"linear-gradient(135deg,rgba(10,20,42,.9),rgba(7,14,30,.8))",
+        <div style={{background:C.gradCard,
           border:"1px solid rgba(77,166,255,0.08)",borderRadius:8,padding:"8px 10px"}}>
-          <div style={{fontSize:".38rem",color:"rgba(77,166,255,.35)",textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Taktik Etki Dökümü</div>
+          <div style={{fontSize:".38rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Taktik Etki Dökümü</div>
           {[["Hücum Baskısı",pressEffect],["Defans Hattı",defEffect],["Oyun Stili",styleEffect],["Kanat",wingEffect],["Baskı Alanı",zoneEffect],
             ...(togTotal!==0?[["Özel Talimatlar",togTotal]]:[]),
             ...(tacCoachBonus?[[`${tacCoach.n}`,tacCoachBonus]]:[]),
           ].map(([l,v],i)=>(
             <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(77,166,255,0.06)"}}>
-              <span style={{fontSize:".44rem",color:"rgba(120,152,192,.55)"}}>{l}</span>
+              <span style={{fontSize:".44rem",color:C.dim}}>{l}</span>
               <span style={{fontSize:".5rem",color:effectColor(v),fontWeight:800,background:`${effectColor(v)}12`,border:`1px solid ${effectColor(v)}25`,padding:"0 5px",borderRadius:5,minWidth:24,textAlign:"center"}}>{effectSign(v)}</span>
             </div>
           ))}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:5,borderTop:"1px solid rgba(77,166,255,0.15)"}}>
-            <span style={{fontSize:".46rem",color:"rgba(200,220,255,.7)",fontWeight:700}}>Toplam</span>
+            <span style={{fontSize:".46rem",color:C.dim,fontWeight:700}}>Toplam</span>
             <span style={{fontSize:".72rem",fontWeight:900,color:effectColor(totalEffect),textShadow:`0 0 10px ${effectColor(totalEffect)}55`}}>{effectSign(totalEffect)}</span>
           </div>
         </div>
-        <div style={{background:"linear-gradient(135deg,rgba(10,20,42,.9),rgba(7,14,30,.8))",
+        <div style={{background:C.gradCard,
           border:"1px solid rgba(77,166,255,0.08)",borderRadius:8,padding:"8px 10px"}}>
-          <div style={{fontSize:".38rem",color:"rgba(77,166,255,.35)",textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Maç Profili</div>
+          <div style={{fontSize:".38rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Maç Profili</div>
           {[["Oyun Tarzı",styleLabel,styleCol],["Risk",riskLabel,riskCol],["Gol Bek. (B)",myLambda,C.gd],["Gol Bek. (R)",opLambda,C.red2]].map(([l,v,cc])=>(
             <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(77,166,255,0.06)"}}>
-              <span style={{fontSize:".44rem",color:"rgba(120,152,192,.55)"}}>{l}</span>
+              <span style={{fontSize:".44rem",color:C.dim}}>{l}</span>
               <span style={{fontSize:".48rem",fontWeight:700,color:cc}}>{v}</span>
             </div>
           ))}
         </div>
         <div style={{background:"linear-gradient(135deg,rgba(21,98,204,.1),rgba(21,98,204,.03))",
           border:"1px solid rgba(77,166,255,.1)",borderRadius:8,padding:"8px 10px"}}>
-          <div style={{fontSize:".38rem",color:"rgba(77,166,255,.4)",textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Aktif Taktikler</div>
+          <div style={{fontSize:".38rem",color:C.dim,textTransform:"uppercase",letterSpacing:1.2,marginBottom:7,fontWeight:700}}>Aktif Taktikler</div>
           {tacs.map((t,ti)=>(
             <div key={ti} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(77,166,255,0.07)"}}>
-              <span style={{fontSize:".42rem",color:"rgba(120,152,192,.5)"}}>{t.l}</span>
-              <span style={{fontSize:".46rem",color:"rgba(200,220,255,.8)",fontWeight:700}}>{t.opts[tactic[t.key]??1]}</span>
+              <span style={{fontSize:".42rem",color:C.dim}}>{t.l}</span>
+              <span style={{fontSize:".46rem",color:C.wh,fontWeight:700}}>{t.opts[tactic[t.key]??1]}</span>
             </div>
           ))}
         </div>

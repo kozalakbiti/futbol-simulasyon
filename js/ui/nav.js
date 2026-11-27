@@ -29,16 +29,26 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflowY:"auto",padding:"12px 10px",gap:16}}>
       {/* Başlık */}
-      <div style={{padding:"10px 14px",background:"rgba(0,0,0,.4)",borderRadius:8,
+      <div style={{padding:"10px 14px",background:C.inset,borderRadius:8,
         border:`1px solid rgba(77,166,255,0.1)`}}>
         <div style={{fontSize:".7rem",fontWeight:800,color:C.ac2,letterSpacing:1,marginBottom:3}}>⚙️ OYUN AYARLARI</div>
         <div style={{fontSize:".48rem",color:C.dim}}>Bu ayarlar kayıt dosyasına da yansır.</div>
       </div>
 
+      {/* Görünüm: Gece / Gündüz */}
+      <div style={{background:C.inset,borderRadius:8,border:`1px solid ${C.brd2}`,padding:"10px 14px",
+        display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+        <div>
+          <div style={{fontSize:".62rem",fontWeight:800,color:C.wh,letterSpacing:.5}}>Görünüm Teması</div>
+          <div style={{fontSize:".46rem",color:C.dim,marginTop:2}}>Gece (koyu) veya Gündüz (açık) arayüz — bu cihazda hatırlanır</div>
+        </div>
+        <ThemeToggleButton/>
+      </div>
+
       {/* Transfer Hareketliliği */}
-      <div style={{background:"rgba(0,0,0,.35)",borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,overflow:"hidden"}}>
+      <div style={{background:C.inset,borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,overflow:"hidden"}}>
         <div style={{padding:"9px 14px",borderBottom:`1px solid rgba(77,166,255,0.1)`,
-          background:"rgba(255,255,255,.03)"}}>
+          background:C.surface}}>
           <div style={{fontSize:".62rem",fontWeight:800,color:C.wh,letterSpacing:.5}}>⚡ Transfer Pazarı Hareketliliği</div>
           <div style={{fontSize:".46rem",color:C.dim,marginTop:2}}>
             Rakip kulüplerin ne sıklıkla transfer teklifi yapacağını belirle
@@ -53,14 +63,14 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
                   display:"flex",alignItems:"center",gap:12,
                   padding:"10px 12px",borderRadius:7,cursor:"pointer",
                   fontFamily:"inherit",textAlign:"left",
-                  background:active?`${color}18`:"rgba(255,255,255,.03)",
+                  background:active?`${color}18`:C.surface,
                   border:`2px solid ${active?color:C.brd2}`,
                   transition:"all .18s"
                 }}>
                 {/* İkon + Seçim */}
                 <div style={{
                   width:36,height:36,borderRadius:8,
-                  background:active?`${color}30`:"rgba(255,255,255,.06)",
+                  background:active?`${color}30`:C.surfaceHover,
                   border:`1px solid ${active?color:C.brd2}`,
                   display:"flex",alignItems:"center",justifyContent:"center",
                   fontSize:"1.1rem",flexShrink:0
@@ -85,7 +95,7 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
         </div>
         {/* Aktif durum özeti */}
         <div style={{padding:"8px 14px",borderTop:`1px solid rgba(77,166,255,0.1)`,
-          background:"rgba(0,0,0,.2)",display:"flex",alignItems:"center",gap:6}}>
+          background:C.inset,display:"flex",alignItems:"center",gap:6}}>
           <span style={{fontSize:".48rem",color:C.dim}}>Mevcut ayar:</span>
           <span style={{
             fontSize:".52rem",fontWeight:800,
@@ -97,7 +107,7 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
       </div>
 
       {/* Maç Hazırlığı ekranı */}
-      <div style={{background:"rgba(0,0,0,.35)",borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,
+      <div style={{background:C.inset,borderRadius:8,border:`1px solid rgba(77,166,255,0.1)`,
         padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{flex:1}}>
           <div style={{fontSize:".62rem",fontWeight:800,color:C.wh,letterSpacing:.5}}>📋 Maç Hazırlığı Ekranı</div>
@@ -108,7 +118,7 @@ function PageAyarlar({transferPace="normal",onPaceChange=()=>{},skipPreMatch=fal
         <button onClick={()=>onSkipPreMatchChange(!skipPreMatch)} style={{
           flexShrink:0,padding:"6px 12px",borderRadius:14,cursor:"pointer",fontFamily:"inherit",
           fontSize:".5rem",fontWeight:800,
-          background:!skipPreMatch?"rgba(48,224,112,.18)":"rgba(255,255,255,.05)",
+          background:!skipPreMatch?"rgba(48,224,112,.18)":C.surfaceHover,
           border:`1px solid ${!skipPreMatch?"#30e070":C.brd2}`,
           color:!skipPreMatch?"#30e070":C.dim}}>{!skipPreMatch?"AÇIK":"KAPALI"}</button>
       </div>

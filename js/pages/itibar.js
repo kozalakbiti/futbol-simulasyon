@@ -35,7 +35,7 @@ function PageItibar({rep,league}){
           <span style={{fontSize:".6rem",color:C.dim}}>Mevcut İtibar</span>
           <span style={{fontSize:"1.4rem",fontWeight:900,color:col}}>{pts}<span style={{fontSize:".5rem",color:C.dmr}}>/100</span></span>
         </div>
-        <div style={{height:10,background:"rgba(255,255,255,.06)",borderRadius:6,overflow:"hidden",marginBottom:6}}>
+        <div style={{height:10,background:C.surfaceHover,borderRadius:6,overflow:"hidden",marginBottom:6}}>
           <div style={{width:pts+"%",height:"100%",background:`linear-gradient(90deg,${col}88,${col})`,borderRadius:6}}/>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:".42rem",color:C.dmr}}>

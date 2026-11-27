@@ -47,3 +47,9 @@ input[type=range] { -webkit-appearance: slider-horizontal; }
 @keyframes fadeInUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 .card-glow { animation: glowPulse 3s ease-in-out infinite; }
 .fade-in-up { animation: fadeInUp .25s ease forwards; }
+/* ── Gündüz (Light) teması: data-theme="light" (js/core/theme.js → applyTheme) ── */
+html[data-theme="light"], html[data-theme="light"] body { background: #f1f5f9; color: #0f172a; }
+html[data-theme="light"] #root { background: linear-gradient(160deg, #ffffff 0%, #f1f5f9 60%); }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.22); }
+html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { color: #0f172a; }
+html[data-theme="light"] input::placeholder, html[data-theme="light"] textarea::placeholder { color: #64748b; }

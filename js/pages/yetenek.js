@@ -6,8 +6,8 @@ function PageYetenek({onAction,squad,youth,onAddToSquad,clubName="Club Manager: 
     const yr=y||0;
     return [0,1,2].map(i=>(
       <span key={i} style={{display:"inline-block",width:7,height:7,borderRadius:"50%",marginRight:2,
-        background:i<yr?(yr>=3?"#ff5050":"#ffd060"):"rgba(255,255,255,.12)",
-        border:`1px solid ${i<yr?(yr>=3?"#cc2233":"#d4a020"):"rgba(255,255,255,.2)"}`}}/>
+        background:i<yr?(yr>=3?"#ff5050":"#ffd060"):C.surfaceHover,
+        border:`1px solid ${i<yr?(yr>=3?"#cc2233":"#d4a020"):C.brd}`}}/>
     ));
   };
   const ACADEMY_LEVELS=[

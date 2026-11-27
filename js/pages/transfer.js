@@ -38,11 +38,11 @@ function calcYouthPlayerVal(player){
 function PlayerCard({player}){
   const pc=posC(player.pos);
   const gc=player.ovr>=90?"#ff5050":player.ovr>=80?"#ffd060":player.ovr>=70?"#b0bec5":player.ovr>=60?"#cd7f32":"#e8975a";
-  const stColors={contracted:"#ff5050",expiring:"#ffd060",listed:"#4da6ff",free:"#1ab855"};
+  const stColors={contracted:C.red2,expiring:C.gd,listed:C.ac2,free:C.grn2};
   const stLabels={contracted:"SÖZL.",expiring:"BİTİYOR",listed:"LİSTEDE",free:"SERBEST"};
   return(
     <div style={{
-      background:`linear-gradient(145deg,#0d1e3a 0%,#071226 60%,#020810 100%)`,
+      background:C.gradCard,
       border:`1px solid ${gc}44`,borderRadius:12,overflow:"hidden",
       boxShadow:`0 0 30px ${gc}18,0 8px 32px rgba(0,0,0,.6)`,
       position:"relative",marginBottom:14
@@ -54,13 +54,13 @@ function PlayerCard({player}){
         {/* OVR circle */}
         <div style={{
           width:54,height:54,borderRadius:"50%",flexShrink:0,
-          background:`conic-gradient(${gc} ${player.ovr*3.6}deg,rgba(255,255,255,.06) 0deg)`,
+          background:`conic-gradient(${gc} ${player.ovr*3.6}deg,${C.surfaceHover} 0deg)`,
           display:"flex",alignItems:"center",justifyContent:"center",
           boxShadow:`0 0 16px ${gc}44`
         }}>
           <div style={{
             width:44,height:44,borderRadius:"50%",
-            background:"#071226",
+            background:C.card,
             display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"
           }}>
             <div style={{fontSize:"1.1rem",fontWeight:900,color:gc,lineHeight:1}}>{player.ovr}</div>
@@ -70,7 +70,7 @@ function PlayerCard({player}){
         {/* Bilgiler */}
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-            <span style={{fontSize:".82rem",fontWeight:800,color:"#f0f4ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.n}</span>
+            <span style={{fontSize:".82rem",fontWeight:800,color:C.wh,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.n}</span>
             <div style={{
               padding:"1px 6px",borderRadius:3,fontSize:".44rem",fontWeight:800,
               background:`${stColors[player.st]||C.ac2}22`,color:stColors[player.st]||C.ac2,
@@ -82,7 +82,7 @@ function PlayerCard({player}){
           <div style={{display:"flex",gap:8}}>
             {[["POT",player.pot,C.pur2],["YAŞ",player.age,C.wh],["DEĞER",player.st==="free"?calcFreePlayerVal(player)+"M€":calcEffectiveVal(player)+"M€",player.st==="free"?C.grn2:C.gd],["ŞANS",player.ch+"%",player.ch>=70?C.grn2:player.ch>=40?C.gd:C.red2]].map(([l,v,c])=>(
               <div key={l} style={{textAlign:"center"}}>
-                <div style={{fontSize:".38rem",color:"#4a6080",letterSpacing:.8,marginBottom:1}}>{l}</div>
+                <div style={{fontSize:".38rem",color:C.dim,letterSpacing:.8,marginBottom:1}}>{l}</div>
                 <div style={{fontSize:".62rem",fontWeight:700,color:c}}>{v}</div>
               </div>
             ))}
@@ -99,7 +99,7 @@ function PlayerCard({player}){
       </div>
       {/* POT bar */}
       <div style={{padding:"0 14px 10px"}}>
-        <div style={{height:3,background:"rgba(255,255,255,.06)",borderRadius:2,overflow:"hidden",position:"relative"}}>
+        <div style={{height:3,background:C.surfaceHover,borderRadius:2,overflow:"hidden",position:"relative"}}>
           <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${player.ovr}%`,background:`${gc}88`,borderRadius:2}}/>
           <div style={{position:"absolute",left:`${player.ovr}%`,top:0,height:"100%",width:`${Math.max(0,player.pot-player.ovr)}%`,background:"rgba(142,68,173,.5)",borderRadius:2}}/>
         </div>
@@ -533,7 +533,7 @@ function OfferPage({player,onBack,onSuccess,onOfferSent=()=>{},onOfferFailed=()=
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
         <div style={{
           width:36,height:36,borderRadius:"50%",flexShrink:0,
-          background:"linear-gradient(135deg,#1a2a4a,#0d1a35)",
+          background:C.gradCard,
           border:`2px solid ${moodColor}`,
           display:"flex",alignItems:"center",justifyContent:"center",
           fontSize:"1.1rem",
@@ -578,7 +578,7 @@ function OfferPage({player,onBack,onSuccess,onOfferSent=()=>{},onOfferFailed=()=
         <div key={i} style={{
           display:"flex",gap:8,alignItems:"center",
           padding:"7px 10px",marginBottom:5,
-          background:"rgba(8,18,40,.7)",
+          background:C.card,
           border:`1px solid rgba(77,166,255,0.1)`,borderRadius:5,
         }}>
           <div style={{minWidth:16,textAlign:"center",fontSize:".54rem",fontWeight:700,color:C.dmr}}>{h.round}</div>
@@ -596,10 +596,10 @@ function OfferPage({player,onBack,onSuccess,onOfferSent=()=>{},onOfferFailed=()=
   );
 
   return(
-    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,background:"#02050c"}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,background:C.bg}}>
       {/* Header */}
       <div style={{padding:"8px 12px",borderBottom:`1px solid rgba(77,166,255,0.22)`,flexShrink:0,
-        display:"flex",alignItems:"center",gap:8,background:"rgba(0,0,0,.4)"}}>
+        display:"flex",alignItems:"center",gap:8,background:C.inset}}>
         <button onClick={onBack} style={{
           background:"none",border:`1px solid rgba(77,166,255,0.22)`,color:C.dim,
           fontSize:".58rem",padding:"3px 8px",cursor:"pointer",borderRadius:3,fontFamily:"inherit",
@@ -647,7 +647,7 @@ function OfferPage({player,onBack,onSuccess,onOfferSent=()=>{},onOfferFailed=()=
         {tab==="profile"&&<>
           <PlayerCard player={player}/>
           <AgentCard/>
-          <div style={{padding:"10px 12px",background:"rgba(8,18,40,.7)",border:`1px solid rgba(77,166,255,0.22)`,borderRadius:8}}>
+          <div style={{padding:"10px 12px",background:C.card,border:`1px solid rgba(77,166,255,0.22)`,borderRadius:8}}>
             <div style={{fontSize:".48rem",color:C.dmr,textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}}>Oyuncu İstekleri</div>
             {[
               ["Öncelikli İstek", playerPriority==="sal"?"Yüksek maaş":playerPriority==="fee"?"Piyasa değeri":  "Uzun sözleşme", C.gd],
@@ -988,14 +988,14 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
           boxShadow:transferWindowOpen?"0 0 10px #30e070bb":"0 0 10px #ff5050bb"}}/>
         <div style={{flex:1}}>
           <div style={{fontSize:".54rem",fontWeight:900,letterSpacing:.8,textTransform:"uppercase",
-            color:transferWindowOpen?"#30e070":"#ff5050",lineHeight:1.2}}>
+            color:transferWindowOpen?C.grn2:C.red2,lineHeight:1.2}}>
             {transferWindowOpen?"Transfer Penceresi Açık":"Transfer Penceresi Kapalı"}
           </div>
           {transferWindowOpen&&<div style={{fontSize:".42rem",color:"rgba(48,224,112,.55)",marginTop:1}}>{currentMonth} • Teklif yapılabilir</div>}
           {!transferWindowOpen&&<div style={{fontSize:".42rem",color:"rgba(232,151,90,.7)",marginTop:1}}>Serbest oyuncular hariç teklif verilemez</div>}
         </div>
         {pendingSquad.length>0&&<div style={{
-          fontSize:".46rem",background:"rgba(232,184,58,.18)",color:"#ffd060",
+          fontSize:".46rem",background:"rgba(232,184,58,.18)",color:C.gd,
           padding:"3px 10px",borderRadius:12,border:"1px solid rgba(232,184,58,.35)",fontWeight:700,
           boxShadow:"0 0 8px rgba(232,184,58,.15)"}}>
           ⏳ {pendingSquad.length} bekliyor
@@ -1003,11 +1003,11 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
       </div>
       {/* ── Transfer Hareketliliği Seçici ── */}
       <div style={{flexShrink:0,padding:"6px 14px",
-        background:"rgba(5,9,26,.9)",
+        background:C.nav,
         borderBottom:"1px solid rgba(77,166,255,0.08)",
         display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:".44rem",color:"rgba(120,152,192,.6)",whiteSpace:"nowrap",letterSpacing:.5,textTransform:"uppercase",fontWeight:600}}>Hareketlilik</span>
-        <div style={{display:"flex",gap:4,background:"rgba(0,0,0,.4)",borderRadius:8,padding:"2px",border:"1px solid rgba(77,166,255,0.08)"}}>
+        <span style={{fontSize:".44rem",color:C.dim,whiteSpace:"nowrap",letterSpacing:.5,textTransform:"uppercase",fontWeight:600}}>Hareketlilik</span>
+        <div style={{display:"flex",gap:4,background:C.inset,borderRadius:8,padding:"2px",border:"1px solid rgba(77,166,255,0.08)"}}>
         {[
           {key:"slow",  label:"Yavaş",     icon:"🐢"},
           {key:"normal",label:"Normal",    icon:"⚽"},
@@ -1023,7 +1023,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                 letterSpacing:active?.4:0,
                 background:active?`linear-gradient(135deg,${col}33,${col}18)`:"transparent",
                 border:active?`1px solid ${col}55`:"1px solid transparent",
-                color:active?col:"rgba(120,152,192,.55)",
+                color:active?col:C.dim,
                 display:"flex",alignItems:"center",gap:4,
                 transition:"all .18s",
                 boxShadow:active?`0 0 10px ${col}22`:"none"
@@ -1034,7 +1034,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
           );
         })}
         </div>
-        <span style={{marginLeft:"auto",fontSize:".43rem",color:"rgba(120,152,192,.45)",fontStyle:"italic"}}>
+        <span style={{marginLeft:"auto",fontSize:".43rem",color:C.dmr,fontStyle:"italic"}}>
           {transferPace==="slow"?"Az teklif gelir":transferPace==="fast"?"Pazar çok hareketli":"Dengeli pazar"}
         </span>
       </div>
@@ -1048,12 +1048,12 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
             background:"#ff5050",boxShadow:"0 0 12px #ff5050cc"}}/>
           <span style={{fontSize:".9rem",marginLeft:4}}>⛔</span>
           <div style={{flex:1}}>
-            <div style={{fontSize:".54rem",fontWeight:900,color:"#ff5050",letterSpacing:.7,textTransform:"uppercase"}}>Kadro Dolu — {squadCount}/32</div>
+            <div style={{fontSize:".54rem",fontWeight:900,color:C.red2,letterSpacing:.7,textTransform:"uppercase"}}>Kadro Dolu — {squadCount}/32</div>
             <div style={{fontSize:".43rem",color:"rgba(232,151,90,.75)",marginTop:2}}>Önce bir oyuncu sat veya kadrodan çıkar</div>
           </div>
           <div style={{fontSize:".62rem",fontWeight:900,
             background:"rgba(255,80,80,.15)",border:"1px solid rgba(255,80,80,.3)",
-            borderRadius:7,padding:"5px 10px",color:"#ff5050",
+            borderRadius:7,padding:"5px 10px",color:C.red2,
             boxShadow:"0 0 10px rgba(255,80,80,.15)"}}>{squadCount}/32</div>
         </div>
       )}
@@ -1096,7 +1096,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
       {/* ── İtibar + Bütçe Üst Bar ── */}
       {(rep||finans)&&<div style={{
         flexShrink:0,padding:"8px 14px",
-        background:"linear-gradient(180deg,rgba(10,20,40,.95) 0%,rgba(5,9,26,.9) 100%)",
+        background:C.gradCard,
         borderBottom:"1px solid rgba(77,166,255,0.1)",
         display:"flex",gap:10,alignItems:"center"
       }}>
@@ -1107,7 +1107,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
             color:repCol,border:`1px solid ${repCol}44`,
             boxShadow:`0 0 10px ${repCol}18`,whiteSpace:"nowrap"
           }}>⭐ {repLbl}</div>
-          <div style={{flex:1,height:5,background:"rgba(255,255,255,.05)",borderRadius:3,overflow:"hidden",position:"relative"}}>
+          <div style={{flex:1,height:5,background:C.surfaceHover,borderRadius:3,overflow:"hidden",position:"relative"}}>
             <div style={{position:"absolute",left:0,top:0,bottom:0,
               width:repPts+"%",
               background:`linear-gradient(90deg,${repCol}aa,${repCol})`,
@@ -1119,7 +1119,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
         {rep&&finans&&<div style={{width:1,height:20,background:"rgba(77,166,255,0.12)"}}/>}
         {finans&&<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:".38rem",color:"rgba(120,152,192,.5)",letterSpacing:.8,textTransform:"uppercase",marginBottom:1}}>Bütçe</div>
+            <div style={{fontSize:".38rem",color:C.dim,letterSpacing:.8,textTransform:"uppercase",marginBottom:1}}>Bütçe</div>
             <div style={{fontSize:".72rem",fontWeight:900,
               color:finans.budget>=5000?C.grn2:finans.budget>=1000?"#e67e22":C.red2,
               lineHeight:1,textShadow:finans.budget>=5000?"0 0 12px #30e07044":finans.budget>=1000?"0 0 12px #e67e2244":"0 0 12px #ff505044"}}>
@@ -1127,7 +1127,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
             </div>
           </div>
           {finans.spent>0&&<div style={{textAlign:"right"}}>
-            <div style={{fontSize:".38rem",color:"rgba(120,152,192,.5)",letterSpacing:.8,textTransform:"uppercase",marginBottom:1}}>Harcama</div>
+            <div style={{fontSize:".38rem",color:C.dim,letterSpacing:.8,textTransform:"uppercase",marginBottom:1}}>Harcama</div>
             <div style={{fontSize:".54rem",fontWeight:700,color:"rgba(255,80,80,.7)"}}>
               -{finans.spent>=1000?(finans.spent/1000).toFixed(1)+"M€":finans.spent+"K€"}
             </div>
@@ -1136,7 +1136,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
       </div>}
       {/* ── Sekme bar: Tümü / Serbest ── */}
       <div style={{flexShrink:0,display:"flex",borderBottom:"1px solid rgba(77,166,255,0.08)",
-        background:"rgba(3,7,20,.95)",padding:"0 6px",gap:4}}>
+        background:C.nav,padding:"0 6px",gap:4}}>
         {[
           {free:false,label:"Tümü",icon:"📋",count:db.length,col:C.ac2,activeBg:"rgba(36,133,255,.12)"},
           {free:true, label:"Serbest",icon:"🆓",count:freeCount,col:C.grn2,activeBg:"rgba(26,184,92,.12)"},
@@ -1152,11 +1152,11 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
               <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
                 <span style={{fontSize:".58rem"}}>{icon}</span>
                 <span style={{fontSize:".54rem",fontWeight:active?800:500,
-                  color:active?col:"rgba(120,152,192,.55)",letterSpacing:active?.5:0,
+                  color:active?col:C.dim,letterSpacing:active?.5:0,
                   transition:"all .18s"}}>{label}</span>
                 <span style={{fontSize:".42rem",fontWeight:700,
-                  background:active?`${col}25`:"rgba(255,255,255,.05)",
-                  color:active?col:"rgba(120,152,192,.4)",
+                  background:active?`${col}25`:C.surfaceHover,
+                  color:active?col:C.dmr,
                   padding:"1px 6px",borderRadius:10,border:active?`1px solid ${col}40`:"1px solid transparent",
                   transition:"all .18s"}}>{count}</span>
               </div>
@@ -1169,28 +1169,28 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
       </div>
       {/* ── Filtre bar ── */}
       <div style={{flexShrink:0,padding:"8px 10px",
-        background:"rgba(5,9,26,.92)",
+        background:C.nav,
         borderBottom:"1px solid rgba(77,166,255,0.08)",
         display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:90,position:"relative",display:"flex",alignItems:"center"}}>
           <span style={{position:"absolute",left:8,fontSize:".58rem",pointerEvents:"none",zIndex:1,
-            color:q?"rgba(77,166,255,.7)":"rgba(120,152,192,.4)"}}>🔍</span>
+            color:q?C.ac2:C.dmr}}>🔍</span>
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Oyuncu veya kulüp ara..."
             style={{
-              width:"100%",background:q?"rgba(18,40,80,.95)":"rgba(10,18,40,.8)",
+              width:"100%",background:q?C.card2:C.card,
               border:`1px solid ${q?"rgba(77,166,255,.4)":"rgba(77,166,255,.12)"}`,color:C.wh,
               fontSize:".52rem",padding:"6px 8px 6px 26px",borderRadius:7,outline:"none",
               fontFamily:"inherit",transition:"all .18s",
               boxShadow:q?"0 0 12px rgba(77,166,255,.12)":"none"
             }}/>
           {q&&<span onClick={()=>setQ("")} style={{position:"absolute",right:8,fontSize:".55rem",
-            color:"rgba(77,166,255,.5)",cursor:"pointer",lineHeight:1}}>✕</span>}
+            color:C.dim,cursor:"pointer",lineHeight:1}}>✕</span>}
         </div>
         <select value={fPos} onChange={e=>setFPos(e.target.value)}
           style={{
-            background:fPos?"rgba(18,40,80,.95)":"rgba(10,18,40,.8)",
+            background:fPos?C.card2:C.card,
             border:`1px solid ${fPos?"rgba(77,166,255,.4)":"rgba(77,166,255,.12)"}`,
-            color:fPos?C.wh:"rgba(120,152,192,.6)",
+            color:fPos?C.wh:C.dim,
             fontSize:".5rem",padding:"6px 6px",borderRadius:7,fontFamily:"inherit",cursor:"pointer",
             transition:"all .18s"
           }}>
@@ -1200,8 +1200,8 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
         </select>
         <select value={sort} onChange={e=>setSort(e.target.value)}
           style={{
-            background:"rgba(10,18,40,.8)",border:"1px solid rgba(77,166,255,.12)",
-            color:"rgba(120,152,192,.8)",
+            background:C.card,border:"1px solid rgba(77,166,255,.12)",
+            color:C.dim,
             fontSize:".5rem",padding:"6px 6px",borderRadius:7,fontFamily:"inherit",cursor:"pointer"
           }}>
           {[["ovr","OVR↓"],["pot","POT↓"],["val","Değer"],["ch","Şans"],["age","Yaş"]].map(([v,l])=>(
@@ -1210,18 +1210,18 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
         </select>
         <div style={{
           padding:"5px 9px",borderRadius:7,fontSize:".46rem",fontWeight:700,
-          background:"rgba(36,133,255,.1)",color:"rgba(77,166,255,.7)",
+          background:"rgba(36,133,255,.1)",color:C.dim,
           border:"1px solid rgba(36,133,255,.15)",whiteSpace:"nowrap",letterSpacing:.3
-        }}>{filtered.length}<span style={{color:"rgba(77,166,255,.35)",fontWeight:500}}>/{db.length}</span></div>
+        }}>{filtered.length}<span style={{color:C.dim,fontWeight:500}}>/{db.length}</span></div>
       </div>
 
       {/* ── Kart Listesi ── */}
-      <div style={{flex:1,overflowY:"auto",padding:"8px 8px 20px",background:"rgba(3,6,18,.6)"}}>
+      <div style={{flex:1,overflowY:"auto",padding:"8px 8px 20px",background:C.card}}>
         {filtered.map(pl=>{
           const isOpen=!!(sel&&sel.id===pl.id);
           // Transfer OVR renk semas: 90+ kirmizi, 80-89 sari, 70-79 gumus, 60-69 bronz, <60 acik turuncu
-          const gc=pl.ovr>=90?"#ff5050":pl.ovr>=80?"#ffd060":pl.ovr>=70?"#b0bec5":pl.ovr>=60?"#cd7f32":"#e8975a";
-          const stColors={contracted:"#ff5050",expiring:"#ffd060",listed:"#4da6ff",free:"#1ab855"};
+          const gc=pl.ovr>=90?C.red2:pl.ovr>=80?C.gd:pl.ovr>=70?(isLightTheme()?"#64748b":"#b0bec5"):pl.ovr>=60?(isLightTheme()?"#a16207":"#cd7f32"):C.ora;
+          const stColors={contracted:C.red2,expiring:C.gd,listed:C.ac2,free:C.grn2};
           const stLabels={contracted:"SÖZL.",expiring:"BİTİYOR",listed:"LİSTEDE",free:"SERBEST"};
           // "Adil teklif" senaryosu — teklif ekranıyla tutarlı baz hesap
           const _ev=calcEffectiveVal(pl);
@@ -1238,8 +1238,8 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                   cursor:"pointer",
                   borderRadius:isOpen?"9px 9px 0 0":9,
                   background:isOpen
-                    ?`linear-gradient(135deg,rgba(21,98,204,.22) 0%,rgba(10,20,50,.9) 100%)`
-                    :"linear-gradient(135deg,rgba(10,20,42,.95) 0%,rgba(8,15,32,.9) 100%)",
+                    ?C.gradSel
+                    :C.gradCard,
                   border:`1px solid ${isOpen?"rgba(77,166,255,.45)":"rgba(77,166,255,0.1)"}`,
                   borderBottom:isOpen?"1px solid rgba(77,166,255,.2)":"1px solid rgba(77,166,255,0.08)",
                   boxShadow:isOpen?"0 4px 20px rgba(21,98,204,.2), inset 0 1px 0 rgba(77,166,255,.08)":"inset 0 1px 0 rgba(255,255,255,.02)",
@@ -1253,13 +1253,13 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                 {/* OVR circle */}
                 <div style={{
                   width:38,height:38,borderRadius:"50%",flexShrink:0,
-                  background:`conic-gradient(${gc} ${pl.ovr*3.6}deg,rgba(255,255,255,.04) 0deg)`,
+                  background:`conic-gradient(${gc} ${pl.ovr*3.6}deg,${C.surface} 0deg)`,
                   display:"flex",alignItems:"center",justifyContent:"center",
                   boxShadow:`0 0 10px ${gc}33`
                 }}>
                   <div style={{
                     width:29,height:29,borderRadius:"50%",
-                    background:"radial-gradient(circle,#0c1e3a,#060f20)",
+                    background:C.gradCard,
                     display:"flex",alignItems:"center",justifyContent:"center"
                   }}>
                     <div style={{fontSize:".72rem",fontWeight:900,color:gc,lineHeight:1}}>{pl.ovr}</div>
@@ -1269,7 +1269,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:2}}>
                     <span style={{fontSize:".66rem",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",
-                      whiteSpace:"nowrap",color:isOpen?"#e8f4ff":C.wh,letterSpacing:.1}}>{pl.n}</span>
+                      whiteSpace:"nowrap",color:isOpen?C.wh:C.wh,letterSpacing:.1}}>{pl.n}</span>
                     <div style={{
                       padding:"1px 5px",borderRadius:3,fontSize:".38rem",fontWeight:800,flexShrink:0,
                       background:`${stColors[pl.st]||C.ac2}1a`,color:stColors[pl.st]||C.ac2,
@@ -1281,20 +1281,20 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                     <span style={{color:posC(pl.pos).c,fontWeight:700,fontSize:".42rem",
                       padding:"1px 5px",borderRadius:3,background:posC(pl.pos).bg,
                       border:`1px solid ${posC(pl.pos).b}`,letterSpacing:.4}}>{pl.pos}</span>
-                    <span style={{fontSize:".44rem",color:"rgba(120,152,192,.6)",overflow:"hidden",
+                    <span style={{fontSize:".44rem",color:C.dim,overflow:"hidden",
                       textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pl.club}</span>
                   </div>
                 </div>
                 {/* Stats sağ */}
                 <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
                   <div style={{textAlign:"center",minWidth:24}}>
-                    <div style={{fontSize:".32rem",color:"rgba(100,120,180,.4)",marginBottom:1,letterSpacing:.4,textTransform:"uppercase"}}>Pot</div>
+                    <div style={{fontSize:".32rem",color:C.dmr,marginBottom:1,letterSpacing:.4,textTransform:"uppercase"}}>Pot</div>
                     <div style={{fontSize:".56rem",fontWeight:800,color:C.pur2}}>{pl.pot}</div>
                   </div>
                   <div style={{textAlign:"center",minWidth:32}}>
-                    <div style={{fontSize:".32rem",color:"rgba(100,120,180,.4)",marginBottom:1,letterSpacing:.4}}>€</div>
+                    <div style={{fontSize:".32rem",color:C.dmr,marginBottom:1,letterSpacing:.4}}>€</div>
                     <div style={{fontSize:".5rem",fontWeight:700,
-                      color:pl.st==="free"?"#30e070":"rgba(120,152,192,.75)"}}>
+                      color:pl.st==="free"?C.grn2:(isLightTheme()?C.wh:C.dim)}}>
                       {pl.st==="free"?"FREE":calcEffectiveVal(pl)+"M"}
                     </div>
                   </div>
@@ -1308,7 +1308,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                     <div style={{fontSize:".38rem",color:`${chColor}88`,lineHeight:1,marginBottom:1}}>ŞNS</div>
                     <div style={{fontSize:".54rem",fontWeight:900,color:chColor,lineHeight:1}}>{plAccept}%</div>
                   </div>
-                  <div style={{fontSize:".55rem",color:isOpen?"rgba(77,166,255,.8)":"rgba(77,166,255,.3)",
+                  <div style={{fontSize:".55rem",color:isOpen?C.ac2:C.dim,
                     transition:"all .18s"}}>{isOpen?"▲":"▼"}</div>
                 </div>
               </div>
@@ -1316,7 +1316,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
               {/* Accordion detay */}
               {isOpen&&(
                 <div style={{
-                  background:"linear-gradient(180deg,rgba(12,22,50,.98) 0%,rgba(7,14,32,.99) 100%)",
+                  background:C.gradCard,
                   border:"1px solid rgba(77,166,255,.35)",borderTop:"none",
                   borderRadius:"0 0 10px 10px",padding:"12px 14px",
                   boxShadow:"0 12px 32px rgba(0,0,0,.6), inset 0 1px 0 rgba(77,166,255,.05)"
@@ -1327,13 +1327,13 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                       ["Yaş",pl.age,C.wh,"🎂"],
                       ["Uyruk",pl.nat,C.dim,"🌍"],
                       ["Sözleşme",pl.ct>0?pl.ct+"y":"Yok",pl.ct<=1?C.red2:C.wh,"📋"],
-                      ["Maaş",pl.sal>0?fmtSal(pl.sal):"—","rgba(120,152,192,.8)","💶"],
+                      ["Maaş",pl.sal>0?fmtSal(pl.sal):"—",C.dim,"💶"],
                     ].map(([l,v,c,ico])=>(
                       <div key={l} style={{
                         padding:"6px 6px 5px",
                         background:"linear-gradient(135deg,rgba(21,98,204,.1),rgba(10,20,50,.4))",
                         border:"1px solid rgba(77,166,255,.1)",borderRadius:7,textAlign:"center"}}>
-                        <div style={{fontSize:".35rem",color:"rgba(77,166,255,.4)",textTransform:"uppercase",
+                        <div style={{fontSize:".35rem",color:C.dim,textTransform:"uppercase",
                           letterSpacing:.8,marginBottom:3}}>{ico} {l}</div>
                         <div style={{fontSize:".6rem",fontWeight:800,color:c,letterSpacing:.1}}>{v}</div>
                       </div>
@@ -1341,18 +1341,18 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                   </div>
                   {/* Lig chip */}
                   <div style={{marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:".4rem",color:"rgba(77,166,255,.35)",letterSpacing:.6,textTransform:"uppercase"}}>Lig</span>
-                    <span style={{fontSize:".46rem",color:"rgba(120,152,192,.7)",
+                    <span style={{fontSize:".4rem",color:C.dim,letterSpacing:.6,textTransform:"uppercase"}}>Lig</span>
+                    <span style={{fontSize:".46rem",color:C.dim,
                       background:"rgba(77,166,255,.06)",border:"1px solid rgba(77,166,255,.1)",
                       padding:"2px 8px",borderRadius:10}}>{pl.lg}</span>
                   </div>
                   {/* Potansiyel bar */}
                   <div style={{marginBottom:12}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                      <span style={{fontSize:".42rem",color:"rgba(77,166,255,.5)",letterSpacing:.4,textTransform:"uppercase"}}>Gelişim</span>
+                      <span style={{fontSize:".42rem",color:C.dim,letterSpacing:.4,textTransform:"uppercase"}}>Gelişim</span>
                       <div style={{display:"flex",alignItems:"center",gap:4}}>
                         <span style={{fontSize:".5rem",fontWeight:800,color:C.ac2}}>{pl.ovr}</span>
-                        <span style={{fontSize:".38rem",color:"rgba(120,152,192,.35)"}}>→</span>
+                        <span style={{fontSize:".38rem",color:C.dmr}}>→</span>
                         <span style={{fontSize:".5rem",fontWeight:800,color:C.pur2}}>{pl.pot}</span>
                         <span style={{fontSize:".4rem",color:C.pur2,fontWeight:700,
                           background:"rgba(142,68,173,.15)",border:"1px solid rgba(142,68,173,.25)",
@@ -1373,7 +1373,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                   {/* Şans bar */}
                   <div style={{marginBottom:12}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                      <span style={{fontSize:".42rem",color:"rgba(77,166,255,.5)",letterSpacing:.4,textTransform:"uppercase"}}>Kabul Şansı</span>
+                      <span style={{fontSize:".42rem",color:C.dim,letterSpacing:.4,textTransform:"uppercase"}}>Kabul Şansı</span>
                       <span style={{fontSize:".5rem",fontWeight:800,color:chColor,
                         textShadow:`0 0 8px ${chColor}66`}}>{plAccept}%</span>
                     </div>
@@ -1386,12 +1386,12 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                   {/* Butonlar */}
                   <div style={{display:"flex",gap:7}}>
                     {rep&&<div style={{
-                      background:"linear-gradient(135deg,rgba(0,0,0,.5),rgba(10,20,45,.8))",
+                      background:C.gradCard,
                       borderRadius:8,padding:"6px 10px",
                       border:"1px solid rgba(100,150,255,.12)",
                       display:"flex",flexDirection:"column",justifyContent:"center",minWidth:74
                     }}>
-                      <div style={{fontSize:".36rem",color:"rgba(77,166,255,.4)",marginBottom:2,
+                      <div style={{fontSize:".36rem",color:C.dim,marginBottom:2,
                         letterSpacing:.7,textTransform:"uppercase"}}>İtibar</div>
                       <div style={{fontSize:".58rem",fontWeight:800,
                         color:rep.pts>=60?C.grn2:rep.pts>=35?"#e67e22":C.red2,
@@ -1413,7 +1413,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                         style={{
                           flex:1,padding:"10px 0",
                           background:btnBg,border:btnBorder,
-                          color:isDisabled?"rgba(120,152,192,.4)":"#fff",
+                          color:isDisabled?C.dmr:"#fff",
                           fontSize:".54rem",fontWeight:800,letterSpacing:.6,
                           cursor:isDisabled?"not-allowed":"pointer",
                           borderRadius:8,fontFamily:"inherit",
@@ -1429,7 +1429,7 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
                         padding:"10px 12px",
                         background:"rgba(77,100,160,.08)",
                         border:"1px solid rgba(77,166,255,0.12)",
-                        color:"rgba(120,152,192,.5)",fontSize:".62rem",
+                        color:C.dim,fontSize:".62rem",
                         cursor:"pointer",borderRadius:8,fontFamily:"inherit",
                         transition:"all .15s"
                       }}>✕</button>
@@ -1442,8 +1442,8 @@ function PageTransfer({db,onAction,onAddToSquad,addNews,rep,updateRep,league,fin
         {filtered.length===0&&(
           <div style={{textAlign:"center",padding:"40px 20px",color:C.dmr}}>
             <div style={{fontSize:"2.2rem",marginBottom:10,filter:"grayscale(.5)"}}>🔍</div>
-            <div style={{fontSize:".6rem",color:"rgba(120,152,192,.5)",fontWeight:600,letterSpacing:.5}}>Oyuncu bulunamadı</div>
-            <div style={{fontSize:".46rem",color:"rgba(120,152,192,.3)",marginTop:4}}>Filtreni değiştirmeyi dene</div>
+            <div style={{fontSize:".6rem",color:C.dim,fontWeight:600,letterSpacing:.5}}>Oyuncu bulunamadı</div>
+            <div style={{fontSize:".46rem",color:C.dmr,marginTop:4}}>Filtreni değiştirmeyi dene</div>
           </div>
         )}
       </div>

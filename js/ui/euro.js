@@ -71,8 +71,8 @@ function EuroSwissPanel({season,comp,clubName,db}){
     :`${EURO_KO_LABEL[st.stage]} devam ediyor`):null;
   const tabBtn=(k,l)=>(
     <button key={k} onClick={()=>setView(k)} style={{flex:1,padding:"5px 4px",borderRadius:5,fontSize:".5rem",fontWeight:700,cursor:"pointer",
-      background:view===k?`rgba(${rgb},.18)`:"rgba(255,255,255,.03)",color:view===k?acc:C.dim,
-      border:`1px solid ${view===k?`rgba(${rgb},.45)`:"rgba(255,255,255,.06)"}`}}>{l}</button>
+      background:view===k?`rgba(${rgb},.18)`:C.surface,color:view===k?acc:C.dim,
+      border:`1px solid ${view===k?`rgba(${rgb},.45)`:C.brd2}`}}>{l}</button>
   );
   const GRID="18px minmax(0,1fr) 20px 20px 20px 20px 30px 24px";
   const teamName=(n,bold)=>(
@@ -112,7 +112,7 @@ function EuroSwissPanel({season,comp,clubName,db}){
           </React.Fragment>
         );
       })}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"5px 8px",fontSize:".42rem",background:"rgba(0,0,0,.2)"}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"5px 8px",fontSize:".42rem",background:C.inset}}>
         <span style={{color:C.grn2}}>■ 1–8 Son 16</span>
         <span style={{color:C.gd}}>■ 9–24 Eleme Play-Off</span>
         <span style={{color:C.red2}}>■ 25–36 Elenir</span>
@@ -137,7 +137,7 @@ function EuroSwissPanel({season,comp,clubName,db}){
       </div>
     );
     return(
-      <div style={{padding:"5px 7px",marginBottom:5,borderRadius:5,background:mine?"rgba(45,143,255,.12)":"rgba(255,255,255,.025)",
+      <div style={{padding:"5px 7px",marginBottom:5,borderRadius:5,background:mine?"rgba(45,143,255,.12)":C.surface,
         border:`1px solid ${mine?"rgba(77,168,255,.45)":`rgba(${rgb},.15)`}`}}>
         {row(tie.a)}{row(tie.b)}
         {tie.pen&&<div style={{fontSize:".42rem",color:C.gd,marginTop:2}}>Penaltılar: {tie.pen.a}-{tie.pen.b}</div>}
@@ -188,7 +188,7 @@ function EuroSwissPanel({season,comp,clubName,db}){
           const t=tbl.teams.find(x=>x.n===opp)||{};
           return(
             <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",marginBottom:4,borderRadius:5,
-              background:"rgba(255,255,255,.025)",borderLeft:`3px solid ${r==="W"?C.grn2:r==="L"?C.red2:r==="D"?C.gd:`rgba(${rgb},.4)`}`}}>
+              background:C.surface,borderLeft:`3px solid ${r==="W"?C.grn2:r==="L"?C.red2:r==="D"?C.gd:`rgba(${rgb},.4)`}`}}>
               <span style={{fontSize:".44rem",color:C.dim,width:44}}>{m.md}. hafta<br/>{(cal.md[m.md-1]||{}).month||""}</span>
               <span style={{fontSize:".5rem",color:home?C.ac2:C.dim,width:12}}>{home?"⌂":"✈"}</span>
               <div style={{flex:1,minWidth:0,fontSize:".56rem"}}>{teamName(opp)}</div>
@@ -208,7 +208,7 @@ function EuroSwissPanel({season,comp,clubName,db}){
     if(!topG.length&&!topA.length) return <div style={{padding:12,fontSize:".55rem",color:C.dim,textAlign:"center"}}>Henüz gol yok.</div>;
     const col=(list,key,color,title)=>(
       <div style={{flex:1,minWidth:0}}>
-        <div style={{padding:"3px 8px",fontSize:".42rem",fontWeight:700,color,letterSpacing:1,background:"rgba(255,255,255,.03)"}}>{title}</div>
+        <div style={{padding:"3px 8px",fontSize:".42rem",fontWeight:700,color,letterSpacing:1,background:C.surface}}>{title}</div>
         {list.map((p,i)=>(
           <div key={p.team+p.n} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderBottom:"1px solid rgba(45,143,255,0.06)"}}>
             <span style={{fontSize:".44rem",color:i===0?C.gd:C.dim,fontWeight:700,minWidth:12}}>{i+1}</span>
@@ -261,7 +261,7 @@ function EuroSwissPanel({season,comp,clubName,db}){
       {view==="mac"&&<MyView/>}
       {view==="kral"&&<KingsView/>}
       {view==="tablo"&&(
-        <div style={{marginTop:8,padding:"6px 8px",borderRadius:6,background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.05)",
+        <div style={{marginTop:8,padding:"6px 8px",borderRadius:6,background:C.surface,border:`1px solid ${C.brd2}`,
           display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"3px 8px",fontSize:".44rem",color:C.dim}}>
           <span>Galibiyet <b style={{color:acc}}>{fmtE(prim.lig_galibiyet)}</b></span>
           <span>Beraberlik <b style={{color:acc}}>{fmtE(prim.lig_beraberlik)}</b></span>

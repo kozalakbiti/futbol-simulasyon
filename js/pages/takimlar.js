@@ -28,7 +28,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
       <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0}}>
         {/* Başlık */}
         <div style={{flexShrink:0,padding:"8px 12px",borderBottom:`1px solid rgba(77,166,255,0.22)`,
-          background:"rgba(0,0,0,.3)",display:"flex",alignItems:"center",gap:8}}>
+          background:C.inset,display:"flex",alignItems:"center",gap:8}}>
           <button onClick={()=>setSel(null)} style={{background:"none",border:`1px solid rgba(77,166,255,0.22)`,
             color:C.dim,fontSize:".6rem",padding:"3px 8px",cursor:"pointer",borderRadius:2,fontFamily:"inherit"}}>← Geri</button>
           <span style={{fontWeight:700,fontSize:".82rem"}}>{sel.me?clubName:sel.name}</span>
@@ -36,7 +36,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
           <span style={{marginLeft:"auto",fontSize:".56rem",color:C.dim}}>{sel.lg}</span>
         </div>
         {/* Sekmeler */}
-        <div style={{flexShrink:0,display:"flex",borderBottom:`1px solid rgba(77,166,255,0.1)`,background:"rgba(0,0,0,.2)"}}>
+        <div style={{flexShrink:0,display:"flex",borderBottom:`1px solid rgba(77,166,255,0.1)`,background:C.inset}}>
           {[["bilgi","📊 Bilgi"],["kadro",`👥 Kadro (${displayPlayers.length})`],["dizilis","⬛ Diziliş"]].map(([k,l])=>(
             <button key={k} onClick={()=>setDetTab(k)} style={{
               flex:1,padding:"7px 0",background:detTab===k?"rgba(77,166,255,.25)":"none",
@@ -65,7 +65,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                 </div>
               ))}
             </div>
-            <div style={{padding:"8px 10px",background:"rgba(0,0,0,.2)",border:`1px solid rgba(77,166,255,0.1)`,borderRadius:4}}>
+            <div style={{padding:"8px 10px",background:C.inset,border:`1px solid rgba(77,166,255,0.1)`,borderRadius:4}}>
               <div style={{fontSize:".46rem",color:C.dmr,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>Sezon İstatistikleri</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
                 {[["G",sel.w,C.grn2],["B",sel.d,C.gd],["M",sel.l,C.red2],["P",sel.pts,C.ac2]].map(([l,v,c])=>(
@@ -85,7 +85,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                 ))}
               </div>
             </div>
-            <div style={{padding:"8px 10px",background:"rgba(0,0,0,.2)",border:`1px solid rgba(77,166,255,0.1)`,borderRadius:4}}>
+            <div style={{padding:"8px 10px",background:C.inset,border:`1px solid rgba(77,166,255,0.1)`,borderRadius:4}}>
               <div style={{fontSize:".46rem",color:C.dmr,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>
                 {sel.lg} Sıralaması
               </div>
@@ -115,7 +115,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
             {/* Sabit başlık satırı */}
             <div style={{flexShrink:0,display:"grid",gridTemplateColumns:"36px 1fr 30px 26px 36px",
               padding:"4px 8px",fontSize:".38rem",color:C.dmr,letterSpacing:.8,textTransform:"uppercase",
-              borderBottom:`1px solid rgba(77,166,255,0.1)`,background:"rgba(0,0,0,.3)"}}>
+              borderBottom:`1px solid rgba(77,166,255,0.1)`,background:C.inset}}>
               <span>POS</span><span>OYUNCU</span>
               <span style={{textAlign:"center"}}>MİL</span>
               <span style={{textAlign:"center"}}>YAŞ</span>
@@ -130,7 +130,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
               ):displayPlayers.map((p,i)=>(
                 <div key={p.id||i} style={{display:"grid",gridTemplateColumns:"36px 1fr 30px 26px 36px",
                   padding:"6px 8px",borderBottom:`1px solid rgba(77,166,255,0.1)`,alignItems:"center",
-                  background:i%2===0?"rgba(255,255,255,.015)":"transparent"}}>
+                  background:i%2===0?C.surface:"transparent"}}>
                   <div>
                     <span style={{fontSize:".42rem",fontWeight:700,color:posColor(p.pos),
                       background:`rgba(${posRgb(p.pos)},.18)`,padding:"2px 3px",borderRadius:2}}>
@@ -175,13 +175,13 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                 overflow:"hidden"}}>
                 {/* Saha çizgileri */}
                 <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
-                  <div style={{position:"absolute",width:"100%",height:1,background:"rgba(255,255,255,.15)",top:"50%"}}/>
-                  <div style={{position:"absolute",width:"60%",height:"18%",border:"1px solid rgba(255,255,255,.1)",bottom:0,left:"20%"}}/>
-                  <div style={{position:"absolute",width:"60%",height:"18%",border:"1px solid rgba(255,255,255,.1)",top:0,left:"20%"}}/>
-                  <div style={{position:"absolute",width:"28%",height:"7%",border:"1px solid rgba(255,255,255,.08)",bottom:0,left:"36%"}}/>
-                  <div style={{position:"absolute",width:"28%",height:"7%",border:"1px solid rgba(255,255,255,.08)",top:0,left:"36%"}}/>
+                  <div style={{position:"absolute",width:"100%",height:1,background:C.brd,top:"50%"}}/>
+                  <div style={{position:"absolute",width:"60%",height:"18%",border:`1px solid ${C.brd}`,bottom:0,left:"20%"}}/>
+                  <div style={{position:"absolute",width:"60%",height:"18%",border:`1px solid ${C.brd}`,top:0,left:"20%"}}/>
+                  <div style={{position:"absolute",width:"28%",height:"7%",border:`1px solid ${C.brd}`,bottom:0,left:"36%"}}/>
+                  <div style={{position:"absolute",width:"28%",height:"7%",border:`1px solid ${C.brd}`,top:0,left:"36%"}}/>
                   <div style={{position:"absolute",width:40,height:40,borderRadius:"50%",
-                    border:"1px solid rgba(255,255,255,.1)",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
+                    border:`1px solid ${C.brd}`,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
                 </div>
                 {/* Oyuncular */}
                 {slots.map((s,idx)=>{
@@ -209,7 +209,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                         background:"rgba(0,0,0,.75)",
                         border:`1px solid ${pc}66`,
                         borderRadius:2,padding:"1px 3px",
-                        fontSize:".36rem",color:"#eee",
+                        fontSize:".36rem",color:C.wh,
                         maxWidth:42,overflow:"hidden",textOverflow:"ellipsis",
                         whiteSpace:"nowrap",textAlign:"center"}}>
                         {pl.n.split(".")[1]||pl.n}
@@ -229,7 +229,7 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                   {players.slice(0).filter((_,i)=>!autoLu.includes(i)).slice(0,10).map((p,i)=>(
                     <div key={i} style={{
                       display:"flex",alignItems:"center",gap:2,
-                      background:"rgba(255,255,255,.04)",border:`1px solid rgba(77,166,255,0.1)`,
+                      background:C.surface,border:`1px solid rgba(77,166,255,0.1)`,
                       borderRadius:2,padding:"2px 4px"}}>
                       <span style={{fontSize:".36rem",fontWeight:700,color:posColor2(p.pos)}}>{p.pos}</span>
                       <span style={{fontSize:".38rem",color:C.dim}}>{p.n.split(".")[1]||p.n}</span>
@@ -326,11 +326,11 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
                       padding:"6px 10px",
                       borderBottom:`1px solid rgba(77,166,255,0.1)`,
                       cursor:"pointer",
-                      background:isMe?"rgba(45,143,255,.12)":i%2===0?"rgba(255,255,255,.018)":"transparent",
+                      background:isMe?"rgba(45,143,255,.12)":i%2===0?C.surface:"transparent",
                       borderLeft:`3px solid ${i<3?rankColor:isMe?C.ac2:"transparent"}`,
                     }}
                     onMouseEnter={e=>{ e.currentTarget.style.background="rgba(45,143,255,.12)"; }}
-                    onMouseLeave={e=>{ e.currentTarget.style.background=isMe?"rgba(45,143,255,.12)":i%2===0?"rgba(255,255,255,.018)":"transparent"; }}>
+                    onMouseLeave={e=>{ e.currentTarget.style.background=isMe?"rgba(45,143,255,.12)":i%2===0?C.surface:"transparent"; }}>
 
                     {/* Sıra no */}
                     <span style={{fontSize:".54rem",fontWeight:700,alignSelf:"center",color:rankColor}}>
