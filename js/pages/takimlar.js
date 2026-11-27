@@ -2,11 +2,15 @@ function PageTakimlar({season,clubName="Club Manager: Glory Road",db=[],squad=[]
   const [filter,setFilter]=useState("all");
   const [sel,setSel]=useState(null);
   const [detTab,setDetTab]=useState("bilgi");
-  // INIT_TEAMS ile season.teams'i birleştir — kayıt yüklense bile tüm ligler görünsün
+  // season.teams esas alınır (kullanıcı takımı lig/ad bilgisi buradan gelir). INIT_TEAMS yalnızca eksik alanları
+  // ve kayıtta hiç bulunmayan ligleri tamamlar; INIT'teki yer tutucu me:true takım (FC Yildiz) asla taşınmaz —
+  // aksi halde seçilen kulüp adıyla "1. Lig"de ikinci bir "senin takımın" satırı oluşuyordu.
   const allTeams=(()=>{
-    const seasonMap={};
-    (season.teams||[]).forEach(t=>{ seasonMap[t.n]=t; });
-    return INIT_TEAMS.map(t=>seasonMap[t.n]?{...t,...seasonMap[t.n]}:t);
+    const st=season.teams||[];
+    const lgs=new Set(st.map(t=>t.lg));
+    const merged=st.map(t=>{ const base=INIT_TEAMS.find(x=>x.n===t.n&&!x.me); return base?{...base,...t}:t; });
+    INIT_TEAMS.forEach(t=>{ if(!t.me&&!lgs.has(t.lg)) merged.push({...t}); });
+    return merged;
   })();
   const leagues=[...new Set(allTeams.map(t=>t.lg))].sort();
   const visible=allTeams
