@@ -18,3 +18,15 @@ atıflar oyunun "Hakkında / Emeği geçenler" bölümünde ya da mağaza açık
 
 `assets/textures/`: harici doku dosyaları için ayrıldı. Çim, gök, seyirci ve AO dokuları şu an
 `js/match/day3d.js` içinde tuvalle (canvas) üretiliyor, dosya gerekmiyor.
+
+## 3D Kulüp Kampüsü çevre modelleri (`js/screens/club-hub-3d.js`)
+
+Yazar: Kenney (https://kenney.nl), lisans: CC0 (kamu malı, atıf zorunlu değil). Kit adları dosya
+adlarından ve glb üreticisinden çıkarıldı; yayın öncesi doğrulanmalı.
+
+| Dosya | Kit | Oyundaki değişiklik |
+|---|---|---|
+| `building-type-a.glb` … `building-type-f.glb`, `fence.glb`, `tree-small.glb` | City Kit (Suburban) | Kitin `colormap.png` paleti klasörde yok: glb'deki dış doku başvurusu yüklenirken ayıklanıyor, yerine tuvalde üretilen 3 renk varyantlı palet atlası (çatı/duvar/süs/kapı) kullanılıyor |
+| `tree_oak.glb`, `tree_detailed.glb`, `tree_pineRoundA.glb`, `tree_pineTallA.glb`, `rock_largeA.glb`, `grass_large.glb` | Nature Kit | Işıksız (`KHR_materials_unlit`) malzemeler gölge alan PBR malzemelerle değiştirildi, yapraklara örnek başına ton varyasyonu |
+
+Bir model yüklenemezse o parça prosedürel yedeğe düşer (ev modellerinin hiçbiri yüklenemezse eski kiremit çatılı sıra evler çizilir).
